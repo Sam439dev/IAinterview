@@ -300,6 +300,69 @@ class InterviewAIAPITester:
             print("❌ process-audio endpoint still exists - should be removed in V3")
             return False
 
+    def test_generate_summary_empty_session(self):
+        """Test V4 generate-summary endpoint with empty session"""
+        # First create a session
+        success, response = self.run_test(
+            "Create Session for Summary Test",
+            "POST", 
+            "api/sessions", 
+            200,
+            {"title": f"Summary Test Session {datetime.now().strftime('%H:%M:%S')}"}
+        )
+        if not success or 'id' not in response:
+            print("❌ Failed to create session for summary test")
+            return False
+        
+        session_id = response['id']
+        
+        # Test generate-summary on empty session (should return 400)
+        success, summary_response = self.run_test(
+            "Generate Summary (Empty Session - V4)", 
+            "POST", 
+            f"api/sessions/{session_id}/generate-summary", 
+            400  # Expecting 400 for empty session
+        )
+        
+        # Clean up the test session
+        self.run_test("Delete Summary Test Session", "DELETE", f"api/sessions/{session_id}", 200)
+        return success
+
+    def test_get_summary_null(self):
+        """Test V4 get-summary endpoint returns null when no summary exists"""
+        # First create a session
+        success, response = self.run_test(
+            "Create Session for Get Summary Test",
+            "POST", 
+            "api/sessions", 
+            200,
+            {"title": f"Get Summary Test Session {datetime.now().strftime('%H:%M:%S')}"}
+        )
+        if not success or 'id' not in response:
+            print("❌ Failed to create session for get summary test")
+            return False
+        
+        session_id = response['id']
+        
+        # Test get-summary when no summary exists (should return null)
+        success, summary_response = self.run_test(
+            "Get Summary (No Summary - V4)", 
+            "GET", 
+            f"api/sessions/{session_id}/summary", 
+            200  # Should return 200 with null content
+        )
+        
+        if success:
+            if summary_response is not None:
+                print(f"❌ Expected null response when no summary exists, got {type(summary_response)}")
+                success = False
+            else:
+                print("✅ Correctly returned null when no summary exists")
+        
+        # Clean up the test session
+        self.run_test("Delete Get Summary Test Session", "DELETE", f"api/sessions/{session_id}", 200)
+        return success
+
 def main():
     print("🚀 Starting Interview AI Assistant Backend API Tests")
     print("=" * 60)
