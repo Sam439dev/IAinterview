@@ -383,6 +383,8 @@ def main():
         ("Sessions - Get Messages", tester.test_get_session_messages),
         ("V3 - Process Text (New)", tester.test_process_text_endpoint),
         ("V3 - Process Audio Removed", tester.test_process_audio_removed),
+        ("V4 - Generate Summary Empty", tester.test_generate_summary_empty_session),
+        ("V4 - Get Summary Null", tester.test_get_summary_null),
         ("Sessions - Delete", tester.test_delete_session),
         ("CV - Get Active", tester.test_cv_active),
     ]
