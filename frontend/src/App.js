@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Interview from './pages/Interview';
@@ -7,10 +7,10 @@ import Settings from './pages/Settings';
 import Sessions from './pages/Sessions';
 import './App.css';
 
-function App() {
+export default function App() {
   return (
-    <Router>
-      <div className="min-h-screen bg-void cyber-grid">
+    <BrowserRouter>
+      <div className="min-h-screen bg-void noise">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -20,8 +20,6 @@ function App() {
           <Route path="/sessions" element={<Sessions />} />
         </Routes>
       </div>
-    </Router>
+    </BrowserRouter>
   );
 }
-
-export default App;
