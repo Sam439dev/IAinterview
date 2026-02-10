@@ -1,38 +1,36 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Brain, Mic, ChevronLeft, Settings as SettingsIcon } from 'lucide-react';
+import { ArrowLeft, Settings } from 'lucide-react';
 
-export default function Navbar({ title, showBack = false, backTo = '/dashboard' }) {
+export default function Navbar({ title, showBack, backTo = '/dashboard' }) {
   return (
-    <nav className="border-b border-slate-800/50 bg-void/80 backdrop-blur-md sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto flex items-center justify-between h-14 px-4 lg:px-8">
-        <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-50 h-14 border-b border-white/[0.04] bg-void/80 backdrop-blur-xl" data-testid="navbar">
+      <div className="max-w-[1440px] mx-auto h-full flex items-center justify-between px-5">
+        <div className="flex items-center gap-3">
           {showBack && (
-            <Link to={backTo} className="btn-ghost p-2" data-testid="nav-back-btn">
-              <ChevronLeft className="w-5 h-5" />
+            <Link to={backTo} className="btn-ghost" data-testid="nav-back">
+              <ArrowLeft className="w-4 h-4" />
             </Link>
           )}
-          <Link to="/" className="flex items-center gap-2" data-testid="nav-logo">
-            <div className="w-8 h-8 border border-cyber-cyan/50 flex items-center justify-center glow-cyan">
-              <Brain className="w-5 h-5 text-cyber-cyan" />
+          <Link to="/" className="flex items-center gap-2.5" data-testid="nav-logo">
+            <div className="w-7 h-7 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-accent" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2a4 4 0 0 1 4 4v4a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4Z"/><path d="M16 10v1a4 4 0 0 1-8 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/>
+              </svg>
             </div>
-            <span className="font-heading font-bold text-sm tracking-widest text-cyber-cyan text-glow-cyan hidden sm:block">
-              INTERVIEW AI
-            </span>
+            <span className="font-display font-semibold text-sm tracking-wide text-accent hidden sm:block">InterviewAI</span>
           </Link>
           {title && (
             <>
-              <span className="text-slate-700">/</span>
-              <span className="font-heading text-sm tracking-wider text-slate-400">{title}</span>
+              <span className="text-white/10">/</span>
+              <span className="font-display text-xs tracking-wider text-slate-500 uppercase">{title}</span>
             </>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <Link to="/settings" className="btn-ghost p-2" data-testid="nav-settings-btn">
-            <SettingsIcon className="w-4 h-4" />
-          </Link>
-        </div>
+        <Link to="/settings" className="btn-ghost" data-testid="nav-settings">
+          <Settings className="w-4 h-4" />
+        </Link>
       </div>
-    </nav>
+    </header>
   );
 }
