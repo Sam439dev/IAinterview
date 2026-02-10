@@ -1,31 +1,33 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Clock, Loader2, AlertCircle, Copy, Check, Zap, ChevronDown, MessageSquare, FileText, Lightbulb, CornerDownLeft, Square } from 'lucide-react';
+import { ArrowLeft, Mic, MicOff, Square, Pause, Play, Clock, Loader2, AlertCircle, Copy, Check, Zap, ChevronDown, FileText, Lightbulb } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { getSettings, createSession, updateSession, getMessages, processText, getActiveCV, generateSummary } from '../services/api';
+import { getSettings, createSession, updateSession, getMessages, processAudio, getActiveCV } from '../services/api';
 
 export default function Interview() {
   const { sessionId: paramId } = useParams();
   const navigate = useNavigate();
 
-  const [inputText, setInputText] = useState('');
-  const [messages, setMessages] = useState([]); // all messages: user (interviewer) + assistant (suggestions)
+  const [status, setStatus] = useState('idle'); // idle | recording | processing | paused
   const [suggestions, setSuggestions] = useState([]);
   const [sessionId, setSessionId] = useState(paramId || null);
   const [settings, setSettings] = useState(null);
   const [cvActive, setCvActive] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
-  const [ending, setEnding] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
-  const [showPanel, setShowPanel] = useState('suggestions');
   const [questionCount, setQuestionCount] = useState(0);
+  const [timer, setTimer] = useState(0);
+  const [ending, setEnding] = useState(false);
+  const [chunkCount, setChunkCount] = useState(0);
 
-  const inputRef = useRef(null);
-  const messagesEndRef = useRef(null);
+  const timerRef = useRef(null);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
+  const streamRef = useRef(null);
+  const autoRecordRef = useRef(true);
   const suggestionsEndRef = useRef(null);
 
-  // Load initial data
+  // Load initial
   useEffect(() => {
     (async () => {
       try {
@@ -35,15 +37,12 @@ export default function Interview() {
         if (paramId) {
           const msgs = await getMessages(paramId);
           if (msgs?.length) {
-            const userMsgs = [];
-            const aiSugs = [];
             let qCount = 0;
+            const sugs = [];
             msgs.forEach(m => {
-              if (m.role === 'user') {
-                userMsgs.push({ id: m.id, text: m.content, time: new Date(m.created_at) });
-              } else {
+              if (m.role === 'assistant') {
                 qCount++;
-                aiSugs.push({
+                sugs.push({
                   id: m.id, response: m.content, category: m.category || 'general',
                   keyPoints: m.key_points || [], toneAdvice: m.tone_advice,
                   questionSummary: m.question_summary, confidence: m.confidence || 0,
@@ -51,8 +50,7 @@ export default function Interview() {
                 });
               }
             });
-            setMessages(userMsgs);
-            setSuggestions(aiSugs);
+            setSuggestions(sugs);
             setQuestionCount(qCount);
           }
         }
@@ -61,16 +59,36 @@ export default function Interview() {
     })();
   }, [paramId]);
 
-  // Auto-scroll
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  // Auto-scroll suggestions
   useEffect(() => { suggestionsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [suggestions]);
 
-  const hasKey = settings?.has_key;
+  // Timer
+  useEffect(() => {
+    if (['recording', 'processing'].includes(status)) {
+      timerRef.current = setInterval(() => setTimer(p => p + 1), 1000);
+    } else if (status === 'paused') {
+      clearInterval(timerRef.current);
+    } else {
+      clearInterval(timerRef.current);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [status]);
 
-  // Submit what the interviewer said
-  const handleSubmit = useCallback(async () => {
-    const text = inputText.trim();
-    if (!text || processing || !hasKey) return;
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      autoRecordRef.current = false;
+      streamRef.current?.getTracks().forEach(t => t.stop());
+    };
+  }, []);
+
+  const hasKey = settings?.has_key;
+  const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+  // Start audio recording
+  const startRecording = useCallback(async () => {
+    if (!hasKey) return;
+    autoRecordRef.current = true;
 
     let sid = sessionId;
     if (!sid) {
@@ -82,56 +100,112 @@ export default function Interview() {
       } catch { return; }
     }
 
-    // Add to messages immediately
-    const msgId = `msg-${Date.now()}`;
-    setMessages(prev => [...prev, { id: msgId, text, time: new Date() }]);
-    setInputText('');
-    setProcessing(true);
-
     try {
-      const result = await processText({ session_id: sid, text, language: 'fr' });
-
-      if (result.detected && result.suggested_response) {
-        setQuestionCount(prev => prev + 1);
-        setSuggestions(prev => [...prev, {
-          id: `sug-${Date.now()}`,
-          response: result.suggested_response,
-          category: result.category || 'general',
-          keyPoints: result.key_points || [],
-          toneAdvice: result.tone_advice,
-          questionSummary: result.question_summary,
-          confidence: result.confidence || 0,
-          time: new Date(),
-          ms: result.response_ms,
-          cvUsed: result.cv_active,
-          originalText: text
-        }]);
-        // Switch to suggestions panel on mobile
-        setShowPanel('suggestions');
-      }
-    } catch (e) { console.error('Process error:', e); }
-    finally { setProcessing(false); inputRef.current?.focus(); }
-  }, [inputText, processing, hasKey, sessionId, navigate]);
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+      });
+      streamRef.current = stream;
+      setStatus('recording');
+      recordChunk(stream, sid);
+    } catch (e) {
+      console.error('Mic access error:', e);
+      alert("Impossible d'accéder au microphone. Vérifiez les permissions du navigateur.");
     }
-  };
+  }, [hasKey, sessionId, navigate]);
 
-  const finishSession = useCallback(async () => {
-    if (!sessionId || messages.length === 0) return;
-    if (!window.confirm('Terminer cette session et générer le résumé ?')) return;
+  // Record a chunk, send it, then record the next one
+  const recordChunk = useCallback((stream, sid) => {
+    if (!stream?.active || !autoRecordRef.current) return;
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+    const recorder = new MediaRecorder(stream, { mimeType });
+    recorderRef.current = recorder;
+    chunksRef.current = [];
+
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+
+    recorder.onstop = async () => {
+      if (chunksRef.current.length === 0 || !autoRecordRef.current) return;
+      const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+      chunksRef.current = [];
+
+      if (blob.size < 1000) {
+        if (autoRecordRef.current && stream.active) recordChunk(stream, sid);
+        return;
+      }
+
+      setStatus('processing');
+      setChunkCount(prev => prev + 1);
+
+      try {
+        const base64 = await blobToBase64(blob);
+        const result = await processAudio({
+          session_id: sid,
+          audio_data: base64,
+          mime_type: 'audio/webm',
+          language: 'fr'
+        });
+
+        if (result.detected && result.suggested_response) {
+          setQuestionCount(prev => prev + 1);
+          setSuggestions(prev => [...prev, {
+            id: `sug-${Date.now()}`,
+            response: result.suggested_response,
+            category: result.category || 'general',
+            keyPoints: result.key_points || [],
+            toneAdvice: result.tone_advice,
+            questionSummary: result.question_summary,
+            confidence: result.confidence || 0,
+            time: new Date(),
+            ms: result.response_ms,
+            cvUsed: result.cv_active
+          }]);
+        }
+      } catch (e) { console.error('Process error:', e); }
+
+      // Continue recording next chunk
+      if (autoRecordRef.current && stream.active) {
+        setStatus('recording');
+        recordChunk(stream, sid);
+      }
+    };
+
+    recorder.start();
+    // Auto-stop after 8 seconds to send the chunk
+    setTimeout(() => {
+      if (recorder.state === 'recording') recorder.stop();
+    }, 8000);
+  }, []);
+
+  // Pause
+  const pauseRecording = useCallback(() => {
+    autoRecordRef.current = false;
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    recorderRef.current = null;
+    setStatus('paused');
+  }, []);
+
+  // Stop and go to summary
+  const stopRecording = useCallback(async () => {
+    autoRecordRef.current = false;
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    recorderRef.current = null;
+    setStatus('idle');
+
+    if (!sessionId) return;
     setEnding(true);
     try {
-      await updateSession(sessionId, { status: 'completed' });
+      await updateSession(sessionId, { status: 'completed', duration_seconds: timer });
       navigate(`/session/${sessionId}/summary`);
     } catch (e) {
       console.error(e);
       setEnding(false);
     }
-  }, [sessionId, messages, navigate]);
+  }, [sessionId, timer, navigate]);
 
   const copyText = (text, id) => {
     navigator.clipboard.writeText(text);
@@ -152,162 +226,157 @@ export default function Interview() {
 
   if (loading) return <div className="h-screen bg-void flex items-center justify-center"><Loader2 className="w-6 h-6 text-accent animate-spin" /></div>;
 
+  if (ending) return (
+    <div className="h-screen bg-void flex flex-col items-center justify-center gap-4">
+      <Loader2 className="w-8 h-8 text-accent animate-spin" />
+      <p className="text-sm text-slate-400 font-display">Préparation du résumé...</p>
+      <p className="text-xs text-slate-600">Transcription complète + analyse des échanges</p>
+    </div>
+  );
+
   return (
     <div className="h-screen bg-void flex flex-col" data-testid="interview-page">
       {/* Top bar */}
       <header className="h-12 border-b border-white/[0.04] bg-void/80 backdrop-blur-xl flex items-center px-4 gap-3 flex-shrink-0 z-50">
         <Link to="/dashboard" className="btn-ghost p-1.5" data-testid="interview-back"><ArrowLeft className="w-4 h-4" /></Link>
         <div className="w-px h-5 bg-white/[0.06]" />
-        <span className="font-display text-xs text-slate-500 tracking-wider hidden sm:block">
-          {sessionId ? 'SESSION' : 'NOUVELLE SESSION'}
-        </span>
+        <span className="font-display text-xs text-slate-500 tracking-wider hidden sm:block">SESSION</span>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
           {cvActive && <span className="chip chip-success text-[0.6rem]" data-testid="cv-badge"><FileText className="w-3 h-3" /> CV actif</span>}
           <span className="chip chip-accent text-[0.6rem]" data-testid="question-count">
-            <Zap className="w-3 h-3" /> {questionCount} question{questionCount !== 1 ? 's' : ''}
+            <Zap className="w-3 h-3" /> {questionCount} suggestion{questionCount !== 1 ? 's' : ''}
           </span>
+          <span className="chip chip-neutral font-mono" data-testid="timer-badge">
+            <Clock className="w-3 h-3" /> {fmt(timer)}
+          </span>
+          <StatusChip status={status} />
         </div>
       </header>
 
-      {/* Mobile toggle */}
-      <div className="lg:hidden flex border-b border-white/[0.04]">
-        <button className={`flex-1 py-2.5 text-xs font-display tracking-wider transition-colors ${showPanel === 'conversation' ? 'text-accent border-b-2 border-accent' : 'text-slate-500'}`}
-          onClick={() => setShowPanel('conversation')} data-testid="mobile-conv-tab">
-          Conversation ({messages.length})
-        </button>
-        <button className={`flex-1 py-2.5 text-xs font-display tracking-wider transition-colors ${showPanel === 'suggestions' ? 'text-accent border-b-2 border-accent' : 'text-slate-500'}`}
-          onClick={() => setShowPanel('suggestions')} data-testid="mobile-sug-tab">
-          Suggestions {suggestions.length > 0 && <span className="ml-1 inline-flex items-center justify-center w-5 h-5 bg-accent/20 text-accent rounded-full text-[0.6rem]">{suggestions.length}</span>}
-        </button>
+      {/* Main content: Suggestions panel */}
+      <div className="flex-1 overflow-y-auto" data-testid="suggestions-panel">
+        <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
+          {/* Empty state */}
+          {suggestions.length === 0 && status === 'idle' && (
+            <div className="flex flex-col items-center justify-center py-20" data-testid="empty-state">
+              <div className="w-20 h-20 rounded-2xl bg-accent/[0.05] border border-accent/10 flex items-center justify-center mb-6 glow-accent">
+                <Mic className="w-10 h-10 text-accent/60" />
+              </div>
+              <h2 className="font-display font-semibold text-xl mb-2 text-slate-200">Prêt à enregistrer</h2>
+              <p className="text-sm text-slate-500 text-center max-w-md mb-2">
+                Démarrez l'enregistrement. L'IA écoute en continu et détecte les questions du recruteur pour vous suggérer des réponses.
+              </p>
+              <p className="text-xs text-slate-600 text-center max-w-sm">
+                La transcription complète sera disponible à la fin de la session.
+              </p>
+            </div>
+          )}
+
+          {suggestions.length === 0 && ['recording', 'processing'].includes(status) && (
+            <div className="flex flex-col items-center justify-center py-16" data-testid="listening-state">
+              <WaveformLarge />
+              <p className="text-sm text-accent font-display mt-6 mb-1">Écoute en cours...</p>
+              <p className="text-xs text-slate-500">
+                {chunkCount > 0 ? `${chunkCount} segments analysés` : 'En attente de détection de question'}
+              </p>
+            </div>
+          )}
+
+          {/* Suggestion cards */}
+          {suggestions.map((s, i) => (
+            <SuggestionCard key={s.id} suggestion={s} index={i} onCopy={copyText} copiedId={copiedId} categoryLabels={categoryLabels} />
+          ))}
+
+          {/* Processing indicator */}
+          {status === 'processing' && suggestions.length > 0 && (
+            <div className="flex items-center justify-center gap-3 p-4 card" data-testid="processing-indicator">
+              <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+              <span className="text-xs text-amber-400 font-display">Analyse d'un segment audio...</span>
+            </div>
+          )}
+
+          <div ref={suggestionsEndRef} />
+        </div>
       </div>
 
-      {/* Main split view */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* LEFT: Conversation - what the interviewer said */}
-        <div className={`w-full lg:w-[45%] flex flex-col border-r border-white/[0.04] ${showPanel !== 'conversation' && showPanel !== 'suggestions' ? '' : showPanel === 'conversation' ? 'flex' : 'hidden lg:flex'}`}>
-          <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2">
-            <MessageSquare className="w-3.5 h-3.5 text-accent" />
-            <h2 className="font-display text-xs tracking-wider text-slate-500">CE QUE DIT LE RECRUTEUR</h2>
-            <div className="flex-1" />
-            <span className="text-[0.65rem] text-slate-600 font-mono">{messages.length} messages</span>
-          </div>
-
-          {/* Messages list */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-2.5" data-testid="conversation-panel">
-            {messages.length === 0 && (
-              <div className="flex items-center justify-center h-full" data-testid="conv-empty">
-                <div className="text-center max-w-xs">
-                  <div className="w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-center mx-auto mb-4">
-                    <MessageSquare className="w-7 h-7 text-slate-700" />
-                  </div>
-                  <p className="text-sm text-slate-400 mb-1 font-medium">En attente</p>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Saisissez ce que le recruteur dit ou demande. L'IA analysera et vous proposera des réponses personnalisées.
-                  </p>
-                </div>
-              </div>
-            )}
-            {messages.map((m, i) => (
-              <div key={m.id} className="fade-up" data-testid={`message-${i}`}>
-                <div className="card-inner p-3.5 group relative">
-                  <p className="text-sm text-slate-200 leading-relaxed pr-7">{m.text}</p>
-                  <button className="absolute top-2.5 right-2.5 btn-ghost p-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => copyText(m.text, m.id)}>
-                    {copiedId === m.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                  </button>
-                  <span className="text-[0.6rem] text-slate-600 font-mono mt-1.5 block">
-                    {m.time?.toLocaleTimeString?.('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              </div>
-            ))}
-            {processing && (
-              <div className="flex items-center gap-2.5 p-3 card-inner border-amber-500/10 fade-up" data-testid="processing-indicator">
-                <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                <span className="text-xs text-amber-400 font-display">Analyse en cours...</span>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Text input */}
-          <div className="p-3 border-t border-white/[0.04] bg-base/80 backdrop-blur-sm" data-testid="input-area">
-            <div className="relative">
-              <textarea
-                ref={inputRef}
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={hasKey
-                  ? "Saisissez ce que le recruteur dit ou demande..."
-                  : "Configurez votre clé API dans les paramètres"
-                }
-                disabled={!hasKey || processing}
-                rows={2}
-                className="input resize-none pr-12 text-sm leading-relaxed"
-                data-testid="interviewer-input"
-              />
-              <button
-                className="absolute right-2 bottom-2 btn btn-primary p-2 rounded-lg disabled:opacity-30"
-                onClick={handleSubmit}
-                disabled={!inputText.trim() || processing || !hasKey}
-                data-testid="send-btn"
-              >
-                {processing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+      {/* Controls bar */}
+      <div className="border-t border-white/[0.04] bg-base/90 backdrop-blur-xl flex-shrink-0 z-50" data-testid="controls">
+        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-center gap-3">
+          {status === 'idle' && !ending && (
+            <>
+              <button className="btn btn-primary text-sm px-10 py-3.5" onClick={startRecording} disabled={!hasKey} data-testid="start-btn">
+                <Mic className="w-5 h-5" /> Démarrer l'enregistrement
               </button>
-            </div>
-            <div className="flex items-center justify-between mt-1.5 px-1">
-              <span className="text-[0.6rem] text-slate-600 flex items-center gap-1">
-                <CornerDownLeft className="w-3 h-3" /> Entrée pour envoyer
-              </span>
-              <div className="flex items-center gap-2">
-                {messages.length > 0 && sessionId && (
-                  <button className="btn btn-outline text-[0.6rem] py-1 px-2.5 border-red-500/20 text-red-400 hover:bg-red-500/5"
-                    onClick={finishSession} disabled={processing || ending} data-testid="finish-session-btn">
-                    {ending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Square className="w-3 h-3" />}
-                    Terminer et résumer
-                  </button>
-                )}
-                {!hasKey && (
-                  <Link to="/settings" className="text-[0.65rem] text-amber-400 hover:underline flex items-center gap-1" data-testid="config-link">
-                    <AlertCircle className="w-3 h-3" /> Configurer la clé API
-                  </Link>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+              {!hasKey && (
+                <Link to="/settings"><button className="btn btn-outline text-xs" data-testid="config-btn"><AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Configurer</button></Link>
+              )}
+            </>
+          )}
 
-        {/* RIGHT: AI Suggestions */}
-        <div className={`w-full lg:w-[55%] flex flex-col ${showPanel === 'suggestions' ? 'flex' : 'hidden lg:flex'}`}>
-          <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2">
-            <Lightbulb className="w-3.5 h-3.5 text-accent2" />
-            <h2 className="font-display text-xs tracking-wider text-slate-500">SUGGESTIONS DE RÉPONSES</h2>
-            <div className="flex-1" />
-            <span className="text-[0.65rem] text-slate-600 font-mono">{suggestions.length} suggestion{suggestions.length !== 1 ? 's' : ''}</span>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4" data-testid="suggestions-panel">
-            {suggestions.length === 0 && (
-              <div className="flex items-center justify-center h-full" data-testid="sug-empty">
-                <div className="text-center max-w-xs">
-                  <div className="w-14 h-14 rounded-2xl bg-accent2/[0.04] border border-accent2/10 flex items-center justify-center mx-auto mb-4">
-                    <Lightbulb className="w-7 h-7 text-accent2/30" />
-                  </div>
-                  <p className="text-sm text-slate-400 mb-1 font-medium">En attente de questions</p>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    Lorsqu'une question ou demande est détectée, une suggestion de réponse personnalisée apparaîtra ici.
-                  </p>
-                </div>
+          {status === 'recording' && (
+            <>
+              <div className="flex items-center gap-[3px] h-8 px-3">
+                {[...Array(5)].map((_, i) => <div key={i} className="wave-bar" />)}
               </div>
-            )}
-            {suggestions.map((s, i) => (
-              <SuggestionCard key={s.id} suggestion={s} index={i} onCopy={copyText} copiedId={copiedId} categoryLabels={categoryLabels} />
-            ))}
-            <div ref={suggestionsEndRef} />
-          </div>
+              <button className="btn btn-outline text-sm px-6 py-3 border-amber-500/20 text-amber-400 hover:bg-amber-500/5" onClick={pauseRecording} data-testid="pause-btn">
+                <Pause className="w-4 h-4" /> Pause
+              </button>
+              <button className="btn btn-danger-outline text-sm px-6 py-3" onClick={stopRecording} data-testid="stop-btn">
+                <Square className="w-4 h-4" /> Arrêter et résumer
+              </button>
+            </>
+          )}
+
+          {status === 'processing' && (
+            <>
+              <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
+              <span className="text-xs text-amber-400 font-display">Analyse...</span>
+              <button className="btn btn-danger-outline text-sm px-6 py-3" onClick={stopRecording} data-testid="stop-processing-btn">
+                <Square className="w-4 h-4" /> Arrêter et résumer
+              </button>
+            </>
+          )}
+
+          {status === 'paused' && (
+            <>
+              <button className="btn btn-success text-sm px-6 py-3" onClick={startRecording} data-testid="resume-btn">
+                <Play className="w-4 h-4" /> Reprendre
+              </button>
+              <button className="btn btn-danger-outline text-sm px-6 py-3" onClick={stopRecording} data-testid="stop-paused-btn">
+                <Square className="w-4 h-4" /> Arrêter et résumer
+              </button>
+            </>
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function StatusChip({ status }) {
+  const map = {
+    idle: { label: 'En attente', cls: 'chip-neutral' },
+    recording: { label: 'Enregistrement', cls: 'chip-accent', dot: true },
+    processing: { label: 'Analyse', cls: 'chip-warn' },
+    paused: { label: 'Pause', cls: 'chip-warn' },
+  };
+  const c = map[status] || map.idle;
+  return (
+    <span className={`chip ${c.cls}`} data-testid="status-chip">
+      {c.dot && <span className="w-1.5 h-1.5 rounded-full bg-accent pulse-dot" />}
+      {status === 'processing' && <Loader2 className="w-3 h-3 animate-spin" />}
+      {c.label}
+    </span>
+  );
+}
+
+function WaveformLarge() {
+  return (
+    <div className="flex items-center gap-1 h-16">
+      {[...Array(7)].map((_, i) => (
+        <div key={i} className="wave-bar" style={{ animationDelay: `${i * 0.08}s`, width: '4px' }} />
+      ))}
     </div>
   );
 }
@@ -318,7 +387,6 @@ function SuggestionCard({ suggestion: s, index, onCopy, copiedId, categoryLabels
 
   return (
     <div className="card fade-up overflow-hidden" data-testid={`suggestion-${index}`}>
-      {/* Header */}
       <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2 cursor-pointer select-none" onClick={() => setExpanded(!expanded)}>
         <Zap className="w-3.5 h-3.5 text-accent2" />
         {cat.label && <span className={`chip text-[0.6rem] ${cat.cls}`}>{cat.label}</span>}
@@ -330,7 +398,6 @@ function SuggestionCard({ suggestion: s, index, onCopy, copiedId, categoryLabels
 
       {expanded && (
         <div className="p-4 space-y-3">
-          {/* Question summary */}
           {s.questionSummary && (
             <div className="p-3 rounded-lg bg-accent/[0.04] border border-accent/10">
               <p className="text-[0.65rem] text-accent/70 font-display tracking-wider mb-1">QUESTION / INTENTION DÉTECTÉE</p>
@@ -338,7 +405,6 @@ function SuggestionCard({ suggestion: s, index, onCopy, copiedId, categoryLabels
             </div>
           )}
 
-          {/* AI Suggested Response */}
           <div className="relative group">
             <div className="p-3 rounded-lg bg-accent2/[0.03] border border-accent2/[0.08]">
               <p className="text-[0.65rem] text-accent2/70 font-display tracking-wider mb-2">SUGGESTION DE RÉPONSE</p>
@@ -352,19 +418,15 @@ function SuggestionCard({ suggestion: s, index, onCopy, copiedId, categoryLabels
             </button>
           </div>
 
-          {/* Key points */}
           {s.keyPoints?.length > 0 && (
             <div>
-              <p className="text-[0.65rem] text-slate-500 font-display tracking-wider mb-1.5">POINTS CLÉS À MENTIONNER</p>
+              <p className="text-[0.65rem] text-slate-500 font-display tracking-wider mb-1.5">POINTS CLÉS</p>
               <div className="flex flex-wrap gap-1.5">
-                {s.keyPoints.map((kp, i) => (
-                  <span key={i} className="chip chip-accent text-[0.6rem]">{kp}</span>
-                ))}
+                {s.keyPoints.map((kp, i) => <span key={i} className="chip chip-accent text-[0.6rem]">{kp}</span>)}
               </div>
             </div>
           )}
 
-          {/* Tone advice */}
           {s.toneAdvice && (
             <div className="p-2.5 rounded-lg bg-amber-500/[0.04] border border-amber-500/10 flex items-start gap-2">
               <Lightbulb className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
@@ -381,4 +443,12 @@ function SuggestionCard({ suggestion: s, index, onCopy, copiedId, categoryLabels
       )}
     </div>
   );
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(blob);
+  });
 }
