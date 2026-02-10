@@ -1,205 +1,138 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Brain, Mic, FileText, BarChart3, Settings, Clock, MessageSquare, Zap, TrendingUp, Calendar, ChevronRight, Plus, Trash2, Play, AlertCircle, Sparkles, Loader2 } from 'lucide-react';
-import { getSessions, getSessionStats, deleteSession as apiDeleteSession, getSettings, getActiveCV } from '../services/api';
+import { Mic, FileText, BarChart3, Settings, Clock, MessageSquare, Zap, TrendingUp, Calendar, Plus, Trash2, Play, AlertCircle, Loader2 } from 'lucide-react';
+import { getSessions, getStats, deleteSession, getSettings, getActiveCV } from '../services/api';
 import Navbar from '../components/Navbar';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
-  const [stats, setStats] = useState({ total_questions: 0, avg_latency: 0, total_duration: 0 });
+  const [stats, setStats] = useState({ total_questions: 0, avg_latency: 0, total_duration: 0, total_sessions: 0 });
   const [settings, setSettings] = useState(null);
   const [cv, setCv] = useState(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(null);
 
-  const fetchData = async () => {
+  const load = async () => {
     try {
-      const [sess, st, sett, cvData] = await Promise.all([
-        getSessions(),
-        getSessionStats(),
-        getSettings(),
-        getActiveCV()
-      ]);
-      setSessions(sess || []);
+      const [se, st, sett, cvd] = await Promise.all([getSessions(), getStats(), getSettings(), getActiveCV()]);
+      setSessions(se || []);
       setStats(st);
       setSettings(sett);
-      setCv(cvData);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+      setCv(cvd);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   };
+  useEffect(() => { load(); }, []);
 
-  useEffect(() => { fetchData(); }, []);
-
-  const handleDelete = async (id) => {
-    if (!window.confirm('Supprimer cette session ? Cette action est irréversible.')) return;
+  const handleDel = async (id) => {
+    if (!window.confirm('Supprimer cette session ?')) return;
     setDeleting(id);
-    try {
-      await apiDeleteSession(id);
-      fetchData();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setDeleting(null);
-    }
+    try { await deleteSession(id); load(); } catch (e) { console.error(e); }
+    finally { setDeleting(null); }
   };
 
   const hasKey = settings?.has_key;
-  const canCreate = (sessions?.length || 0) < 5;
+  const canCreate = (sessions?.length || 0) < 10;
+  const fmtDate = (d) => { try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return ''; } };
 
-  const formatDate = (d) => {
-    try {
-      return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
-    } catch { return ''; }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-void cyber-grid flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-cyber-cyan animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return <div className="h-screen bg-void flex items-center justify-center"><Loader2 className="w-6 h-6 text-accent animate-spin" /></div>;
 
   return (
-    <div className="min-h-screen bg-void cyber-grid">
-      <Navbar title="TABLEAU DE BORD" />
-
-      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
-        {/* Welcome */}
-        <div className="mb-8">
-          <h1 className="font-heading font-bold text-3xl mb-2" data-testid="dashboard-title">
-            Bienvenue, <span className="text-cyber-cyan text-glow-cyan">Champion</span>
-          </h1>
-          <p className="text-slate-400">Prêt à dominer votre prochain entretien technique ?</p>
+    <div className="min-h-screen bg-void">
+      <Navbar title="Tableau de bord" />
+      <main className="max-w-[1200px] mx-auto px-5 py-8">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-8">
+          <div>
+            <h1 className="font-display font-bold text-2xl mb-1" data-testid="dashboard-title">
+              Tableau de bord
+            </h1>
+            <p className="text-sm text-slate-500">Gérez vos sessions et suivez votre progression</p>
+          </div>
+          {canCreate && hasKey && (
+            <Link to="/interview"><button className="btn btn-primary text-xs" data-testid="new-session-btn"><Plus className="w-4 h-4" /> Nouvelle session</button></Link>
+          )}
         </div>
 
-        {/* API Key Alert */}
+        {/* Key alert */}
         {!hasKey && (
-          <div className="mb-8 p-4 border border-cyber-orange/30 bg-cyber-orange/5 flex items-start gap-3" data-testid="api-key-alert">
-            <AlertCircle className="w-5 h-5 text-cyber-orange flex-shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <h3 className="font-heading text-sm text-cyber-orange mb-1 tracking-wider">CONFIGURATION REQUISE</h3>
-              <p className="text-sm text-slate-400 mb-3">
-                Pour utiliser l'assistant, configurez votre clé API OpenAI dans les paramètres.
-              </p>
-              <Link to="/settings">
-                <button className="btn-secondary text-xs py-2 px-4 border-cyber-orange text-cyber-orange hover:bg-cyber-orange/10">
-                  <Settings className="w-3 h-3 inline mr-2" /> Configurer
-                </button>
-              </Link>
+          <div className="card p-4 mb-6 flex items-center gap-3 border-amber-500/20" data-testid="api-key-alert">
+            <div className="w-9 h-9 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+              <AlertCircle className="w-5 h-5 text-amber-500" />
             </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-400">Clé API OpenAI requise</p>
+              <p className="text-xs text-slate-500">Configurez votre clé pour utiliser l'assistant</p>
+            </div>
+            <Link to="/settings"><button className="btn btn-outline text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10" data-testid="configure-btn">Configurer</button></Link>
           </div>
         )}
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
           {[
-            { icon: MessageSquare, label: 'SESSIONS', value: `${sessions.length}/5`, color: 'cyan' },
-            { icon: Zap, label: 'QUESTIONS', value: stats.total_questions, color: 'purple' },
-            { icon: Clock, label: 'LATENCE MOY.', value: `${stats.avg_latency}ms`, color: 'green' },
-            { icon: TrendingUp, label: 'TEMPS TOTAL', value: `${Math.round(stats.total_duration / 60)}min`, color: 'orange' },
+            { icon: MessageSquare, label: 'Sessions', val: `${sessions.length}/10`, color: 'text-accent' },
+            { icon: Zap, label: 'Questions', val: stats.total_questions, color: 'text-accent2' },
+            { icon: Clock, label: 'Latence moy.', val: `${stats.avg_latency}ms`, color: 'text-emerald-400' },
+            { icon: TrendingUp, label: 'Temps total', val: `${Math.round(stats.total_duration / 60)}min`, color: 'text-amber-400' },
           ].map((s, i) => (
-            <div key={i} className="cyber-card p-4" data-testid={`stat-card-${i}`}>
-              <div className="flex items-center justify-between mb-2">
-                <s.icon className={`w-5 h-5 text-cyber-${s.color}`} />
-                <span className="text-xs text-slate-500 font-heading tracking-wider">{s.label}</span>
+            <div key={i} className="card p-4" data-testid={`stat-${i}`}>
+              <div className="flex items-center justify-between mb-3">
+                <s.icon className={`w-4 h-4 ${s.color}`} />
+                <span className="text-[0.65rem] text-slate-500 font-mono uppercase tracking-wider">{s.label}</span>
               </div>
-              <p className={`text-2xl font-heading font-bold text-cyber-${s.color} text-glow-${s.color}`}>
-                {s.value}
-              </p>
+              <p className={`text-xl font-display font-bold ${s.color}`}>{s.val}</p>
             </div>
           ))}
         </div>
 
-        {/* Main Grid */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Sessions */}
+        <div className="grid lg:grid-cols-3 gap-5">
+          {/* Sessions list */}
           <div className="lg:col-span-2">
-            <div className="cyber-card">
-              <div className="flex items-center justify-between p-6 border-b border-slate-800/50">
-                <div>
-                  <h2 className="font-heading font-semibold text-lg tracking-wider" data-testid="sessions-title">MES SESSIONS</h2>
-                  <p className="text-sm text-slate-500">{sessions.length}/5 sessions utilisées</p>
-                </div>
-                {canCreate && hasKey && (
-                  <Link to="/interview" data-testid="new-session-btn">
-                    <button className="btn-primary text-xs py-2 px-4 flex items-center gap-2">
-                      <Plus className="w-3 h-3" /> Nouvelle
-                    </button>
-                  </Link>
-                )}
+            <div className="card overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.04]">
+                <h2 className="font-display font-semibold text-sm tracking-wider" data-testid="sessions-heading">Mes sessions</h2>
+                <Link to="/sessions" className="text-xs text-accent hover:text-accent/80 font-medium">Voir tout</Link>
               </div>
-              <div className="p-6">
+              <div className="p-3">
                 {sessions.length > 0 ? (
-                  <div className="space-y-3">
-                    {sessions.map((session) => (
-                      <div key={session.id} className="p-4 bg-void border border-slate-800/50 hover:border-cyber-cyan/30 transition-colors group" data-testid={`session-item-${session.id}`}>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <h3 className="font-heading text-sm mb-1 group-hover:text-cyber-cyan transition-colors">{session.title}</h3>
-                            <div className="flex items-center gap-4 text-xs text-slate-500">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" /> {formatDate(session.created_at)}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <MessageSquare className="w-3 h-3" /> {session.total_questions || 0} questions
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" /> {Math.round((session.duration_seconds || 0) / 60)}min
-                              </span>
-                            </div>
+                  <div className="space-y-2">
+                    {sessions.slice(0, 5).map(s => (
+                      <div key={s.id} className="card-inner p-3.5 flex items-center gap-3 group hover:border-accent/10" data-testid={`session-${s.id}`}>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="text-sm font-medium truncate group-hover:text-accent transition-colors">{s.title}</h3>
+                            <span className={`chip text-[0.6rem] ${
+                              s.status === 'active' ? 'chip-success' : s.status === 'paused' ? 'chip-warn' : 'chip-neutral'
+                            }`}>{s.status === 'active' ? 'Actif' : s.status === 'paused' ? 'Pause' : 'Terminé'}</span>
                           </div>
-                          <div className="flex items-center gap-2">
-                            <span className={`px-2 py-0.5 text-xs font-heading tracking-wider ${
-                              session.status === 'active' ? 'bg-cyber-green/10 text-cyber-green border border-cyber-green/30' :
-                              session.status === 'paused' ? 'bg-cyber-orange/10 text-cyber-orange border border-cyber-orange/30' :
-                              'bg-slate-800 text-slate-400 border border-slate-700'
-                            }`}>
-                              {session.status === 'active' ? 'ACTIF' : session.status === 'paused' ? 'PAUSE' : 'TERMINÉ'}
-                            </span>
-                            <Link to={`/interview/${session.id}`}>
-                              <button className="btn-ghost p-1.5" data-testid={`resume-session-${session.id}`}>
-                                <Play className="w-4 h-4" />
-                              </button>
-                            </Link>
-                            <button
-                              className="btn-ghost p-1.5 text-cyber-magenta hover:bg-cyber-magenta/10"
-                              onClick={() => handleDelete(session.id)}
-                              disabled={deleting === session.id}
-                              data-testid={`delete-session-${session.id}`}
-                            >
-                              {deleting === session.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                            </button>
+                          <div className="flex items-center gap-3 text-[0.7rem] text-slate-500">
+                            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{fmtDate(s.created_at)}</span>
+                            <span>{s.total_questions || 0} questions</span>
                           </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Link to={`/interview/${s.id}`}>
+                            <button className="btn-ghost p-2" data-testid={`open-session-${s.id}`}><Play className="w-3.5 h-3.5" /></button>
+                          </Link>
+                          <button className="btn-ghost p-2 text-red-400 hover:bg-red-500/10" onClick={() => handleDel(s.id)} disabled={deleting === s.id} data-testid={`del-session-${s.id}`}>
+                            {deleting === s.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                          </button>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-12" data-testid="no-sessions">
-                    <div className="w-16 h-16 border border-slate-800 flex items-center justify-center mx-auto mb-4">
-                      <Mic className="w-8 h-8 text-slate-600" />
+                  <div className="text-center py-12" data-testid="empty-sessions">
+                    <div className="w-14 h-14 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mx-auto mb-4">
+                      <Mic className="w-7 h-7 text-slate-600" />
                     </div>
-                    <h3 className="font-heading text-lg mb-2 text-slate-300">AUCUNE SESSION</h3>
-                    <p className="text-sm text-slate-500 mb-4">Commencez votre première session d'entraînement</p>
+                    <p className="text-sm text-slate-400 mb-1 font-medium">Aucune session</p>
+                    <p className="text-xs text-slate-500 mb-4">Lancez votre première session d'entraînement</p>
                     <Link to={hasKey ? '/interview' : '/settings'}>
-                      <button className="btn-primary text-xs py-2 px-6">
-                        {hasKey ? 'Démarrer' : 'Configurer d\'abord'}
-                      </button>
+                      <button className="btn btn-primary text-xs">{hasKey ? 'Démarrer' : 'Configurer d\'abord'}</button>
                     </Link>
-                  </div>
-                )}
-
-                {!canCreate && (
-                  <div className="mt-4 p-3 border border-cyber-magenta/30 bg-cyber-magenta/5">
-                    <p className="text-sm text-cyber-magenta flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4" />
-                      Limite de 5 sessions atteinte. Supprimez une session pour en créer une nouvelle.
-                    </p>
                   </div>
                 )}
               </div>
@@ -207,60 +140,54 @@ export default function Dashboard() {
           </div>
 
           {/* Sidebar */}
-          <div className="space-y-6">
-            {/* CV Widget */}
-            <div className="cyber-card p-6">
-              <h3 className="font-heading text-sm tracking-wider mb-4 flex items-center gap-2 text-slate-400">
-                <FileText className="w-4 h-4 text-cyber-green" /> MON CV
+          <div className="space-y-4">
+            {/* CV */}
+            <div className="card p-5">
+              <h3 className="font-display text-xs tracking-wider text-slate-500 mb-3 flex items-center gap-2" data-testid="cv-widget-title">
+                <FileText className="w-3.5 h-3.5 text-emerald-400" /> MON CV
               </h3>
               {cv ? (
                 <div>
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-10 h-10 bg-cyber-green/10 border border-cyber-green/30 flex items-center justify-center">
-                      <FileText className="w-5 h-5 text-cyber-green" />
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-emerald-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" data-testid="cv-filename">{cv.file_name}</p>
-                      <p className="text-xs text-slate-500">{cv.parsed_data?.skills?.length || 0} compétences</p>
+                      <p className="text-sm font-medium truncate" data-testid="cv-name">{cv.file_name}</p>
+                      <p className="text-[0.65rem] text-slate-500">{cv.parsed_data?.skills?.length || 0} compétences</p>
                     </div>
                   </div>
                   {cv.parsed_data?.skills?.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {cv.parsed_data.skills.slice(0, 5).map((s, i) => (
-                        <span key={i} className="px-2 py-0.5 text-xs bg-cyber-cyan/10 text-cyber-cyan border border-cyber-cyan/20">{s}</span>
+                      {cv.parsed_data.skills.slice(0, 4).map((s, i) => (
+                        <span key={i} className="chip chip-accent text-[0.6rem]">{s}</span>
                       ))}
-                      {cv.parsed_data.skills.length > 5 && (
-                        <span className="px-2 py-0.5 text-xs bg-slate-800 text-slate-400">+{cv.parsed_data.skills.length - 5}</span>
-                      )}
+                      {cv.parsed_data.skills.length > 4 && <span className="chip chip-neutral text-[0.6rem]">+{cv.parsed_data.skills.length - 4}</span>}
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="text-center py-4">
-                  <p className="text-sm text-slate-500 mb-3">Aucun CV uploadé</p>
-                  <Link to="/settings">
-                    <button className="btn-secondary text-xs py-2 px-4">
-                      <Plus className="w-3 h-3 inline mr-1" /> Ajouter un CV
-                    </button>
-                  </Link>
+                <div className="text-center py-3">
+                  <p className="text-xs text-slate-500 mb-2">Aucun CV uploadé</p>
+                  <Link to="/settings"><button className="btn btn-outline text-xs py-1.5 px-3" data-testid="add-cv-btn">Ajouter</button></Link>
                 </div>
               )}
             </div>
 
-            {/* Quick Actions */}
-            <div className="cyber-card p-6">
-              <h3 className="font-heading text-sm tracking-wider mb-4 text-slate-400">ACTIONS RAPIDES</h3>
-              <div className="space-y-2">
+            {/* Actions */}
+            <div className="card p-5">
+              <h3 className="font-display text-xs tracking-wider text-slate-500 mb-3">ACTIONS RAPIDES</h3>
+              <div className="space-y-1.5">
                 {[
-                  { to: '/interview', icon: Mic, label: 'Nouvelle session', color: 'cyan' },
-                  { to: '/sessions', icon: BarChart3, label: 'Voir analytics', color: 'purple' },
-                  { to: '/settings', icon: Settings, label: 'Paramètres', color: 'green' },
+                  { to: '/interview', icon: Mic, label: 'Nouvelle session', color: 'text-accent' },
+                  { to: '/sessions', icon: BarChart3, label: 'Analytics', color: 'text-accent2' },
+                  { to: '/settings', icon: Settings, label: 'Paramètres', color: 'text-emerald-400' },
                 ].map((a, i) => (
-                  <Link key={i} to={a.to} className="block" data-testid={`quick-action-${i}`}>
-                    <button className="w-full text-left btn-secondary text-xs py-3 px-4 flex items-center gap-3 border-slate-800 hover:border-cyber-cyan/30">
-                      <a.icon className={`w-4 h-4 text-cyber-${a.color}`} />
-                      {a.label}
-                    </button>
+                  <Link key={i} to={a.to} className="block" data-testid={`action-${i}`}>
+                    <div className="card-inner p-3 flex items-center gap-3 hover:border-accent/10 cursor-pointer transition-colors">
+                      <a.icon className={`w-4 h-4 ${a.color}`} />
+                      <span className="text-sm text-slate-300">{a.label}</span>
+                    </div>
                   </Link>
                 ))}
               </div>
