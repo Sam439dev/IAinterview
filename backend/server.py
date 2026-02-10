@@ -49,9 +49,10 @@ class SessionUpdate(BaseModel):
     status: Optional[str] = None
     duration_seconds: Optional[int] = None
 
-class ProcessTextInput(BaseModel):
+class ProcessAudioInput(BaseModel):
     session_id: str
-    text: str
+    audio_data: str  # base64 encoded
+    mime_type: str
     language: Optional[str] = "fr"
 
 # Helpers
