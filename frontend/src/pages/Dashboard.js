@@ -113,7 +113,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <Link to={`/interview/${s.id}`}>
+                          <Link to={s.status === 'completed' ? `/session/${s.id}/summary` : `/interview/${s.id}`}>
                             <button className="btn-ghost p-2" data-testid={`open-session-${s.id}`}><Play className="w-3.5 h-3.5" /></button>
                           </Link>
                           <button className="btn-ghost p-2 text-red-400 hover:bg-red-500/10" onClick={() => handleDel(s.id)} disabled={deleting === s.id} data-testid={`del-session-${s.id}`}>
