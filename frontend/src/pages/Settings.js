@@ -156,7 +156,17 @@ function CVSection() {
 
   const handleReparse = async () => {
     setReparsing(true);
-    try { const updated = await reparseCV(); setCv(updated); } catch (e) { alert("Erreur de re-parsing. Vérifiez votre clé API."); }
+    try {
+      const updated = await reparseCV();
+      setCv(updated);
+    } catch (e) {
+      const detail = e.response?.data?.detail || '';
+      if (detail.includes('401') || detail.includes('Incorrect API key')) {
+        alert("Clé API OpenAI invalide. Mettez à jour votre clé dans la section ci-dessus, puis re-parsez le CV.");
+      } else {
+        alert("Erreur de re-parsing: " + (detail || "Vérifiez votre clé API."));
+      }
+    }
     finally { setReparsing(false); }
   };
 
