@@ -43,8 +43,8 @@ export default function Home() {
             <span className="text-accent">invisible et intelligent</span>
           </h1>
           <p className="text-base sm:text-lg text-slate-400 max-w-xl mb-10 leading-relaxed" data-testid="hero-subtitle">
-            Pendant votre entretien, l'IA écoute, détecte les questions du recruteur 
-            et vous suggère des réponses personnalisées basées sur votre CV.
+            Pendant votre entretien, saisissez ce que dit le recruteur. 
+            L'IA détecte les questions et vous suggère des réponses personnalisées basées sur votre CV.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link to={startHref}>
