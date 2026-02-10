@@ -49,11 +49,10 @@ class SessionUpdate(BaseModel):
     status: Optional[str] = None
     duration_seconds: Optional[int] = None
 
-class ProcessAudioInput(BaseModel):
+class ProcessTextInput(BaseModel):
     session_id: str
-    audio_data: str
-    mime_type: str
-    language: Optional[str] = None
+    text: str
+    language: Optional[str] = "fr"
 
 # Helpers
 def ser(doc):
