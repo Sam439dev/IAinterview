@@ -1,145 +1,104 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Clock, MessageSquare, Zap, TrendingUp, Calendar, ChevronRight, Play, Trash2, AlertCircle, Loader2 } from 'lucide-react';
-import { getSessions, getSessionStats, deleteSession as apiDeleteSession } from '../services/api';
+import { BarChart3, Clock, MessageSquare, Zap, TrendingUp, Calendar, ChevronRight, Play, Trash2, Loader2, Plus } from 'lucide-react';
+import { getSessions, getStats, deleteSession } from '../services/api';
 import Navbar from '../components/Navbar';
 
 export default function Sessions() {
   const [sessions, setSessions] = useState([]);
-  const [stats, setStats] = useState({ total_questions: 0, avg_latency: 0, total_duration: 0 });
+  const [stats, setStats] = useState({ total_questions: 0, avg_latency: 0, total_duration: 0, total_sessions: 0 });
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(null);
 
-  const fetchData = async () => {
+  const load = async () => {
     try {
-      const [sess, st] = await Promise.all([getSessions(), getSessionStats()]);
-      setSessions(sess || []);
+      const [se, st] = await Promise.all([getSessions(), getStats()]);
+      setSessions(se || []);
       setStats(st);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+    } catch {} finally { setLoading(false); }
   };
+  useEffect(() => { load(); }, []);
 
-  useEffect(() => { fetchData(); }, []);
-
-  const handleDelete = async (id) => {
+  const handleDel = async (id) => {
     if (!window.confirm('Supprimer cette session ?')) return;
     setDeleting(id);
-    try {
-      await apiDeleteSession(id);
-      fetchData();
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setDeleting(null);
-    }
+    try { await deleteSession(id); load(); } catch {} finally { setDeleting(null); }
   };
 
-  const formatDate = (d) => {
-    try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }); }
-    catch { return ''; }
-  };
+  const fmtDate = (d) => { try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' }); } catch { return ''; } };
 
   return (
-    <div className="min-h-screen bg-void cyber-grid">
-      <Navbar title="MES SESSIONS" showBack backTo="/dashboard" />
-
-      <main className="max-w-7xl mx-auto px-4 lg:px-8 py-8">
+    <div className="min-h-screen bg-void">
+      <Navbar title="Sessions" showBack backTo="/dashboard" />
+      <main className="max-w-[1200px] mx-auto px-5 py-8">
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
           {[
-            { icon: MessageSquare, label: 'TOTAL SESSIONS', value: `${sessions.length}/5`, color: 'cyan' },
-            { icon: Zap, label: 'QUESTIONS', value: stats.total_questions, color: 'purple' },
-            { icon: Clock, label: 'LATENCE MOY.', value: `${stats.avg_latency}ms`, color: 'green' },
-            { icon: TrendingUp, label: 'TEMPS TOTAL', value: `${Math.round(stats.total_duration / 60)}min`, color: 'orange' },
+            { icon: MessageSquare, label: 'Sessions', val: `${sessions.length}/10`, color: 'text-accent' },
+            { icon: Zap, label: 'Questions', val: stats.total_questions, color: 'text-accent2' },
+            { icon: Clock, label: 'Latence moy.', val: `${stats.avg_latency}ms`, color: 'text-emerald-400' },
+            { icon: TrendingUp, label: 'Temps total', val: `${Math.round(stats.total_duration / 60)}min`, color: 'text-amber-400' },
           ].map((s, i) => (
-            <div key={i} className="cyber-card p-4" data-testid={`session-stat-${i}`}>
-              <div className="flex items-center justify-between mb-2">
-                <s.icon className={`w-5 h-5 text-cyber-${s.color}`} />
-                <span className="text-xs text-slate-500 font-heading tracking-wider">{s.label}</span>
+            <div key={i} className="card p-4" data-testid={`session-stat-${i}`}>
+              <div className="flex items-center justify-between mb-3">
+                <s.icon className={`w-4 h-4 ${s.color}`} />
+                <span className="text-[0.65rem] text-slate-500 font-mono uppercase tracking-wider">{s.label}</span>
               </div>
-              <p className={`text-2xl font-heading font-bold text-cyber-${s.color}`}>{s.value}</p>
+              <p className={`text-xl font-display font-bold ${s.color}`}>{s.val}</p>
             </div>
           ))}
         </div>
 
-        {/* List */}
-        <div className="cyber-card">
-          <div className="p-6 border-b border-slate-800/50 flex items-center justify-between">
+        <div className="card overflow-hidden">
+          <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
             <div>
-              <h2 className="font-heading font-semibold text-lg tracking-wider" data-testid="sessions-list-title">HISTORIQUE DES SESSIONS</h2>
-              <p className="text-sm text-slate-500">Consultez et gérez vos sessions passées</p>
+              <h2 className="font-display font-semibold text-sm" data-testid="sessions-heading">Historique</h2>
+              <p className="text-xs text-slate-500">{sessions.length} session{sessions.length !== 1 ? 's' : ''}</p>
             </div>
-            <Link to="/interview">
-              <button className="btn-primary text-xs py-2 px-4" data-testid="new-session-from-list">Nouvelle session</button>
-            </Link>
+            <Link to="/interview"><button className="btn btn-primary text-xs" data-testid="new-session-btn"><Plus className="w-3.5 h-3.5" /> Nouvelle</button></Link>
           </div>
-          <div className="p-6">
+          <div className="p-4">
             {loading ? (
-              <div className="space-y-4">{[1,2,3].map(i => <div key={i} className="h-24 bg-slate-800/30 animate-pulse" />)}</div>
+              <div className="space-y-3">{[1, 2, 3].map(i => <div key={i} className="h-20 rounded-lg bg-white/[0.02] animate-pulse" />)}</div>
             ) : sessions.length > 0 ? (
-              <div className="space-y-4">
-                {sessions.map((session) => (
-                  <div key={session.id} className="p-4 bg-void border border-slate-800/50 hover:border-cyber-cyan/30 transition-colors" data-testid={`session-row-${session.id}`}>
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <h3 className="font-heading text-sm">{session.title}</h3>
-                        <span className={`px-2 py-0.5 text-xs font-heading tracking-wider ${
-                          session.status === 'active' ? 'bg-cyber-green/10 text-cyber-green border border-cyber-green/30' :
-                          session.status === 'paused' ? 'bg-cyber-orange/10 text-cyber-orange border border-cyber-orange/30' :
-                          'bg-slate-800 text-slate-400 border border-slate-700'
-                        }`}>
-                          {session.status === 'active' ? 'ACTIF' : session.status === 'paused' ? 'PAUSE' : 'TERMINÉ'}
-                        </span>
+              <div className="space-y-2.5">
+                {sessions.map(s => (
+                  <div key={s.id} className="card-inner p-4 hover:border-accent/10 transition-colors" data-testid={`session-row-${s.id}`}>
+                    <div className="flex items-center justify-between mb-2.5">
+                      <div className="flex items-center gap-2.5">
+                        <h3 className="text-sm font-medium">{s.title}</h3>
+                        <span className={`chip text-[0.6rem] ${
+                          s.status === 'active' ? 'chip-success' : s.status === 'paused' ? 'chip-warn' : 'chip-neutral'
+                        }`}>{s.status === 'active' ? 'Actif' : s.status === 'paused' ? 'Pause' : 'Terminé'}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Link to={`/interview/${session.id}`}>
-                          <button className="btn-secondary text-xs py-1.5 px-3 flex items-center gap-1" data-testid={`view-session-${session.id}`}>
-                            <Play className="w-3 h-3" /> {session.status === 'completed' ? 'Voir' : 'Reprendre'}
+                      <div className="flex items-center gap-1.5">
+                        <Link to={`/interview/${s.id}`}>
+                          <button className="btn btn-outline text-[0.65rem] py-1.5 px-3" data-testid={`view-${s.id}`}>
+                            <Play className="w-3 h-3" /> {s.status === 'completed' ? 'Voir' : 'Reprendre'}
                           </button>
                         </Link>
-                        <button
-                          className="btn-danger text-xs py-1.5 px-3 flex items-center gap-1"
-                          onClick={() => handleDelete(session.id)}
-                          disabled={deleting === session.id}
-                          data-testid={`delete-session-row-${session.id}`}
-                        >
-                          {deleting === session.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                          Supprimer
+                        <button className="btn btn-danger-outline text-[0.65rem] py-1.5 px-3" onClick={() => handleDel(s.id)} disabled={deleting === s.id} data-testid={`del-${s.id}`}>
+                          {deleting === s.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
                         </button>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                      <div className="flex items-center gap-2 text-slate-500">
-                        <Calendar className="w-3 h-3" /> {formatDate(session.created_at)}
-                      </div>
-                      <div className="flex items-center gap-2 text-slate-500">
-                        <MessageSquare className="w-3 h-3" /> {session.total_questions || 0} questions
-                      </div>
-                      <div className="flex items-center gap-2 text-slate-500">
-                        <Clock className="w-3 h-3" /> {Math.round((session.duration_seconds || 0) / 60)} min
-                      </div>
-                      <div className="flex items-center gap-2 text-slate-500">
-                        <Zap className="w-3 h-3" /> {session.avg_latency_ms || 0}ms latence
-                      </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[0.7rem] text-slate-500">
+                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> {fmtDate(s.created_at)}</span>
+                      <span className="flex items-center gap-1"><MessageSquare className="w-3 h-3" /> {s.total_questions || 0} questions</span>
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {Math.round((s.duration_seconds || 0) / 60)} min</span>
+                      <span className="flex items-center gap-1"><Zap className="w-3 h-3" /> {s.avg_latency_ms || 0}ms</span>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-12" data-testid="no-sessions-list">
-                <div className="w-16 h-16 border border-slate-800 flex items-center justify-center mx-auto mb-4">
-                  <BarChart3 className="w-8 h-8 text-slate-600" />
+              <div className="text-center py-12" data-testid="no-sessions">
+                <div className="w-14 h-14 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-center mx-auto mb-4">
+                  <BarChart3 className="w-7 h-7 text-slate-700" />
                 </div>
-                <h3 className="font-heading text-lg mb-2 text-slate-300">AUCUNE SESSION</h3>
-                <p className="text-sm text-slate-500 mb-4">Commencez votre première session</p>
-                <Link to="/interview">
-                  <button className="btn-primary text-xs py-2 px-6 flex items-center gap-2 mx-auto">
-                    Démarrer <ChevronRight className="w-4 h-4" />
-                  </button>
-                </Link>
+                <p className="text-sm text-slate-400 mb-1 font-medium">Aucune session</p>
+                <p className="text-xs text-slate-500 mb-4">Lancez votre première session d'entraînement</p>
+                <Link to="/interview"><button className="btn btn-primary text-xs">Démarrer <ChevronRight className="w-3.5 h-3.5" /></button></Link>
               </div>
             )}
           </div>
