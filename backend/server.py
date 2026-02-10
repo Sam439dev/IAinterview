@@ -368,7 +368,30 @@ async def reparse_cv():
     raw_text = cv.get("raw_text", "")
     if not raw_text or len(raw_text.strip()) < 20:
         raise HTTPException(400, "CV sans contenu texte extractible")
-    parsed_data = await parse_cv_llm(api_key, raw_text)
+    # Call LLM directly — let errors propagate to the user
+    prompt = """Tu es un expert RH. Extrais les informations structurées de ce CV.
+Réponds UNIQUEMENT en JSON valide:
+{
+  "full_name": "string ou null",
+  "email": "string ou null",
+  "summary": "résumé professionnel court",
+  "current_role": "poste actuel ou dernier poste",
+  "years_experience": "nombre d'années estimé",
+  "experiences": [{"title": "string", "company": "string", "duration": "string", "key_achievements": ["réalisation1"]}],
+  "skills": ["compétence1"],
+  "technologies": ["tech1"],
+  "education": [{"degree": "string", "institution": "string"}],
+  "languages": ["langue1"],
+  "certifications": ["cert1"],
+  "strengths": ["point fort professionnel 1"]
+}
+IMPORTANT: Extrais le MAXIMUM d'informations. Si un champ n'est pas trouvé, mets une liste vide ou null. Ne renvoie jamais un JSON vide."""
+    # This will raise HTTPException if OpenAI call fails (invalid key etc)
+    content = await openai_chat(api_key,
+        [{"role": "system", "content": prompt}, {"role": "user", "content": f"Voici le CV à analyser:\n\n{raw_text[:8000]}"}],
+        json_mode=True)
+    parsed_data = json.loads(content)
+    parsed_data["raw_text"] = raw_text
     await cv_col.update_one({"_id": cv["_id"]}, {"$set": {"parsed_data": parsed_data}})
     doc = ser(cv)
     doc["parsed_data"] = parsed_data
