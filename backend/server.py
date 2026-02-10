@@ -87,6 +87,7 @@ async def openai_chat(api_key, messages, model="gpt-4o-mini", json_mode=False):
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json=payload)
         if r.status_code != 200:
+            print(f"[OPENAI ERROR] Status {r.status_code}: {r.text[:200]}")
             raise HTTPException(r.status_code, f"OpenAI: {r.text}")
         return r.json()["choices"][0]["message"]["content"]
 
