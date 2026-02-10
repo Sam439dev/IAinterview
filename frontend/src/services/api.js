@@ -1,36 +1,21 @@
 import axios from 'axios';
+const API = process.env.REACT_APP_BACKEND_URL;
+const ax = axios.create({ baseURL: API, headers: { 'Content-Type': 'application/json' } });
 
-const API_URL = process.env.REACT_APP_BACKEND_URL;
-
-const api = axios.create({
-  baseURL: API_URL,
-  headers: { 'Content-Type': 'application/json' }
-});
-
-// Settings
-export const getSettings = () => api.get('/api/settings').then(r => r.data);
-export const saveSettings = (data) => api.post('/api/settings', data).then(r => r.data);
-
-// CV
-export const getActiveCV = () => api.get('/api/cv/active').then(r => r.data);
+export const getSettings = () => ax.get('/api/settings').then(r => r.data);
+export const saveSettings = (d) => ax.post('/api/settings', d).then(r => r.data);
+export const validateKey = (key) => ax.post('/api/settings/validate-key', { openai_api_key: key }).then(r => r.data);
+export const getActiveCV = () => ax.get('/api/cv/active').then(r => r.data);
 export const uploadCV = (file) => {
-  const formData = new FormData();
-  formData.append('file', file);
-  return api.post('/api/cv/upload', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' }
-  }).then(r => r.data);
+  const fd = new FormData();
+  fd.append('file', file);
+  return ax.post('/api/cv/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
 };
-export const deleteCV = (id) => api.delete(`/api/cv/${id}`).then(r => r.data);
-
-// Sessions
-export const getSessions = () => api.get('/api/sessions').then(r => r.data);
-export const getSessionStats = () => api.get('/api/sessions/stats').then(r => r.data);
-export const createSession = (data) => api.post('/api/sessions', data).then(r => r.data);
-export const updateSession = (id, data) => api.put(`/api/sessions/${id}`, data).then(r => r.data);
-export const deleteSession = (id) => api.delete(`/api/sessions/${id}`).then(r => r.data);
-export const getSessionMessages = (id) => api.get(`/api/sessions/${id}/messages`).then(r => r.data);
-
-// Interview
-export const processAudio = (data) => api.post('/api/interview/process-audio', data).then(r => r.data);
-
-export default api;
+export const deleteCV = (id) => ax.delete(`/api/cv/${id}`).then(r => r.data);
+export const getSessions = () => ax.get('/api/sessions').then(r => r.data);
+export const getStats = () => ax.get('/api/sessions/stats').then(r => r.data);
+export const createSession = (d) => ax.post('/api/sessions', d).then(r => r.data);
+export const updateSession = (id, d) => ax.put(`/api/sessions/${id}`, d).then(r => r.data);
+export const deleteSession = (id) => ax.delete(`/api/sessions/${id}`).then(r => r.data);
+export const getMessages = (id) => ax.get(`/api/sessions/${id}/messages`).then(r => r.data);
+export const processAudio = (d) => ax.post('/api/interview/process-audio', d).then(r => r.data);
