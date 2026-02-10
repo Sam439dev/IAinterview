@@ -242,23 +242,41 @@ async def analyze_and_respond(api_key, transcript, session_id, cv_data, model, l
         history_lines.append(f"{role_label}: {m['content']}")
     history = "\n".join(history_lines) if history_lines else "(début de l'entretien)"
 
-    profile_section = f"PROFIL DU CANDIDAT:\n{cv_ctx}" if cv_ctx else "PROFIL: Non renseigné (répondre de manière générique)"
+    if cv_ctx:
+        profile_section = f"PROFIL COMPLET DU CANDIDAT:\n{cv_ctx}"
+    else:
+        profile_section = "PROFIL: Non renseigné (répondre de manière générique mais professionnelle)"
+
+    lang_instruction = "Réponds en français." if language == "fr" else "Réponds en anglais."
 
     user_msg = f"""{profile_section}
 
-HISTORIQUE DE CONVERSATION:
+HISTORIQUE DE L'ENTRETIEN:
 {history}
 
-NOUVEAU MESSAGE DE L'INTERLOCUTEUR:
+CE QUE LE RECRUTEUR VIENT DE DIRE:
 \"{transcript}\"
 
-Langue de réponse: {"français" if language == "fr" else "anglais"}"""
+{lang_instruction}
+IMPORTANT: Si c'est une question ou demande, detected DOIT être true et tu DOIS fournir une suggested_response personnalisée."""
 
-    content = await openai_chat(api_key,
-        [{"role": "system", "content": ANALYSIS_AND_RESPONSE_PROMPT},
-         {"role": "user", "content": user_msg}],
-        model=model, json_mode=True)
-    return json.loads(content)
+    try:
+        content = await openai_chat(api_key,
+            [{"role": "system", "content": ANALYSIS_AND_RESPONSE_PROMPT},
+             {"role": "user", "content": user_msg}],
+            model=model, json_mode=True)
+        print(f"[ANALYSIS] Transcript: '{transcript[:80]}...' → Response: {content[:200]}")
+        result = json.loads(content)
+        # Ensure detected is truly boolean
+        result["detected"] = bool(result.get("detected", False))
+        return result
+    except json.JSONDecodeError as e:
+        print(f"[ANALYSIS ERROR] JSON parse failed: {e}, raw content: {content[:300]}")
+        # If JSON failed but we got content, try to salvage
+        return {"detected": False, "category": "none", "confidence": 0}
+    except Exception as e:
+        print(f"[ANALYSIS ERROR] {e}")
+        return {"detected": False, "category": "none", "confidence": 0}
 
 # ============ API ENDPOINTS ============
 
