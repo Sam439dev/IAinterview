@@ -93,7 +93,7 @@ export default function Home() {
         </h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
-            { icon: Mic, label: 'Saisie rapide', desc: 'Notez en direct ce que dit le recruteur, l\'IA détecte les intentions et questions', chip: 'INPUT' },
+            { icon: Mic, label: 'Analyse audio', desc: 'Enregistrement continu avec analyse par chunks via OpenAI Whisper', chip: 'AUDIO' },
             { icon: Brain, label: 'Analyse contextuelle', desc: 'Détection de questions techniques, comportementales et situationnelles', chip: 'GPT-4o' },
             { icon: FileText, label: 'CV intelligent', desc: 'Upload PDF, extraction structurée et personnalisation des réponses', chip: 'CV' },
             { icon: Zap, label: 'Pipeline rapide', desc: 'Transcription + analyse + réponse en quelques secondes', chip: 'RAPIDE' },
