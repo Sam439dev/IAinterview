@@ -16,6 +16,7 @@ export default function Interview() {
   const [cvActive, setCvActive] = useState(false);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
+  const [ending, setEnding] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [showPanel, setShowPanel] = useState('suggestions');
   const [questionCount, setQuestionCount] = useState(0);
