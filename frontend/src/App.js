@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Interview from './pages/Interview';
 import Settings from './pages/Settings';
 import Sessions from './pages/Sessions';
+import SessionSummary from './pages/SessionSummary';
 import './App.css';
 
 export default function App() {
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/interview" element={<Interview />} />
           <Route path="/interview/:sessionId" element={<Interview />} />
+          <Route path="/session/:sessionId/summary" element={<SessionSummary />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/sessions" element={<Sessions />} />
         </Routes>
