@@ -19,6 +19,7 @@ export default function Interview() {
   const [timer, setTimer] = useState(0);
   const [ending, setEnding] = useState(false);
   const [chunkCount, setChunkCount] = useState(0);
+  const [lastError, setLastError] = useState(null);
 
   const timerRef = useRef(null);
   const recorderRef = useRef(null);
