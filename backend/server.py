@@ -262,10 +262,13 @@ async def generate_response(api_key: str, question: str, question_type: str, lan
     history = "\n".join([f"{'CANDIDAT' if m['role']=='user' else 'ASSISTANT'}: {m['content']}" for m in recent])
 
     lang = "fr" if language == "fr" else "en"
-    if lang == "fr":
-        system_prompt = f"""Tu es un assistant d'entretien expert qui aide les candidats à formuler des réponses pertinentes et professionnelles.
+    q_type = question_type or ("general" if lang != "fr" else "general")
+    cv_section = ""
+    if cv_context:
+        cv_section = "PROFIL DU CANDIDAT:\n" + cv_context + "\n\n" if lang == "fr" else "CANDIDATE PROFILE:\n" + cv_context + "\n\n"
 
-{f'PROFIL DU CANDIDAT:\\n{cv_context}\\n' if cv_context else ''}
+    if lang == "fr":
+        system_prompt = cv_section + f"""Tu es un assistant d'entretien expert qui aide les candidats à formuler des réponses pertinentes et professionnelles.
 
 RÈGLES:
 1. Génère une réponse structurée et professionnelle
@@ -275,11 +278,9 @@ RÈGLES:
 5. Adapte le ton au contexte d'un entretien professionnel
 6. Réponds en français
 
-Type de question: {question_type or 'général'}"""
+Type de question: {q_type}"""
     else:
-        system_prompt = f"""You are an expert interview assistant helping candidates formulate relevant and professional answers.
-
-{f'CANDIDATE PROFILE:\\n{cv_context}\\n' if cv_context else ''}
+        system_prompt = cv_section + f"""You are an expert interview assistant helping candidates formulate relevant and professional answers.
 
 RULES:
 1. Generate a structured and professional response
@@ -289,7 +290,7 @@ RULES:
 5. Adapt the tone to a professional interview context
 6. Respond in English
 
-Question type: {question_type or 'general'}"""
+Question type: {q_type}"""
 
     user_content = f"Historique:\n{history}\n\nQuestion posée:\n\"{question}\""
 
