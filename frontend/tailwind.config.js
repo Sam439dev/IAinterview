@@ -1,34 +1,19 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: ["./src/**/*.{js,jsx,ts,tsx}"],
+  content: ["./src/**/*.{js,jsx}"],
   theme: {
     extend: {
       colors: {
-        void: '#050505',
-        paper: '#0a0a0f',
-        surface: '#121217',
-        cyber: {
-          cyan: '#00f0ff',
-          purple: '#7000df',
-          magenta: '#ff003c',
-          green: '#00ff9d',
-          orange: '#ff8a00',
-          yellow: '#ffd000',
-          red: '#ff003c',
-        },
-        slate: {
-          800: '#1e293b',
-          700: '#334155',
-          600: '#475569',
-          500: '#64748b',
-          400: '#94a3b8',
-          300: '#cbd5e1',
-          200: '#e2e8f0',
-        }
+        void: '#050508',
+        base: '#0a0a10',
+        raised: '#10101a',
+        surface: '#181824',
+        accent: '#00e5ff',
+        accent2: '#a855f7',
       },
       fontFamily: {
-        heading: ['Outfit', 'sans-serif'],
-        body: ['Manrope', 'sans-serif'],
+        display: ['Sora', 'sans-serif'],
+        body: ['DM Sans', 'sans-serif'],
         mono: ['JetBrains Mono', 'monospace'],
       },
     },
