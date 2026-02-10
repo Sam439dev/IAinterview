@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Send, Clock, Loader2, AlertCircle, Copy, Check, Zap, ChevronDown, MessageSquare, FileText, Lightbulb, CornerDownLeft, Trash2 } from 'lucide-react';
+import { ArrowLeft, Send, Clock, Loader2, AlertCircle, Copy, Check, Zap, ChevronDown, MessageSquare, FileText, Lightbulb, CornerDownLeft, Square } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { getSettings, createSession, updateSession, getMessages, processText, getActiveCV } from '../services/api';
+import { getSettings, createSession, updateSession, getMessages, processText, getActiveCV, generateSummary } from '../services/api';
 
 export default function Interview() {
   const { sessionId: paramId } = useParams();
