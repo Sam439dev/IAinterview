@@ -1,426 +1,441 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { Brain, Mic, MicOff, Square, Play, Pause, ChevronLeft, Loader2, MessageSquare, Clock, AlertCircle, Zap, Globe, BarChart3, X } from 'lucide-react';
+import { ArrowLeft, Mic, MicOff, Square, Pause, Play, Clock, Globe, Loader2, AlertCircle, Copy, Check, Zap, ChevronDown, MessageSquare, FileText, Lightbulb } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { getSettings, getSessions, createSession, updateSession, getSessionMessages, processAudio } from '../services/api';
-import Navbar from '../components/Navbar';
+import { getSettings, createSession, updateSession, getMessages, processAudio, getActiveCV } from '../services/api';
 
 export default function Interview() {
-  const { sessionId: paramSessionId } = useParams();
+  const { sessionId: paramId } = useParams();
   const navigate = useNavigate();
 
-  const [status, setStatus] = useState('idle'); // idle | listening | analyzing | responding | paused | error
-  const [messages, setMessages] = useState([]);
-  const [detectedLanguage, setDetectedLanguage] = useState('fr');
-  const [sessionTime, setSessionTime] = useState(0);
-  const [currentSessionId, setCurrentSessionId] = useState(paramSessionId || null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [status, setStatus] = useState('idle'); // idle | listening | processing | paused | error
+  const [transcript, setTranscript] = useState([]);
+  const [suggestions, setSuggestions] = useState([]);
+  const [lang, setLang] = useState('fr');
+  const [timer, setTimer] = useState(0);
+  const [sessionId, setSessionId] = useState(paramId || null);
   const [settings, setSettings] = useState(null);
-  const [sessionData, setSessionData] = useState(null);
+  const [cvActive, setCvActive] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [copiedId, setCopiedId] = useState(null);
+  const [showPanel, setShowPanel] = useState('suggestions'); // suggestions | transcript (mobile)
 
   const timerRef = useRef(null);
-  const messagesEndRef = useRef(null);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
+  const recorderRef = useRef(null);
+  const chunksRef = useRef([]);
   const streamRef = useRef(null);
+  const autoRecordRef = useRef(true);
+  const transcriptEndRef = useRef(null);
+  const suggestionsEndRef = useRef(null);
 
-  // Load initial data
+  // Load initial
   useEffect(() => {
-    const load = async () => {
+    (async () => {
       try {
-        const sett = await getSettings();
+        const [sett, cv] = await Promise.all([getSettings(), getActiveCV()]);
         setSettings(sett);
-        if (paramSessionId) {
-          const msgs = await getSessionMessages(paramSessionId);
-          if (msgs && msgs.length > 0) {
-            setMessages(msgs.map(m => ({
-              id: m.id,
-              role: m.role,
-              content: m.content,
-              timestamp: new Date(m.created_at),
-              latencyMs: m.response_latency_ms || m.transcription_latency_ms || null,
-              isQuestion: m.role === 'user'
-            })));
+        setCvActive(!!cv);
+        if (paramId) {
+          const msgs = await getMessages(paramId);
+          if (msgs?.length) {
+            const t = [], s = [];
+            msgs.forEach(m => {
+              if (m.role === 'user') t.push({ id: m.id, text: m.content, time: new Date(m.created_at), ms: m.transcription_ms });
+              else s.push({
+                id: m.id, response: m.content, category: m.category || 'general',
+                keyPoints: m.key_points || [], toneAdvice: m.tone_advice,
+                questionSummary: m.question_summary, confidence: m.confidence || 0,
+                time: new Date(m.created_at), ms: m.response_ms
+              });
+            });
+            setTranscript(t);
+            setSuggestions(s);
           }
         }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [paramSessionId]);
+      } catch (e) { console.error(e); }
+      finally { setLoading(false); }
+    })();
+  }, [paramId]);
 
   // Auto-scroll
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  useEffect(() => { transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [transcript]);
+  useEffect(() => { suggestionsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [suggestions]);
 
   // Timer
   useEffect(() => {
-    if (['listening', 'analyzing', 'responding'].includes(status)) {
-      timerRef.current = setInterval(() => setSessionTime(p => p + 1), 1000);
+    if (['listening', 'processing'].includes(status)) {
+      timerRef.current = setInterval(() => setTimer(p => p + 1), 1000);
     } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+      clearInterval(timerRef.current);
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => clearInterval(timerRef.current);
   }, [status]);
 
-  // Cleanup
+  // Cleanup stream on unmount
   useEffect(() => {
     return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(t => t.stop());
-      }
+      autoRecordRef.current = false;
+      streamRef.current?.getTracks().forEach(t => t.stop());
     };
   }, []);
 
-  const hasApiKey = settings?.has_key;
-  const formatTime = (s) => `${Math.floor(s / 60).toString().padStart(2, '0')}:${(s % 60).toString().padStart(2, '0')}`;
+  const hasKey = settings?.has_key;
+  const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
   const startRecording = useCallback(async () => {
-    if (!hasApiKey) return;
-
-    let sid = currentSessionId;
+    if (!hasKey) return;
+    autoRecordRef.current = true;
+    let sid = sessionId;
     if (!sid) {
       try {
-        const session = await createSession({ title: `Session du ${new Date().toLocaleDateString('fr-FR')}` });
-        sid = session.id;
-        setCurrentSessionId(sid);
-        setSessionData(session);
-      } catch (e) {
-        setStatus('error');
-        return;
-      }
+        const s = await createSession({ title: `Session du ${new Date().toLocaleDateString('fr-FR')}` });
+        sid = s.id;
+        setSessionId(sid);
+        navigate(`/interview/${sid}`, { replace: true });
+      } catch { setStatus('error'); return; }
     }
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { sampleRate: 16000, channelCount: 1, echoCancellation: true, noiseSuppression: true }
+      });
       streamRef.current = stream;
-
-      const recorder = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm' });
-      mediaRecorderRef.current = recorder;
-      audioChunksRef.current = [];
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) audioChunksRef.current.push(e.data);
-      };
-
-      recorder.onstop = async () => {
-        if (audioChunksRef.current.length === 0) return;
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        audioChunksRef.current = [];
-
-        if (blob.size < 1000) return; // Too small
-
-        setIsProcessing(true);
-        setStatus('analyzing');
-
-        try {
-          const reader = new FileReader();
-          reader.onload = async () => {
-            const base64 = reader.result.split(',')[1];
-            try {
-              const result = await processAudio({
-                session_id: sid,
-                audio_data: base64,
-                mime_type: 'audio/webm',
-                language: detectedLanguage
-              });
-
-              if (result.transcript) {
-                setMessages(prev => [...prev, {
-                  id: `user-${Date.now()}`,
-                  role: 'user',
-                  content: result.transcript,
-                  timestamp: new Date(),
-                  latencyMs: result.transcription_latency_ms,
-                  isQuestion: result.is_question
-                }]);
-
-                if (result.detected_language) setDetectedLanguage(result.detected_language);
-
-                if (result.is_question && result.ai_response) {
-                  setStatus('responding');
-                  setMessages(prev => [...prev, {
-                    id: `ai-${Date.now()}`,
-                    role: 'assistant',
-                    content: result.ai_response,
-                    timestamp: new Date(),
-                    latencyMs: result.response_latency_ms
-                  }]);
-                }
-              }
-            } catch (err) {
-              console.error('Process error:', err);
-            } finally {
-              setIsProcessing(false);
-              setStatus('listening');
-              // Auto-restart recording
-              if (mediaRecorderRef.current && streamRef.current?.active) {
-                audioChunksRef.current = [];
-                try {
-                  mediaRecorderRef.current.start();
-                  setTimeout(() => {
-                    if (mediaRecorderRef.current?.state === 'recording') {
-                      mediaRecorderRef.current.stop();
-                    }
-                  }, 8000);
-                } catch (e) { /* recorder may be inactive */ }
-              }
-            }
-          };
-          reader.readAsDataURL(blob);
-        } catch (e) {
-          setIsProcessing(false);
-          setStatus('listening');
-        }
-      };
-
-      recorder.start();
-      setStatus('listening');
-
-      // Auto-stop after 8 seconds to send chunk
-      setTimeout(() => {
-        if (recorder.state === 'recording') {
-          recorder.stop();
-        }
-      }, 8000);
-
+      recordChunk(stream, sid);
     } catch (e) {
       console.error('Mic error:', e);
       setStatus('error');
     }
-  }, [hasApiKey, currentSessionId, detectedLanguage]);
+  }, [hasKey, sessionId, navigate]);
 
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-    mediaRecorderRef.current = null;
+  const recordChunk = useCallback((stream, sid) => {
+    if (!stream?.active || !autoRecordRef.current) return;
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+    const recorder = new MediaRecorder(stream, { mimeType });
+    recorderRef.current = recorder;
+    chunksRef.current = [];
+
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+    recorder.onstop = async () => {
+      if (chunksRef.current.length === 0) return;
+      const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
+      chunksRef.current = [];
+      if (blob.size < 1000) {
+        if (autoRecordRef.current && stream.active) recordChunk(stream, sid);
+        return;
+      }
+
+      setStatus('processing');
+      try {
+        const base64 = await blobToBase64(blob);
+        const result = await processAudio({ session_id: sid, audio_data: base64, mime_type: 'audio/webm', language: lang });
+
+        if (result.transcript) {
+          setTranscript(prev => [...prev, { id: `t-${Date.now()}`, text: result.transcript, time: new Date(), ms: result.transcription_ms }]);
+          if (result.detected_language) setLang(result.detected_language);
+
+          if (result.detected && result.suggested_response) {
+            setSuggestions(prev => [...prev, {
+              id: `s-${Date.now()}`, response: result.suggested_response,
+              category: result.category || 'general', keyPoints: result.key_points || [],
+              toneAdvice: result.tone_advice, questionSummary: result.question_summary,
+              confidence: result.confidence || 0, time: new Date(), ms: result.response_ms,
+              cvUsed: result.cv_active
+            }]);
+          }
+        }
+      } catch (e) { console.error('Process error:', e); }
+
+      if (autoRecordRef.current && stream.active) {
+        setStatus('listening');
+        recordChunk(stream, sid);
+      }
+    };
+
+    recorder.start();
+    setStatus('listening');
+    setTimeout(() => { if (recorder.state === 'recording') recorder.stop(); }, 7000);
+  }, [lang]);
+
+  const stopAll = useCallback(() => {
+    autoRecordRef.current = false;
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    recorderRef.current = null;
     setStatus('idle');
+    if (sessionId) updateSession(sessionId, { status: 'completed', duration_seconds: timer }).catch(() => {});
+  }, [sessionId, timer]);
 
-    if (currentSessionId) {
-      updateSession(currentSessionId, { status: 'completed', duration_seconds: sessionTime }).catch(() => {});
-    }
-  }, [currentSessionId, sessionTime]);
-
-  const pauseRecording = useCallback(() => {
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
-    }
-    mediaRecorderRef.current = null;
+  const pauseAll = useCallback(() => {
+    autoRecordRef.current = false;
+    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+    recorderRef.current = null;
     setStatus('paused');
   }, []);
 
-  const statusConfig = {
-    idle: { label: 'EN ATTENTE', color: 'text-slate-500', bg: 'bg-slate-800/50' },
-    listening: { label: 'ÉCOUTE', color: 'text-cyber-cyan', bg: 'bg-cyber-cyan/10' },
-    analyzing: { label: 'ANALYSE', color: 'text-cyber-orange', bg: 'bg-cyber-orange/10' },
-    responding: { label: 'RÉPONSE', color: 'text-cyber-green', bg: 'bg-cyber-green/10' },
-    paused: { label: 'PAUSE', color: 'text-cyber-orange', bg: 'bg-cyber-orange/10' },
-    error: { label: 'ERREUR', color: 'text-cyber-magenta', bg: 'bg-cyber-magenta/10' }
+  const copyText = (text, id) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
   };
 
-  if (loading) {
-    return (
-      <div className="h-screen bg-void cyber-grid flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-cyber-cyan animate-spin" />
-      </div>
-    );
-  }
+  const categoryLabels = {
+    question_technique: { label: 'Technique', cls: 'chip-accent' },
+    question_comportementale: { label: 'Comportementale', cls: 'chip-purple' },
+    question_experience: { label: 'Expérience', cls: 'chip-success' },
+    question_motivation: { label: 'Motivation', cls: 'chip-warn' },
+    mise_en_situation: { label: 'Mise en situation', cls: 'chip-danger' },
+    presentation: { label: 'Présentation', cls: 'chip-accent' },
+    general: { label: 'Général', cls: 'chip-neutral' },
+    none: { label: '', cls: '' },
+  };
+
+  if (loading) return <div className="h-screen bg-void flex items-center justify-center"><Loader2 className="w-6 h-6 text-accent animate-spin" /></div>;
 
   return (
-    <div className="h-screen bg-void cyber-grid flex flex-col" data-testid="interview-page">
-      {/* Top Bar */}
-      <nav className="border-b border-slate-800/50 bg-void/80 backdrop-blur-md flex-shrink-0">
-        <div className="max-w-full flex items-center justify-between h-12 px-4">
-          <div className="flex items-center gap-3">
-            <Link to="/dashboard" className="btn-ghost p-1.5" data-testid="interview-back-btn">
-              <ChevronLeft className="w-5 h-5" />
-            </Link>
-            <Brain className="w-4 h-4 text-cyber-cyan" />
-            <span className="font-heading text-sm tracking-wider text-slate-400 hidden sm:block">
-              {sessionData?.title || (paramSessionId ? 'SESSION' : 'NOUVELLE SESSION')}
-            </span>
+    <div className="h-screen bg-void flex flex-col" data-testid="interview-page">
+      {/* Top bar */}
+      <header className="h-12 border-b border-white/[0.04] bg-void/80 backdrop-blur-xl flex items-center px-4 gap-3 flex-shrink-0 z-50">
+        <Link to="/dashboard" className="btn-ghost p-1.5" data-testid="interview-back"><ArrowLeft className="w-4 h-4" /></Link>
+        <div className="w-px h-5 bg-white/[0.06]" />
+        <span className="font-display text-xs text-slate-500 tracking-wider hidden sm:block">
+          {sessionId ? 'SESSION EN COURS' : 'NOUVELLE SESSION'}
+        </span>
+        <div className="flex-1" />
+        <div className="flex items-center gap-2">
+          {cvActive && <span className="chip chip-success text-[0.6rem]" data-testid="cv-badge"><FileText className="w-3 h-3" /> CV actif</span>}
+          <div className="chip chip-neutral" data-testid="lang-badge">
+            <Globe className="w-3 h-3" /> {lang === 'fr' ? 'FR' : 'EN'}
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1 border border-slate-800 bg-paper" data-testid="language-indicator">
-              <Globe className="w-3 h-3 text-slate-500" />
-              <span className="font-mono text-xs">{detectedLanguage === 'fr' ? 'FR' : 'EN'}</span>
-            </div>
-            <div className="flex items-center gap-2 px-3 py-1 border border-slate-800 bg-paper" data-testid="timer-display">
-              <Clock className="w-3 h-3 text-slate-500" />
-              <span className="font-mono text-xs">{formatTime(sessionTime)}</span>
-            </div>
-            <div className={`flex items-center gap-2 px-3 py-1 ${statusConfig[status].bg}`} data-testid="status-indicator">
-              {status === 'listening' && <div className="w-2 h-2 rounded-full bg-cyber-cyan pulse-recording" />}
-              {status === 'analyzing' && <Loader2 className="w-3 h-3 text-cyber-orange animate-spin" />}
-              {status === 'responding' && <Zap className="w-3 h-3 text-cyber-green animate-pulse" />}
-              {['idle', 'paused', 'error'].includes(status) && <div className={`w-2 h-2 rounded-full ${status === 'error' ? 'bg-cyber-magenta' : status === 'paused' ? 'bg-cyber-orange' : 'bg-slate-600'}`} />}
-              <span className={`text-xs font-heading tracking-wider ${statusConfig[status].color}`}>{statusConfig[status].label}</span>
-            </div>
+          <div className="chip chip-neutral font-mono" data-testid="timer-badge">
+            <Clock className="w-3 h-3" /> {fmt(timer)}
           </div>
+          <StatusBadge status={status} />
         </div>
-      </nav>
+      </header>
 
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        {/* Conversation Panel */}
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="flex-1 overflow-y-auto p-4 pb-32" data-testid="messages-container">
-            <div className="max-w-3xl mx-auto space-y-4">
-              {messages.length === 0 && status === 'idle' && (
-                <div className="text-center py-16 fade-in-up" data-testid="empty-state">
-                  <div className="w-20 h-20 border border-cyber-cyan/30 bg-cyber-cyan/5 flex items-center justify-center mx-auto mb-6 glow-cyan">
-                    <Mic className="w-10 h-10 text-cyber-cyan" />
+      {/* Mobile toggle */}
+      <div className="lg:hidden flex border-b border-white/[0.04]">
+        <button className={`flex-1 py-2.5 text-xs font-display tracking-wider ${showPanel === 'transcript' ? 'text-accent border-b-2 border-accent' : 'text-slate-500'}`}
+          onClick={() => setShowPanel('transcript')} data-testid="mobile-transcript-tab">
+          Transcription
+        </button>
+        <button className={`flex-1 py-2.5 text-xs font-display tracking-wider ${showPanel === 'suggestions' ? 'text-accent border-b-2 border-accent' : 'text-slate-500'}`}
+          onClick={() => setShowPanel('suggestions')} data-testid="mobile-suggestions-tab">
+          Suggestions {suggestions.length > 0 && <span className="ml-1 px-1.5 py-0.5 bg-accent/20 text-accent rounded-full text-[0.6rem]">{suggestions.length}</span>}
+        </button>
+      </div>
+
+      {/* Main split view */}
+      <div className="flex-1 flex overflow-hidden relative">
+        {/* LEFT: Transcript */}
+        <div className={`flex-1 flex flex-col border-r border-white/[0.04] ${showPanel !== 'transcript' ? 'hidden lg:flex' : 'flex'}`}>
+          <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2">
+            <Mic className="w-3.5 h-3.5 text-accent" />
+            <h2 className="font-display text-xs tracking-wider text-slate-500">TRANSCRIPTION EN DIRECT</h2>
+            <div className="flex-1" />
+            <span className="text-[0.65rem] text-slate-600 font-mono">{transcript.length} segments</span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3" data-testid="transcript-panel">
+            {transcript.length === 0 && status === 'idle' && (
+              <div className="flex-1 flex items-center justify-center h-full" data-testid="transcript-empty">
+                <div className="text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-white/[0.02] border border-white/[0.06] flex items-center justify-center mx-auto mb-4">
+                    <Mic className="w-8 h-8 text-slate-700" />
                   </div>
-                  <h2 className="font-heading font-bold text-2xl mb-3 text-cyber-cyan text-glow-cyan">PRÊT À COMMENCER</h2>
-                  <p className="text-slate-400 max-w-md mx-auto mb-6">
-                    Cliquez sur le bouton microphone pour démarrer l'enregistrement.
-                    L'assistant analysera vos questions en temps réel.
-                  </p>
-                  {!hasApiKey && (
-                    <div className="inline-flex items-center gap-2 px-4 py-2 border border-cyber-orange/30 bg-cyber-orange/5 text-cyber-orange text-sm">
-                      <AlertCircle className="w-4 h-4" />
-                      <span>Configurez votre clé API dans les paramètres</span>
-                    </div>
-                  )}
+                  <p className="text-sm text-slate-400 mb-1">En attente d'enregistrement</p>
+                  <p className="text-xs text-slate-600">Les paroles du recruteur apparaîtront ici</p>
                 </div>
-              )}
-
-              {messages.map((msg, idx) => (
-                <MessageBubble key={msg.id || idx} message={msg} />
-              ))}
-
-              {isProcessing && (
-                <div className="flex items-center gap-3 p-4 border border-cyber-orange/20 bg-cyber-orange/5 fade-in-up" data-testid="processing-indicator">
-                  <Loader2 className="w-5 h-5 text-cyber-orange animate-spin" />
-                  <div>
-                    <p className="text-sm font-heading text-cyber-orange tracking-wider">
-                      {status === 'analyzing' ? 'ANALYSE EN COURS...' : 'GÉNÉRATION DE RÉPONSE...'}
-                    </p>
-                    <p className="text-xs text-slate-500">Traitement par l'IA</p>
+              </div>
+            )}
+            {transcript.map((t, i) => (
+              <div key={t.id} className="fade-up" data-testid={`transcript-${i}`}>
+                <div className="card-inner p-3.5 relative group">
+                  <p className="text-sm text-slate-200 leading-relaxed pr-8">{t.text}</p>
+                  <button className="absolute top-2.5 right-2.5 btn-ghost p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => copyText(t.text, t.id)} data-testid={`copy-transcript-${i}`}>
+                    {copiedId === t.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  </button>
+                  <div className="flex items-center gap-2 mt-2 text-[0.65rem] text-slate-600">
+                    <span className="font-mono">{t.time?.toLocaleTimeString?.('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                    {t.ms && <span className="font-mono text-accent/60">{t.ms}ms</span>}
                   </div>
                 </div>
-              )}
-
-              <div ref={messagesEndRef} />
-            </div>
-          </div>
-
-          {/* Controls */}
-          <div className="sticky bottom-0 left-0 right-0 p-4 border-t border-slate-800/50 bg-void/95 backdrop-blur-md z-20" data-testid="controls-panel">
-            <div className="max-w-3xl mx-auto flex items-center justify-center gap-4">
-              {status === 'idle' ? (
-                <button
-                  className="btn-primary text-lg px-8 py-4 flex items-center gap-3"
-                  onClick={startRecording}
-                  disabled={!hasApiKey}
-                  data-testid="start-recording-btn"
-                >
-                  <Mic className="w-6 h-6" />
-                  DÉMARRER
-                </button>
-              ) : status === 'paused' ? (
-                <>
-                  <button className="btn-primary px-6 py-4 flex items-center gap-2 bg-cyber-green border-cyber-green" onClick={startRecording} data-testid="resume-btn">
-                    <Play className="w-5 h-5" /> REPRENDRE
-                  </button>
-                  <button className="btn-danger px-6 py-4 flex items-center gap-2" onClick={stopRecording} data-testid="stop-btn">
-                    <Square className="w-5 h-5" /> TERMINER
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button className="btn-secondary px-6 py-4 flex items-center gap-2 border-cyber-orange text-cyber-orange hover:bg-cyber-orange/10" onClick={pauseRecording} disabled={isProcessing} data-testid="pause-btn">
-                    <Pause className="w-5 h-5" /> PAUSE
-                  </button>
-                  <button className="btn-danger px-6 py-4 flex items-center gap-2" onClick={stopRecording} disabled={isProcessing} data-testid="stop-recording-btn">
-                    <Square className="w-5 h-5" /> ARRÊTER
-                  </button>
-                </>
-              )}
-            </div>
+              </div>
+            ))}
+            {status === 'processing' && (
+              <div className="flex items-center gap-2.5 p-3 card-inner border-amber-500/10" data-testid="processing-indicator">
+                <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                <span className="text-xs text-amber-400 font-display">Analyse en cours...</span>
+              </div>
+            )}
+            <div ref={transcriptEndRef} />
           </div>
         </div>
 
-        {/* Side Panel - Stats (desktop) */}
-        <div className="hidden lg:block w-72 border-l border-slate-800/50 bg-paper/50 p-4 overflow-auto" data-testid="stats-panel">
-          <h3 className="font-heading text-xs tracking-widest mb-4 text-slate-500">STATISTIQUES SESSION</h3>
-          <div className="space-y-4">
-            <StatBox icon={MessageSquare} label="Questions détectées" value={messages.filter(m => m.isQuestion).length} color="cyan" />
-            <StatBox icon={Zap} label="Réponses générées" value={messages.filter(m => m.role === 'assistant').length} color="purple" />
-            <StatBox icon={Clock} label="Latence moyenne" value={
-              messages.filter(m => m.latencyMs).length > 0
-                ? `${Math.round(messages.filter(m => m.latencyMs).reduce((a, m) => a + m.latencyMs, 0) / messages.filter(m => m.latencyMs).length)}ms`
-                : '—'
-            } color="green" />
-            <StatBox icon={Globe} label="Langue détectée" value={detectedLanguage === 'fr' ? 'Français' : 'English'} color="orange" />
+        {/* RIGHT: AI Suggestions */}
+        <div className={`flex-1 flex flex-col ${showPanel !== 'suggestions' ? 'hidden lg:flex' : 'flex'}`}>
+          <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2">
+            <Lightbulb className="w-3.5 h-3.5 text-accent2" />
+            <h2 className="font-display text-xs tracking-wider text-slate-500">SUGGESTIONS IA</h2>
+            <div className="flex-1" />
+            <span className="text-[0.65rem] text-slate-600 font-mono">{suggestions.length} suggestions</span>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-4" data-testid="suggestions-panel">
+            {suggestions.length === 0 && (
+              <div className="flex-1 flex items-center justify-center h-full" data-testid="suggestions-empty">
+                <div className="text-center">
+                  <div className="w-16 h-16 rounded-2xl bg-accent2/[0.04] border border-accent2/10 flex items-center justify-center mx-auto mb-4">
+                    <Lightbulb className="w-8 h-8 text-accent2/30" />
+                  </div>
+                  <p className="text-sm text-slate-400 mb-1">En attente de questions</p>
+                  <p className="text-xs text-slate-600">Les suggestions basées sur votre CV apparaîtront ici</p>
+                </div>
+              </div>
+            )}
+            {suggestions.map((s, i) => (
+              <SuggestionCard key={s.id} suggestion={s} index={i} onCopy={copyText} copiedId={copiedId} categoryLabels={categoryLabels} />
+            ))}
+            <div ref={suggestionsEndRef} />
           </div>
         </div>
+      </div>
+
+      {/* Controls bar */}
+      <div className="h-20 border-t border-white/[0.04] bg-base/90 backdrop-blur-xl flex items-center justify-center gap-3 px-4 flex-shrink-0 z-50" data-testid="controls">
+        {status === 'idle' ? (
+          <button className="btn btn-primary text-sm px-10 py-3.5" onClick={startRecording} disabled={!hasKey} data-testid="start-btn">
+            <Mic className="w-5 h-5" /> Démarrer l'écoute
+          </button>
+        ) : status === 'paused' ? (
+          <>
+            <button className="btn btn-success text-sm px-6 py-3" onClick={startRecording} data-testid="resume-btn">
+              <Play className="w-4 h-4" /> Reprendre
+            </button>
+            <button className="btn btn-danger-outline text-sm px-6 py-3" onClick={stopAll} data-testid="stop-btn">
+              <Square className="w-4 h-4" /> Terminer
+            </button>
+          </>
+        ) : (
+          <>
+            {status === 'listening' && <WaveformIndicator />}
+            {status === 'processing' && <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />}
+            <button className="btn btn-outline text-sm px-6 py-3 border-amber-500/20 text-amber-400 hover:bg-amber-500/5" onClick={pauseAll} disabled={status === 'processing'} data-testid="pause-btn">
+              <Pause className="w-4 h-4" /> Pause
+            </button>
+            <button className="btn btn-danger-outline text-sm px-6 py-3" onClick={stopAll} disabled={status === 'processing'} data-testid="stop-all-btn">
+              <Square className="w-4 h-4" /> Arrêter
+            </button>
+          </>
+        )}
+        {!hasKey && status === 'idle' && (
+          <Link to="/settings"><button className="btn btn-outline text-xs" data-testid="go-settings-btn"><AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Configurer la clé API</button></Link>
+        )}
       </div>
     </div>
   );
 }
 
-function StatBox({ icon: Icon, label, value, color }) {
+function StatusBadge({ status }) {
+  const map = {
+    idle: { label: 'En attente', cls: 'chip-neutral' },
+    listening: { label: 'Écoute', cls: 'chip-accent' },
+    processing: { label: 'Analyse', cls: 'chip-warn' },
+    paused: { label: 'Pause', cls: 'chip-warn' },
+    error: { label: 'Erreur', cls: 'chip-danger' },
+  };
+  const c = map[status] || map.idle;
   return (
-    <div className="p-3 bg-void border border-slate-800/50">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-slate-500">{label}</span>
-        <Icon className={`w-4 h-4 text-cyber-${color}`} />
-      </div>
-      <p className={`text-xl font-heading font-bold text-cyber-${color}`}>{value}</p>
+    <span className={`chip ${c.cls}`} data-testid="status-badge">
+      {status === 'listening' && <span className="w-1.5 h-1.5 rounded-full bg-accent pulse-dot" />}
+      {status === 'processing' && <Loader2 className="w-3 h-3 animate-spin" />}
+      {c.label}
+    </span>
+  );
+}
+
+function WaveformIndicator() {
+  return (
+    <div className="flex items-center gap-[3px] h-8 px-2" data-testid="waveform">
+      {[...Array(5)].map((_, i) => <div key={i} className="wave-bar" />)}
     </div>
   );
 }
 
-function MessageBubble({ message }) {
-  const isUser = message.role === 'user';
+function SuggestionCard({ suggestion: s, index, onCopy, copiedId, categoryLabels }) {
+  const [expanded, setExpanded] = useState(true);
+  const cat = categoryLabels[s.category] || categoryLabels.general;
 
   return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} fade-in-up`} data-testid={`message-${message.id}`}>
-      <div className={`max-w-[85%]`}>
-        <div className={`p-4 ${
-          isUser
-            ? 'bg-cyber-cyan/5 border border-cyber-cyan/20'
-            : 'bg-cyber-green/5 border border-cyber-green/20'
-        }`}>
-          {message.isQuestion && isUser && (
-            <span className="text-xs font-heading text-cyber-cyan tracking-wider px-2 py-0.5 bg-cyber-cyan/10 border border-cyber-cyan/20 mb-2 inline-block">
-              QUESTION DÉTECTÉE
-            </span>
+    <div className="card fade-up overflow-hidden" data-testid={`suggestion-${index}`}>
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2 cursor-pointer" onClick={() => setExpanded(!expanded)}>
+        <Zap className="w-3.5 h-3.5 text-accent2" />
+        {cat.label && <span className={`chip text-[0.6rem] ${cat.cls}`}>{cat.label}</span>}
+        {s.confidence > 0 && <span className="chip chip-neutral text-[0.6rem]">{Math.round(s.confidence * 100)}%</span>}
+        <div className="flex-1" />
+        {s.ms && <span className="text-[0.6rem] text-slate-600 font-mono">{s.ms}ms</span>}
+        <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${expanded ? '' : '-rotate-90'}`} />
+      </div>
+
+      {expanded && (
+        <div className="p-4 space-y-3">
+          {/* Question summary */}
+          {s.questionSummary && (
+            <div className="p-3 rounded-lg bg-accent/[0.04] border border-accent/10">
+              <p className="text-[0.65rem] text-accent/70 font-display tracking-wider mb-1">QUESTION DÉTECTÉE</p>
+              <p className="text-sm text-slate-300">{s.questionSummary}</p>
+            </div>
           )}
-          {isUser ? (
-            <p className="text-sm leading-relaxed text-slate-200">{message.content}</p>
-          ) : (
-            <div className="ai-response text-sm text-slate-200">
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+
+          {/* AI Response */}
+          <div className="relative group">
+            <div className="ai-md text-sm text-slate-300 leading-relaxed">
+              <ReactMarkdown>{s.response}</ReactMarkdown>
+            </div>
+            <button className="absolute top-0 right-0 btn btn-outline text-[0.65rem] py-1 px-2.5 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => onCopy(s.response, s.id)} data-testid={`copy-suggestion-${index}`}>
+              {copiedId === s.id ? <><Check className="w-3 h-3 text-emerald-400" /> Copié</> : <><Copy className="w-3 h-3" /> Copier</>}
+            </button>
+          </div>
+
+          {/* Key points */}
+          {s.keyPoints?.length > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-[0.65rem] text-slate-500 font-display tracking-wider">POINTS CLÉS</p>
+              <div className="flex flex-wrap gap-1.5">
+                {s.keyPoints.map((kp, i) => (
+                  <span key={i} className="chip chip-accent text-[0.6rem]">{kp}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Tone advice */}
+          {s.toneAdvice && (
+            <div className="p-2.5 rounded-lg bg-accent2/[0.04] border border-accent2/10 flex items-start gap-2">
+              <Lightbulb className="w-3.5 h-3.5 text-accent2 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-accent2/80">{s.toneAdvice}</p>
+            </div>
+          )}
+
+          {s.cvUsed && (
+            <div className="flex items-center gap-1.5 text-[0.6rem] text-emerald-400/60">
+              <FileText className="w-3 h-3" /> Personnalisé avec votre CV
             </div>
           )}
         </div>
-        <div className={`flex items-center gap-2 mt-1 px-1 ${isUser ? 'justify-end' : 'justify-start'}`}>
-          <span className="text-xs text-slate-600 font-mono">
-            {message.timestamp?.toLocaleTimeString?.('fr-FR', { hour: '2-digit', minute: '2-digit' }) || ''}
-          </span>
-          {message.latencyMs && (
-            <span className={`text-xs font-mono ${message.latencyMs < 2000 ? 'text-cyber-green' : message.latencyMs < 5000 ? 'text-cyber-orange' : 'text-cyber-magenta'}`}>
-              {message.latencyMs}ms
-            </span>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.readAsDataURL(blob);
+  });
 }
