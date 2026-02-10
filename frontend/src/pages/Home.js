@@ -1,160 +1,144 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Brain, Mic, FileText, BarChart3, Zap, Shield, ChevronRight, Globe, Clock } from 'lucide-react';
+import { Mic, FileText, BarChart3, Zap, Shield, ChevronRight, Sparkles, Brain, Clock, Copy } from 'lucide-react';
 import { getSettings } from '../services/api';
 
 export default function Home() {
   const [hasKey, setHasKey] = useState(false);
+  useEffect(() => { getSettings().then(s => setHasKey(s.has_key)).catch(() => {}); }, []);
 
-  useEffect(() => {
-    getSettings().then(s => setHasKey(s.has_key)).catch(() => {});
-  }, []);
-
-  const features = [
-    { icon: Mic, title: 'Transcription Temps Réel', desc: 'Capture audio via navigateur avec transcription Whisper en moins de 2 secondes. Détection automatique de la voix.', color: 'cyan' },
-    { icon: Brain, title: 'Détection Naturelle', desc: "L'IA analyse le contexte conversationnel pour identifier questions, mises en situation et demandes implicites.", color: 'purple' },
-    { icon: FileText, title: 'Intégration CV', desc: 'Upload PDF avec extraction structurée. Vos expériences et compétences sont injectées dans chaque réponse.', color: 'green' },
-    { icon: Zap, title: 'Réponses Instantanées', desc: 'Génération de réponses personnalisées en temps réel. Méthode STAR pour les questions comportementales.', color: 'orange' },
-    { icon: BarChart3, title: 'Analytics Détaillés', desc: 'Dashboard avec historique, types de questions détectées, latences moyennes et progression.', color: 'magenta' },
-    { icon: Shield, title: 'Confidentialité Totale', desc: 'Votre clé API OpenAI est stockée localement. Vos données de session vous appartiennent.', color: 'cyan' },
-  ];
-
-  const colorMap = {
-    cyan: { border: 'border-cyber-cyan/30', bg: 'bg-cyber-cyan/10', text: 'text-cyber-cyan', glow: 'hover:glow-cyan' },
-    purple: { border: 'border-cyber-purple/30', bg: 'bg-cyber-purple/10', text: 'text-cyber-purple', glow: 'hover:glow-purple' },
-    green: { border: 'border-cyber-green/30', bg: 'bg-cyber-green/10', text: 'text-cyber-green', glow: 'hover:glow-green' },
-    orange: { border: 'border-cyber-orange/30', bg: 'bg-cyber-orange/10', text: 'text-cyber-orange' },
-    magenta: { border: 'border-cyber-magenta/30', bg: 'bg-cyber-magenta/10', text: 'text-cyber-magenta', glow: 'hover:glow-magenta' },
-  };
+  const startHref = hasKey ? '/interview' : '/settings';
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Ambient glows */}
-      <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-cyber-cyan/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-cyber-purple/5 rounded-full blur-[120px] pointer-events-none" />
+      {/* Ambient */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-accent/[0.04] rounded-full blur-[150px] pointer-events-none" />
+      <div className="fixed bottom-0 right-0 w-[600px] h-[600px] bg-accent2/[0.03] rounded-full blur-[150px] pointer-events-none" />
 
       {/* Nav */}
-      <nav className="relative z-10 border-b border-slate-800/50 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto flex items-center justify-between h-16 px-6 lg:px-12">
-          <Link to="/" className="flex items-center gap-3" data-testid="home-logo">
-            <div className="w-10 h-10 border border-cyber-cyan/50 flex items-center justify-center glow-cyan">
-              <Brain className="w-6 h-6 text-cyber-cyan" />
+      <nav className="relative z-20 border-b border-white/[0.04] backdrop-blur-xl">
+        <div className="max-w-6xl mx-auto flex items-center justify-between h-16 px-6">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
+              <Mic className="w-4 h-4 text-accent" />
             </div>
-            <span className="font-heading font-bold text-xl tracking-widest text-cyber-cyan text-glow-cyan">
-              INTERVIEW AI
-            </span>
-          </Link>
-          <div className="flex items-center gap-4">
-            <Link to="/dashboard" data-testid="home-dashboard-link">
-              <button className="btn-ghost font-heading text-sm tracking-wider">Tableau de bord</button>
-            </Link>
-            <Link to={hasKey ? '/interview' : '/settings'} data-testid="home-start-btn">
-              <button className="btn-primary flex items-center gap-2">
-                <Mic className="w-4 h-4" />
-                Démarrer
-              </button>
-            </Link>
+            <span className="font-display font-bold text-base tracking-wide" data-testid="home-logo">InterviewAI</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link to="/dashboard"><button className="btn btn-ghost text-xs" data-testid="home-nav-dashboard">Tableau de bord</button></Link>
+            <Link to={startHref}><button className="btn btn-primary text-xs" data-testid="home-nav-start">Commencer</button></Link>
           </div>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 py-24 lg:py-36">
-        <div className="max-w-4xl">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 border border-cyber-cyan/30 bg-cyber-cyan/5 mb-8">
-            <Zap className="w-4 h-4 text-cyber-cyan" />
-            <span className="text-sm text-cyber-cyan font-medium font-heading tracking-wider">PROPULSÉ PAR L'IA</span>
+      <section className="relative z-10 max-w-6xl mx-auto px-6 pt-20 pb-16 lg:pt-32 lg:pb-24">
+        <div className="max-w-3xl">
+          <div className="chip chip-accent mb-6" data-testid="hero-badge">
+            <Sparkles className="w-3 h-3" /> Assistant IA en temps réel
           </div>
-
-          <h1 className="font-heading font-bold text-5xl md:text-7xl lg:text-8xl leading-[0.9] mb-8">
-            <span className="gradient-text">MAÎTRISEZ</span>
+          <h1 className="font-display font-bold text-4xl sm:text-5xl lg:text-[3.5rem] leading-[1.1] mb-6" data-testid="hero-title">
+            Votre coach d'entretien
             <br />
-            <span className="text-white">VOS ENTRETIENS</span>
-            <br />
-            <span className="text-cyber-purple text-glow-purple">TECHNIQUES</span>
+            <span className="text-accent">invisible et intelligent</span>
           </h1>
-
-          <p className="text-lg md:text-xl text-slate-400 max-w-2xl mb-12 leading-relaxed">
-            Entraînez-vous avec une IA qui comprend le contexte, détecte les questions naturellement
-            et génère des réponses personnalisées basées sur votre CV.
+          <p className="text-base sm:text-lg text-slate-400 max-w-xl mb-10 leading-relaxed" data-testid="hero-subtitle">
+            Pendant votre entretien, l'IA écoute, détecte les questions du recruteur 
+            et vous suggère des réponses personnalisées basées sur votre CV.
           </p>
-
-          <div className="flex flex-wrap gap-4">
-            <Link to={hasKey ? '/interview' : '/settings'} data-testid="hero-start-btn">
-              <button className="btn-primary text-lg px-8 py-4 flex items-center gap-3">
-                <Mic className="w-5 h-5" />
-                Commencer l'entraînement
+          <div className="flex flex-wrap gap-3">
+            <Link to={startHref}>
+              <button className="btn btn-primary text-sm px-8 py-3.5" data-testid="hero-cta">
+                <Mic className="w-4 h-4" /> Lancer une session
               </button>
             </Link>
-            <Link to="/dashboard" data-testid="hero-demo-btn">
-              <button className="btn-secondary text-lg px-8 py-4 flex items-center gap-2">
-                Voir le tableau de bord
-                <ChevronRight className="w-5 h-5" />
+            <Link to="/dashboard">
+              <button className="btn btn-outline text-sm px-6 py-3.5" data-testid="hero-dashboard">
+                Voir mes sessions <ChevronRight className="w-4 h-4" />
               </button>
             </Link>
           </div>
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section className="relative z-10 max-w-6xl mx-auto px-6 py-16">
+        <h2 className="font-display font-bold text-2xl mb-12" data-testid="how-title">
+          Comment ça marche
+        </h2>
+        <div className="grid md:grid-cols-3 gap-5">
+          {[
+            { step: '01', icon: Mic, title: 'Activez le micro', desc: 'Lancez une session et l\'IA écoute votre conversation en temps réel via le micro du navigateur.' },
+            { step: '02', icon: Brain, title: 'Détection intelligente', desc: 'L\'IA identifie automatiquement les questions, demandes et mises en situation du recruteur.' },
+            { step: '03', icon: Copy, title: 'Réponses sur-mesure', desc: 'Des suggestions personnalisées apparaissent instantanément, basées sur votre CV et votre parcours.' },
+          ].map((s, i) => (
+            <div key={i} className="card p-6 group" data-testid={`step-card-${i}`}>
+              <div className="flex items-center gap-3 mb-4">
+                <span className="font-mono text-xs text-accent/50">{s.step}</span>
+                <div className="w-10 h-10 rounded-lg bg-accent/[0.06] border border-accent/10 flex items-center justify-center group-hover:bg-accent/10 transition-colors">
+                  <s.icon className="w-5 h-5 text-accent" />
+                </div>
+              </div>
+              <h3 className="font-display font-semibold text-base mb-2">{s.title}</h3>
+              <p className="text-sm text-slate-400 leading-relaxed">{s.desc}</p>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* Features */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 py-20">
-        <div className="mb-16">
-          <h2 className="font-heading font-bold text-3xl md:text-4xl mb-4">
-            <span className="text-cyber-cyan text-glow-cyan">FONCTIONNALITÉS</span> AVANCÉES
-          </h2>
-          <p className="text-slate-400 max-w-xl">
-            Une suite complète d'outils pour vous préparer aux entretiens les plus exigeants.
-          </p>
-        </div>
-
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {features.map((f, i) => {
-            const c = colorMap[f.color];
-            return (
-              <div
-                key={i}
-                className={`cyber-card p-6 ${c.glow || ''} transition-all duration-300 group`}
-                style={{ animationDelay: `${i * 0.1}s` }}
-                data-testid={`feature-card-${i}`}
-              >
-                <div className={`w-12 h-12 ${c.bg} ${c.border} border flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
-                  <f.icon className={`w-6 h-6 ${c.text}`} />
-                </div>
-                <h3 className="font-heading font-semibold text-lg mb-2 text-white">{f.title}</h3>
-                <p className="text-sm text-slate-400 leading-relaxed">{f.desc}</p>
+      <section className="relative z-10 max-w-6xl mx-auto px-6 py-16">
+        <h2 className="font-display font-bold text-2xl mb-12" data-testid="features-title">
+          Fonctionnalités
+        </h2>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[
+            { icon: Mic, label: 'Whisper AI', desc: 'Transcription audio temps réel avec OpenAI Whisper', chip: 'TEMPS RÉEL' },
+            { icon: Brain, label: 'Analyse contextuelle', desc: 'Détection de questions techniques, comportementales et situationnelles', chip: 'GPT-4o' },
+            { icon: FileText, label: 'CV intelligent', desc: 'Upload PDF, extraction structurée et personnalisation des réponses', chip: 'CV' },
+            { icon: Zap, label: 'Pipeline rapide', desc: 'Transcription + analyse + réponse en quelques secondes', chip: 'RAPIDE' },
+            { icon: BarChart3, label: 'Analytics', desc: 'Historique des sessions, questions détectées et latences', chip: 'STATS' },
+            { icon: Shield, label: 'Vos données, votre clé', desc: 'Votre clé API OpenAI, rien ne transite par nos serveurs', chip: 'PRIVÉ' },
+          ].map((f, i) => (
+            <div key={i} className="card-inner p-5 flex gap-4" data-testid={`feature-${i}`}>
+              <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-white/[0.03] flex items-center justify-center">
+                <f.icon className="w-4 h-4 text-slate-400" />
               </div>
-            );
-          })}
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="font-display text-sm font-medium">{f.label}</h3>
+                  <span className="chip chip-neutral text-[0.6rem]">{f.chip}</span>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed">{f.desc}</p>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* CTA */}
-      <section className="relative z-10 max-w-7xl mx-auto px-6 lg:px-12 py-20">
-        <div className="cyber-card p-8 md:p-12 text-center relative overflow-hidden">
-          <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyber-cyan to-transparent" />
-          <h2 className="font-heading font-bold text-2xl md:text-3xl mb-4">
-            PRÊT À <span className="text-cyber-cyan text-glow-cyan">DOMINER</span> VOS ENTRETIENS ?
+      <section className="relative z-10 max-w-6xl mx-auto px-6 py-16 pb-24">
+        <div className="card p-8 md:p-12 text-center relative overflow-hidden">
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
+          <h2 className="font-display font-bold text-2xl mb-3">
+            Prêt pour votre prochain entretien ?
           </h2>
-          <p className="text-slate-400 max-w-xl mx-auto mb-8">
-            Configurez votre clé API OpenAI et commencez à vous entraîner immédiatement.
+          <p className="text-sm text-slate-400 max-w-md mx-auto mb-6">
+            {hasKey ? 'Votre clé API est configurée. Lancez une session maintenant.' : 'Configurez votre clé API OpenAI pour commencer.'}
           </p>
-          <Link to={hasKey ? '/interview' : '/settings'} data-testid="cta-start-btn">
-            <button className="btn-primary text-lg px-8 py-4 flex items-center gap-2 mx-auto">
-              {hasKey ? 'Accéder à mon espace' : 'Configurer et commencer'}
-              <ChevronRight className="w-5 h-5" />
+          <Link to={startHref}>
+            <button className="btn btn-primary px-8 py-3" data-testid="cta-btn">
+              {hasKey ? 'Lancer une session' : 'Configurer et commencer'}
             </button>
           </Link>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-slate-800/50 py-8">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <Brain className="w-4 h-4 text-cyber-cyan" />
-            <span className="font-heading text-xs tracking-widest text-slate-500">INTERVIEW AI &copy; 2025</span>
-          </div>
-          <p className="text-xs text-slate-600">Propulsé par OpenAI Whisper & GPT</p>
+      <footer className="relative z-10 border-t border-white/[0.04] py-6">
+        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
+          <span className="text-xs text-slate-600 font-mono">InterviewAI v2.0</span>
+          <span className="text-xs text-slate-600">OpenAI Whisper + GPT</span>
         </div>
       </footer>
     </div>
