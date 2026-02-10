@@ -287,8 +287,13 @@ export default function Interview() {
               <WaveformLarge />
               <p className="text-sm text-accent font-display mt-6 mb-1">Écoute en cours...</p>
               <p className="text-xs text-slate-500">
-                {chunkCount > 0 ? `${chunkCount} segments analysés` : 'En attente de détection de question'}
+                {chunkCount > 0 ? `${chunkCount} segment${chunkCount > 1 ? 's' : ''} analysé${chunkCount > 1 ? 's' : ''}` : 'En attente de détection de question'}
               </p>
+              {lastError && (
+                <div className="mt-4 p-3 rounded-lg bg-red-500/[0.06] border border-red-500/15 max-w-md" data-testid="error-msg">
+                  <p className="text-xs text-red-400 flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" /> {lastError}</p>
+                </div>
+              )}
             </div>
           )}
 
