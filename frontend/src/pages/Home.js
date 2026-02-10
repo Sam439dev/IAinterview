@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Mic, FileText, BarChart3, Zap, Shield, ChevronRight, Sparkles, Brain, Clock, Copy } from 'lucide-react';
+import { Mic, FileText, BarChart3, Zap, Shield, ChevronRight, Sparkles, Brain, Copy } from 'lucide-react';
 import { getSettings } from '../services/api';
 
 export default function Home() {
