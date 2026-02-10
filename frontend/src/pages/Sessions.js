@@ -72,7 +72,14 @@ export default function Sessions() {
                         }`}>{s.status === 'active' ? 'Actif' : s.status === 'paused' ? 'Pause' : 'Terminé'}</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <Link to={`/interview/${s.id}`}>
+                        {s.status === 'completed' && s.summary && (
+                          <Link to={`/session/${s.id}/summary`}>
+                            <button className="btn btn-outline text-[0.65rem] py-1.5 px-3 border-accent2/20 text-accent2 hover:bg-accent2/5" data-testid={`summary-${s.id}`}>
+                              <FileText className="w-3 h-3" /> Résumé
+                            </button>
+                          </Link>
+                        )}
+                        <Link to={s.status === 'completed' ? `/session/${s.id}/summary` : `/interview/${s.id}`}>
                           <button className="btn btn-outline text-[0.65rem] py-1.5 px-3" data-testid={`view-${s.id}`}>
                             <Play className="w-3 h-3" /> {s.status === 'completed' ? 'Voir' : 'Reprendre'}
                           </button>
