@@ -18,4 +18,4 @@ export const createSession = (d) => ax.post('/api/sessions', d).then(r => r.data
 export const updateSession = (id, d) => ax.put(`/api/sessions/${id}`, d).then(r => r.data);
 export const deleteSession = (id) => ax.delete(`/api/sessions/${id}`).then(r => r.data);
 export const getMessages = (id) => ax.get(`/api/sessions/${id}/messages`).then(r => r.data);
-export const processAudio = (d) => ax.post('/api/interview/process-audio', d).then(r => r.data);
+export const processText = (d) => ax.post('/api/interview/process-text', d).then(r => r.data);
