@@ -195,6 +195,22 @@ function CVSection() {
               </button>
             </div>
 
+            {/* Warning if CV not properly parsed */}
+            {!hasParsedData && (
+              <div className="p-3 rounded-lg bg-amber-500/[0.06] border border-amber-500/15 flex items-start gap-2.5" data-testid="cv-parse-warning">
+                <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-xs text-amber-400 font-medium mb-1">CV non analysé</p>
+                  <p className="text-[0.65rem] text-slate-500 mb-2">L'extraction structurée n'a pas fonctionné. Re-parsez le CV pour activer la personnalisation des réponses.</p>
+                  <button className="btn btn-outline text-[0.65rem] py-1.5 px-3 border-amber-500/20 text-amber-400 hover:bg-amber-500/5"
+                    onClick={handleReparse} disabled={reparsing} data-testid="reparse-cv-btn">
+                    {reparsing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    Re-parser le CV
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Parsed data display */}
             {cv.parsed_data && (
               <div className="space-y-3">
