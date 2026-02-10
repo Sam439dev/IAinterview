@@ -456,7 +456,8 @@ async def process_audio(data: ProcessAudioInput):
     transcription_ms = int((time.time() - t1) * 1000)
 
     if "error" in tr:
-        return {"detected": False, "error": tr["error"], "pipeline_ms": int((time.time() - t0) * 1000)}
+        print(f"[WHISPER ERROR] {tr['error'][:200]}")
+        return {"detected": False, "error": "Erreur de transcription audio", "pipeline_ms": int((time.time() - t0) * 1000)}
 
     transcript_text = (tr.get("text") or "").strip()
     detected_lang = tr.get("language", "fr")
