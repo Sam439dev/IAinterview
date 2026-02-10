@@ -380,9 +380,9 @@ async def get_messages(session_id: str):
     msgs = await messages_col.find({"session_id": session_id}).sort("created_at", 1).to_list(length=1000)
     return ser_list(msgs)
 
-# Main pipeline: process audio
-@app.post("/api/interview/process-audio")
-async def process_audio(data: ProcessAudioInput):
+# Main pipeline: process text input from user
+@app.post("/api/interview/process-text")
+async def process_text(data: ProcessTextInput):
     t0 = time.time()
     api_key = await get_api_key()
     if not api_key:
@@ -394,35 +394,25 @@ async def process_audio(data: ProcessAudioInput):
     if not session:
         raise HTTPException(404, "Session non trouvée")
 
-    audio_bytes = base64.b64decode(data.audio_data)
+    text = (data.text or "").strip()
+    if not text or len(text) < 2:
+        return {"detected": False, "pipeline_ms": 0}
 
-    # 1. Transcribe
-    t1 = time.time()
-    tr = await whisper(api_key, audio_bytes, data.mime_type, data.language)
-    transcription_ms = int((time.time() - t1) * 1000)
-    if "error" in tr:
-        raise HTTPException(500, tr["error"])
+    lang = data.language or "fr"
 
-    transcript = (tr.get("text") or "").strip()
-    lang = tr.get("language", "fr")
-
-    if not transcript or len(transcript) < 3:
-        return {"transcript": None, "detected": False, "pipeline_ms": int((time.time() - t0) * 1000)}
-
-    # Save user msg
+    # Save user message (what the interviewer said)
     await messages_col.insert_one({
         "session_id": data.session_id, "role": "user",
-        "content": transcript, "detected_language": lang,
-        "transcription_ms": transcription_ms, "created_at": now_utc()
+        "content": text, "created_at": now_utc()
     })
 
-    # 2. Get CV
+    # Get CV
     cv_doc = await cv_col.find_one({"is_active": True})
     cv_data = cv_doc.get("parsed_data") if cv_doc else None
 
-    # 3. Analyze + generate response
+    # Analyze + generate response
     t2 = time.time()
-    analysis = await analyze_and_respond(api_key, transcript, data.session_id, cv_data, model, lang)
+    analysis = await analyze_and_respond(api_key, text, data.session_id, cv_data, model, lang)
     response_ms = int((time.time() - t2) * 1000)
 
     detected = analysis.get("detected", False)
@@ -449,7 +439,6 @@ async def process_audio(data: ProcessAudioInput):
     pipeline_ms = int((time.time() - t0) * 1000)
 
     return {
-        "transcript": transcript,
         "detected": detected,
         "category": category,
         "confidence": confidence,
@@ -457,8 +446,6 @@ async def process_audio(data: ProcessAudioInput):
         "suggested_response": ai_response,
         "key_points": key_points,
         "tone_advice": tone_advice,
-        "detected_language": lang,
-        "transcription_ms": transcription_ms,
         "response_ms": response_ms,
         "pipeline_ms": pipeline_ms,
         "cv_active": cv_data is not None
