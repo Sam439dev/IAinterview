@@ -355,6 +355,26 @@ async def delete_cv(cv_id: str):
     await cv_col.delete_one({"_id": ObjectId(cv_id)})
     return {"success": True}
 
+@app.post("/api/cv/reparse")
+async def reparse_cv():
+    """Re-parse the active CV using LLM (fixes cases where initial parse failed)"""
+    api_key = await get_api_key()
+    if not api_key:
+        raise HTTPException(400, "Clé API non configurée")
+    cv = await cv_col.find_one({"is_active": True})
+    if not cv:
+        raise HTTPException(404, "Aucun CV actif")
+    raw_text = cv.get("raw_text", "")
+    if not raw_text or len(raw_text.strip()) < 20:
+        raise HTTPException(400, "CV sans contenu texte extractible")
+    parsed_data = await parse_cv_llm(api_key, raw_text)
+    await cv_col.update_one({"_id": cv["_id"]}, {"$set": {"parsed_data": parsed_data}})
+    doc = ser(cv)
+    doc["parsed_data"] = parsed_data
+    doc.pop("file_data", None)
+    return doc
+
+
 # Sessions
 @app.get("/api/sessions")
 async def list_sessions():
