@@ -138,6 +138,7 @@ function CVSection() {
   const ref = useRef(null);
   const [cv, setCv] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [reparsing, setReparsing] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = async () => { try { setCv(await getActiveCV()); } catch {} finally { setLoading(false); } };
@@ -153,10 +154,18 @@ function CVSection() {
     finally { setUploading(false); }
   };
 
+  const handleReparse = async () => {
+    setReparsing(true);
+    try { const updated = await reparseCV(); setCv(updated); } catch (e) { alert("Erreur de re-parsing. Vérifiez votre clé API."); }
+    finally { setReparsing(false); }
+  };
+
   const handleDel = async () => {
     if (!cv?.id || !window.confirm('Supprimer ce CV ?')) return;
     try { await deleteCV(cv.id); setCv(null); } catch {}
   };
+
+  const hasParsedData = cv?.parsed_data && (cv.parsed_data.skills?.length > 0 || cv.parsed_data.full_name || cv.parsed_data.experiences?.length > 0);
 
   return (
     <div className="card" data-testid="cv-section">
