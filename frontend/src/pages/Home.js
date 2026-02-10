@@ -68,9 +68,9 @@ export default function Home() {
         </h2>
         <div className="grid md:grid-cols-3 gap-5">
           {[
-            { step: '01', icon: Mic, title: 'Saisissez le contexte', desc: 'Pendant l\'entretien, notez ce que dit le recruteur. L\'IA analyse en temps réel chaque message saisi.' },
-            { step: '02', icon: Brain, title: 'Détection intelligente', desc: 'L\'IA identifie automatiquement les questions, demandes et mises en situation du recruteur.' },
-            { step: '03', icon: Copy, title: 'Réponses sur-mesure', desc: 'Des suggestions personnalisées apparaissent instantanément, basées sur votre CV et votre parcours.' },
+            { step: '01', icon: Mic, title: 'Démarrez l\'écoute', desc: 'Lancez l\'enregistrement et l\'IA écoute votre conversation en continu via le micro du navigateur.' },
+            { step: '02', icon: Brain, title: 'Détection intelligente', desc: 'L\'IA analyse l\'audio en temps réel pour identifier les questions et intentions du recruteur.' },
+            { step: '03', icon: Copy, title: 'Suggestions instantanées', desc: 'Des réponses personnalisées basées sur votre CV apparaissent dès qu\'une question est détectée.' },
           ].map((s, i) => (
             <div key={i} className="card p-6 group" data-testid={`step-card-${i}`}>
               <div className="flex items-center gap-3 mb-4">
