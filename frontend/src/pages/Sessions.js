@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Clock, MessageSquare, Zap, TrendingUp, Calendar, ChevronRight, Play, Trash2, Loader2, Plus } from 'lucide-react';
+import { BarChart3, Clock, MessageSquare, Zap, TrendingUp, Calendar, ChevronRight, Play, Trash2, Loader2, Plus, FileText } from 'lucide-react';
 import { getSessions, getStats, deleteSession } from '../services/api';
 import Navbar from '../components/Navbar';
 
