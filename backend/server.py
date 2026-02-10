@@ -450,3 +450,104 @@ async def process_text(data: ProcessTextInput):
         "pipeline_ms": pipeline_ms,
         "cv_active": cv_data is not None
     }
+
+
+# --- Session Summary (end of session) ---
+
+SUMMARY_PROMPT = """Tu es un expert en analyse d'entretiens d'embauche.
+On te fournit l'intégralité des échanges d'une session d'entretien.
+Les messages "RECRUTEUR" sont ce que l'interlocuteur a dit.
+Les messages "SUGGESTION" sont les réponses suggérées par l'IA.
+
+Produis une analyse structurée en JSON:
+{
+  "transcript": [
+    {"speaker": "recruteur", "text": "ce que le recruteur a dit"},
+    {"speaker": "candidat (suggestion IA)", "text": "la réponse suggérée"}
+  ],
+  "identified_questions": [
+    {
+      "question": "la question ou demande identifiée",
+      "category": "technique | comportementale | experience | motivation | mise_en_situation | presentation | general",
+      "context": "contexte bref de la question dans la conversation"
+    }
+  ],
+  "qa_pairs": [
+    {
+      "question": "la question du recruteur",
+      "suggested_answer": "la réponse suggérée par l'IA",
+      "category": "catégorie de la question"
+    }
+  ],
+  "session_insights": {
+    "total_exchanges": 0,
+    "questions_detected": 0,
+    "dominant_category": "catégorie la plus fréquente",
+    "general_feedback": "feedback général sur la session (2-3 phrases)"
+  }
+}
+
+RÈGLES:
+- Reconstitue la conversation complète dans "transcript" dans l'ordre chronologique
+- Identifie TOUTES les questions ou demandes du recruteur dans "identified_questions"
+- Pour chaque question identifiée qui a reçu une suggestion, crée une paire dans "qa_pairs"
+- Si un message du recruteur n'est pas une question, inclus-le quand même dans le transcript mais pas dans identified_questions
+- Le feedback doit être constructif et bienveillant"""
+
+
+@app.post("/api/sessions/{session_id}/generate-summary")
+async def generate_summary(session_id: str):
+    api_key = await get_api_key()
+    if not api_key:
+        raise HTTPException(400, "Clé API non configurée")
+
+    session = await sessions_col.find_one({"_id": ObjectId(session_id)})
+    if not session:
+        raise HTTPException(404, "Session non trouvée")
+
+    # Get all messages
+    msgs = await messages_col.find({"session_id": session_id}).sort("created_at", 1).to_list(length=1000)
+    if not msgs:
+        raise HTTPException(400, "Aucun message dans cette session")
+
+    # Build conversation text
+    lines = []
+    for m in msgs:
+        role_label = "RECRUTEUR" if m["role"] == "user" else "SUGGESTION"
+        lines.append(f"{role_label}: {m['content']}")
+    conversation = "\n\n".join(lines)
+
+    settings = await settings_col.find_one({"user_id": "default"}, {"_id": 0})
+    model = (settings or {}).get("preferred_model", "gpt-4o-mini")
+
+    try:
+        content = await openai_chat(
+            api_key,
+            [
+                {"role": "system", "content": SUMMARY_PROMPT},
+                {"role": "user", "content": f"Analyse cette session d'entretien:\n\n{conversation}"}
+            ],
+            model=model, json_mode=True
+        )
+        summary = json.loads(content)
+    except Exception as e:
+        raise HTTPException(500, f"Erreur de génération: {str(e)}")
+
+    # Store summary in session
+    await sessions_col.update_one(
+        {"_id": ObjectId(session_id)},
+        {"$set": {"summary": summary, "status": "completed", "updated_at": now_utc()}}
+    )
+
+    return summary
+
+
+@app.get("/api/sessions/{session_id}/summary")
+async def get_summary(session_id: str):
+    session = await sessions_col.find_one({"_id": ObjectId(session_id)})
+    if not session:
+        raise HTTPException(404, "Session non trouvée")
+    summary = session.get("summary")
+    if not summary:
+        return None
+    return summary
