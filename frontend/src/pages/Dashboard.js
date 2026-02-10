@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Send, FileText, BarChart3, Settings, Clock, MessageSquare, Zap, TrendingUp, Calendar, Plus, Trash2, Play, AlertCircle, Loader2 } from 'lucide-react';
+import { Mic, FileText, BarChart3, Settings, Clock, MessageSquare, Zap, TrendingUp, Calendar, Plus, Trash2, Play, AlertCircle, Loader2 } from 'lucide-react';
 import { getSessions, getStats, deleteSession, getSettings, getActiveCV } from '../services/api';
 import Navbar from '../components/Navbar';
 
