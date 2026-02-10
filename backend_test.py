@@ -318,6 +318,8 @@ def main():
         ("Sessions - Create New", tester.test_create_session),
         ("Sessions - GET with Data", tester.test_sessions_get_with_data),
         ("Sessions - Get Messages", tester.test_get_session_messages),
+        ("V3 - Process Text (New)", tester.test_process_text_endpoint),
+        ("V3 - Process Audio Removed", tester.test_process_audio_removed),
         ("Sessions - Delete", tester.test_delete_session),
         ("CV - Get Active", tester.test_cv_active),
     ]
