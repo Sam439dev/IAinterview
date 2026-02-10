@@ -68,7 +68,7 @@ export default function Home() {
         </h2>
         <div className="grid md:grid-cols-3 gap-5">
           {[
-            { step: '01', icon: Mic, title: 'Activez le micro', desc: 'Lancez une session et l\'IA écoute votre conversation en temps réel via le micro du navigateur.' },
+            { step: '01', icon: Mic, title: 'Saisissez le contexte', desc: 'Pendant l\'entretien, notez ce que dit le recruteur. L\'IA analyse en temps réel chaque message saisi.' },
             { step: '02', icon: Brain, title: 'Détection intelligente', desc: 'L\'IA identifie automatiquement les questions, demandes et mises en situation du recruteur.' },
             { step: '03', icon: Copy, title: 'Réponses sur-mesure', desc: 'Des suggestions personnalisées apparaissent instantanément, basées sur votre CV et votre parcours.' },
           ].map((s, i) => (
