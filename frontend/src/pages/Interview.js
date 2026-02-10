@@ -147,7 +147,11 @@ export default function Interview() {
           language: 'fr'
         });
 
-        if (result.detected && result.suggested_response) {
+        setLastError(null);
+
+        if (result.error) {
+          setLastError(result.error);
+        } else if (result.detected && result.suggested_response) {
           setQuestionCount(prev => prev + 1);
           setSuggestions(prev => [...prev, {
             id: `sug-${Date.now()}`,
@@ -162,7 +166,11 @@ export default function Interview() {
             cvUsed: result.cv_active
           }]);
         }
-      } catch (e) { console.error('Process error:', e); }
+      } catch (e) {
+        console.error('Process error:', e);
+        const errMsg = e.response?.data?.detail || 'Erreur de traitement audio';
+        setLastError(errMsg);
+      }
 
       // Continue recording next chunk
       if (autoRecordRef.current && stream.active) {
