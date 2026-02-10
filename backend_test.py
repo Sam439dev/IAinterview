@@ -248,15 +248,17 @@ def main():
     # Run all tests in sequence
     test_methods = [
         ("Health Check", tester.test_health_endpoint),
-        ("Settings - Initial GET", tester.test_settings_get_initial),
+        ("Settings - GET", tester.test_settings_get_initial),
         ("Settings - Save API Key", tester.test_settings_save_api_key),
         ("Settings - GET with Key", tester.test_settings_get_with_key),
+        ("Settings - Validate Key", tester.test_validate_key_endpoint),
         ("Sessions - Empty List", tester.test_sessions_get_empty),
         ("Sessions - Empty Stats", tester.test_sessions_stats_empty),
         ("Sessions - Create New", tester.test_create_session),
         ("Sessions - GET with Data", tester.test_sessions_get_with_data),
+        ("Sessions - Get Messages", tester.test_get_session_messages),
         ("Sessions - Delete", tester.test_delete_session),
-        ("CV - Get Active (null)", tester.test_cv_active_null),
+        ("CV - Get Active", tester.test_cv_active),
     ]
     
     failed_tests = []
