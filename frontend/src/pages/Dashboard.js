@@ -179,7 +179,7 @@ export default function Dashboard() {
               <h3 className="font-display text-xs tracking-wider text-slate-500 mb-3">ACTIONS RAPIDES</h3>
               <div className="space-y-1.5">
                 {[
-                  { to: '/interview', icon: Mic, label: 'Nouvelle session', color: 'text-accent' },
+                  { to: '/interview', icon: Send, label: 'Nouvelle session', color: 'text-accent' },
                   { to: '/sessions', icon: BarChart3, label: 'Analytics', color: 'text-accent2' },
                   { to: '/settings', icon: Settings, label: 'Paramètres', color: 'text-emerald-400' },
                 ].map((a, i) => (
