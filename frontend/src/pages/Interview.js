@@ -310,6 +310,13 @@ export default function Interview() {
             </div>
           )}
 
+          {/* Error display */}
+          {lastError && suggestions.length > 0 && (
+            <div className="p-3 rounded-lg bg-red-500/[0.06] border border-red-500/15" data-testid="error-banner">
+              <p className="text-xs text-red-400 flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" /> {lastError}</p>
+            </div>
+          )}
+
           <div ref={suggestionsEndRef} />
         </div>
       </div>
