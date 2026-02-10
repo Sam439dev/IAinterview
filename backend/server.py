@@ -456,7 +456,11 @@ async def process_audio(data: ProcessAudioInput):
 
     # Analyze: detect question + generate suggestion
     t2 = time.time()
-    analysis = await analyze_and_respond(api_key, transcript_text, data.session_id, cv_data, model, detected_lang)
+    try:
+        analysis = await analyze_and_respond(api_key, transcript_text, data.session_id, cv_data, model, detected_lang)
+    except Exception as e:
+        print(f"[PROCESS-AUDIO] Analysis failed: {e}")
+        analysis = {"detected": False}
     response_ms = int((time.time() - t2) * 1000)
 
     detected = analysis.get("detected", False)
@@ -466,6 +470,8 @@ async def process_audio(data: ProcessAudioInput):
     tone_advice = analysis.get("tone_advice")
     question_summary = analysis.get("question_summary")
     confidence = analysis.get("confidence", 0)
+
+    print(f"[PROCESS-AUDIO] Transcript: '{transcript_text[:60]}' | Detected: {detected} | Category: {category} | Has CV: {cv_data is not None}")
 
     if detected and ai_response:
         await messages_col.insert_one({
