@@ -137,15 +137,17 @@ Réponds UNIQUEMENT en JSON valide:
   "languages": ["langue1"],
   "certifications": ["cert1"],
   "strengths": ["point fort professionnel 1"]
-}"""
+}
+IMPORTANT: Extrais le MAXIMUM d'informations. Si un champ n'est pas trouvé, mets une liste vide ou null. Ne renvoie jamais un JSON vide."""
     try:
         content = await openai_chat(api_key,
-            [{"role": "system", "content": prompt}, {"role": "user", "content": raw_text}],
+            [{"role": "system", "content": prompt}, {"role": "user", "content": f"Voici le CV à analyser:\n\n{raw_text[:8000]}"}],
             json_mode=True)
         parsed = json.loads(content)
         parsed["raw_text"] = raw_text
         return parsed
-    except Exception:
+    except Exception as e:
+        print(f"CV parse error: {e}")
         return {"raw_text": raw_text}
 
 def build_cv_context(cv_data):
