@@ -178,6 +178,9 @@ def build_cv_context(cv_data):
         parts.append(f"Points forts: {', '.join(cv_data['strengths'][:5])}")
     if cv_data.get("certifications"):
         parts.append(f"Certifications: {', '.join(cv_data['certifications'][:5])}")
+    # Fallback: if structured data is empty but raw text exists, use raw text excerpt
+    if not parts and cv_data.get("raw_text"):
+        parts.append(f"CV (texte brut):\n{cv_data['raw_text'][:3000]}")
     return "\n".join(parts)
 
 # Question analysis + response in one call (faster pipeline)
