@@ -261,11 +261,20 @@ export default function Interview() {
               <span className="text-[0.6rem] text-slate-600 flex items-center gap-1">
                 <CornerDownLeft className="w-3 h-3" /> Entrée pour envoyer
               </span>
-              {!hasKey && (
-                <Link to="/settings" className="text-[0.65rem] text-amber-400 hover:underline flex items-center gap-1" data-testid="config-link">
-                  <AlertCircle className="w-3 h-3" /> Configurer la clé API
-                </Link>
-              )}
+              <div className="flex items-center gap-2">
+                {messages.length > 0 && sessionId && (
+                  <button className="btn btn-outline text-[0.6rem] py-1 px-2.5 border-red-500/20 text-red-400 hover:bg-red-500/5"
+                    onClick={finishSession} disabled={processing || ending} data-testid="finish-session-btn">
+                    {ending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Square className="w-3 h-3" />}
+                    Terminer et résumer
+                  </button>
+                )}
+                {!hasKey && (
+                  <Link to="/settings" className="text-[0.65rem] text-amber-400 hover:underline flex items-center gap-1" data-testid="config-link">
+                    <AlertCircle className="w-3 h-3" /> Configurer la clé API
+                  </Link>
+                )}
+              </div>
             </div>
           </div>
         </div>
