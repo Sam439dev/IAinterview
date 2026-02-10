@@ -126,7 +126,7 @@ export default function Dashboard() {
                 ) : (
                   <div className="text-center py-12" data-testid="empty-sessions">
                     <div className="w-14 h-14 rounded-xl bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mx-auto mb-4">
-                      <Send className="w-7 h-7 text-slate-600" />
+                      <Mic className="w-7 h-7 text-slate-600" />
                     </div>
                     <p className="text-sm text-slate-400 mb-1 font-medium">Aucune session</p>
                     <p className="text-xs text-slate-500 mb-4">Lancez votre première session d'entraînement</p>
