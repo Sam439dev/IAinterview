@@ -120,6 +120,19 @@ export default function Interview() {
     }
   };
 
+  const finishSession = useCallback(async () => {
+    if (!sessionId || messages.length === 0) return;
+    if (!window.confirm('Terminer cette session et générer le résumé ?')) return;
+    setEnding(true);
+    try {
+      await updateSession(sessionId, { status: 'completed' });
+      navigate(`/session/${sessionId}/summary`);
+    } catch (e) {
+      console.error(e);
+      setEnding(false);
+    }
+  }, [sessionId, messages, navigate]);
+
   const copyText = (text, id) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
