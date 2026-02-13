@@ -202,7 +202,7 @@ export default function Interview() {
         <div className="flex-1" />
         <div className="flex items-center gap-2">
           {cvActive && <span className="chip chip-success text-[0.6rem]" data-testid="cv-badge"><FileText className="w-3 h-3" /> CV</span>}
-          <span className="chip chip-neutral text-[0.6rem]" data-testid="lang-badge">
+          <span className={`chip text-[0.6rem] font-display ${detectedLang === 'fr' ? 'chip-accent' : 'chip-purple'}`} data-testid="lang-badge">
             <Globe className="w-3 h-3" /> {detectedLang === 'fr' ? 'FR' : detectedLang === 'en' ? 'EN' : detectedLang.toUpperCase()}
           </span>
           <span className="chip chip-accent text-[0.6rem]" data-testid="question-count">
