@@ -1,89 +1,82 @@
-# Interview Assistant AI - PRD v3.0
+# Interview Assistant AI - PRD v3.1
 
 ## Énoncé du Problème
 Assistant IA d'entretien avec analyse audio en temps réel. Un copilote expert qui aide le candidat à répondre aux questions d'un recruteur avec précision, crédibilité et profondeur variable.
 
-## Prompt Copilote Expert (v3.0)
+## Prompt Copilote Expert V2 - EXPLORATION EXHAUSTIVE DU CV
 
-### Identité
-**Métaphore**: Stratège silencieux qui chuchote des conseils précis – jamais un remplaçant.
+### Règles Fondamentales (4 règles inviolables)
 
-### Règles Fondamentales (Inviolables)
+1. **Extensibilité obligatoire** - Chaque réponse contient des points d'entrée pour approfondir
+2. **Ancrage CV systématique** - Citer éléments concrets du CV, pas de généricités
+3. **EXPLORATION EXHAUSTIVE DU CV** (NOUVELLE) - Parcourir TOUTES les expériences (anciennes ET récentes), sélectionner LA PLUS PERTINENTE indépendamment de l'ancienneté
+4. **Non-redondance stricte** - Chaque échange apporte une couche d'information nouvelle
 
-1. **Extensibilité obligatoire**
-   - ❌ INTERDIT: Réponses fermées
-   - ✅ OBLIGATOIRE: Points d'entrée pour approfondissement
-
-2. **Ancrage CV systématique**
-   - ❌ INTERDIT: Exemples génériques, théories abstraites
-   - ✅ OBLIGATOIRE: Citer éléments concrets du CV
-
-3. **Non-redondance stricte**
-   - ❌ INTERDIT: Répéter information reformulée
-   - ✅ OBLIGATOIRE: Chaque échange apporte nouvelle couche
-
-### Architecture des Réponses
-
-**Niveau 1 - Réponse Initiale**
-- Accroche: Reformulation implicite
-- Cœur: 2-3 points clés actionnables
-- Ouverture: Indice d'approfondissement possible
-
-**Niveau 2 - Approfondissement**
-- Contexte spécifique → Action concrète → Résultat → Lien question
-
-### Méthode PAIR (Questions Complexes)
-- **P**roblème: Reformulation + vrais enjeux
-- **A**nalyse: Contraintes, paramètres
-- **I**mplémentation: Solution + compromis
-- **R**ésultats: Impacts, indicateurs
-
-### Gestion des Pièges
-- Question bateau → Illustrer par situations CV
-- Relance inattendue → Activer niveau 2 avec ancrage CV
-- Blocage → Structure de rattrapage
-
-## Architecture Technique
+### Mécanisme d'Extraction CV
 
 ```
-/app/
-├── backend/server.py
-│   ├── COPILOT_SYSTEM_PROMPT (prompt expert complet)
-│   ├── fast_analyze_v3 (avec contexte conversation + non-redondance)
-│   ├── build_cv_context_rich (contexte CV exhaustif)
-│   └── Détection flux conversationnel continu
-└── frontend/
-    └── Settings.js (affichage CV complet: skills_hard, skills_soft, technologies, methodologies)
+1. Parcours TOUTES les expériences (ancienne → récente)
+2. Évalue la pertinence de CHAQUE expérience
+3. NE TE LAISSE PAS BIAISER par l'ordre chronologique
+4. Une expérience de 2022 peut être PLUS PERTINENTE qu'une de 2024
+5. Privilégie l'exemple le plus concret (chiffres, situations, défis)
 ```
 
-## Flux de Traitement
+### Exemple d'Application
+- Question: "Avez-vous géré une crise client ?"
+- CV: VOLT 2024 (projet classique) vs BFORBANK 2023 (vraie crise client)
+- ✅ SÉLECTIONNER BFORBANK même si plus ancien
+- ❌ NE PAS se contenter de VOLT sous prétexte qu'il est récent
 
-```
-Audio 3s → Whisper (20s) → Auto-detect langue
-                              ↓
-              Small talk filter (conservateur)
-                              ↓
-              fast_analyze_v3 avec COPILOT_SYSTEM_PROMPT
-                              ↓
-              Suggestion structurée (Accroche + Cœur + Ouverture)
-                              ↓
-              Ancrage CV obligatoire
-```
+### Gestion du Biais de Récence
+- NE PAS toujours citer la dernière expérience
+- La PERTINENCE prime sur la CHRONOLOGIE
+- Vérification mentale: "Ai-je exploré TOUTES les expériences ?"
 
-## CV - Données Exploitées
-- full_name, current_role, years_experience, seniority
-- experiences (avec key_achievements, technologies_used)
-- skills_hard, skills_soft
-- technologies, methodologies
-- education, certifications
-- strengths, unique_value
-- languages_spoken, industries
+## Améliorations Techniques v3.1
+
+### Backend (server.py)
+- `build_cv_context_rich()` : Affiche TOUTES les expériences sans limite
+- Format structuré: `[EXPÉRIENCE 1]`, `[EXPÉRIENCE 2]`, etc.
+- Inclut TOUTES les réalisations clés (pas de troncation)
+- Marqueur explicite: "EXPLORER TOUTES LES EXPÉRIENCES"
+
+### Frontend (Settings.js)
+- Affiche TOUTES les expériences (plus de `.slice(0, 3)`)
+- Compteur: "EXPÉRIENCES (4)"
+
+### Contexte CV Complet
+```
+=== PARCOURS PROFESSIONNEL COMPLET (à explorer intégralement) ===
+
+[EXPÉRIENCE 1] Product Manager / Product Owner @ VOLT Superfoods (2024-2025)
+  RÉALISATIONS CLÉS:
+    • Site e-commerce lancé en 3 mois
+    • Taux de conversion de 3%
+
+[EXPÉRIENCE 2] Product Owner @ M6 Publicité (2024)
+  RÉALISATIONS CLÉS:
+    • Formation de 100+ utilisateurs
+    • Amélioration KPI de 30%
+
+[EXPÉRIENCE 3] Product Manager / Product Owner @ BFORBANK (2023)
+  RÉALISATIONS CLÉS:
+    • Analyse de 1000+ feedbacks clients
+    • Intégration Live Chat mobile
+
+[EXPÉRIENCE 4] Product Owner / Scrum Master @ BNP PARIBAS (2022)
+  RÉALISATIONS CLÉS:
+    • Hub de communication multicanal
+    • Vision 360 client
+
+=== FIN DU PARCOURS - SÉLECTIONNER L'EXPÉRIENCE LA PLUS PERTINENTE ===
+```
 
 ## Tests Validés
-- CV affichage complet: ✅
-- Détection intentions: ✅ (prompt expert)
-- Ancrage CV: ✅ (règle inviolable)
-- Non-redondance: ✅ (check dernière suggestion)
+- ✅ CV avec 4 expériences complètes
+- ✅ Contexte CV 3095 caractères (complet)
+- ✅ Toutes les expériences incluses dans le contexte
+- ✅ Prompt V2 avec exploration exhaustive
 
 ## Backlog
 ### P1
@@ -93,4 +86,3 @@ Audio 3s → Whisper (20s) → Auto-detect langue
 ### P2
 - Multi-langue étendu
 - Upload description de poste
-- Mode entraînement
