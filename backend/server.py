@@ -92,16 +92,16 @@ async def openai_chat(api_key, messages, model="gpt-4o-mini", json_mode=False, t
             raise HTTPException(r.status_code, f"OpenAI: {r.text}")
         return r.json()["choices"][0]["message"]["content"]
 
-async def whisper(api_key, audio_bytes, mime_type, language=None):
+async def whisper(api_key, audio_bytes, mime_type, language_hint=None):
+    """Whisper transcription with automatic language detection (no language param = auto-detect)"""
     ext_map = {"audio/webm": "webm", "audio/wav": "wav", "audio/mp3": "mp3",
                "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/m4a": "m4a"}
     ext = ext_map.get(mime_type, "webm")
     headers = {"Authorization": f"Bearer {api_key}"}
     files = {"file": (f"audio.{ext}", io.BytesIO(audio_bytes), mime_type)}
+    # Don't specify language to let Whisper auto-detect FR/EN
     data = {"model": "whisper-1", "response_format": "verbose_json"}
-    if language:
-        data["language"] = language
-    async with httpx.AsyncClient(timeout=120.0) as c:
+    async with httpx.AsyncClient(timeout=30.0) as c:  # Reduced timeout for speed
         r = await c.post("https://api.openai.com/v1/audio/transcriptions", headers=headers, files=files, data=data)
         if r.status_code != 200:
             return {"error": r.text}
