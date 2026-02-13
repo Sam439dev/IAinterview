@@ -238,10 +238,21 @@ function CVSection() {
                   </div>
                 )}
 
-                {cv.parsed_data.skills?.length > 0 && (
+                {(cv.parsed_data.skills_hard?.length > 0 || cv.parsed_data.skills?.length > 0) && (
                   <div>
-                    <p className="text-[0.65rem] text-slate-500 font-display mb-1.5 tracking-wider flex items-center gap-1"><Code2 className="w-3 h-3" /> COMPÉTENCES</p>
-                    <div className="flex flex-wrap gap-1">{cv.parsed_data.skills.map((s, i) => <span key={i} className="chip chip-accent text-[0.6rem]">{s}</span>)}</div>
+                    <p className="text-[0.65rem] text-slate-500 font-display mb-1.5 tracking-wider flex items-center gap-1"><Code2 className="w-3 h-3" /> COMPÉTENCES TECHNIQUES</p>
+                    <div className="flex flex-wrap gap-1">
+                      {(cv.parsed_data.skills_hard || cv.parsed_data.skills || []).map((s, i) => <span key={i} className="chip chip-accent text-[0.6rem]">{s}</span>)}
+                    </div>
+                  </div>
+                )}
+
+                {cv.parsed_data.skills_soft?.length > 0 && (
+                  <div>
+                    <p className="text-[0.65rem] text-slate-500 font-display mb-1.5 tracking-wider">SOFT SKILLS</p>
+                    <div className="flex flex-wrap gap-1">
+                      {cv.parsed_data.skills_soft.map((s, i) => <span key={i} className="chip chip-purple text-[0.6rem]">{s}</span>)}
+                    </div>
                   </div>
                 )}
 
