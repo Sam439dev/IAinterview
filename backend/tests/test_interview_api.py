@@ -234,11 +234,15 @@ class TestSummaryEndpoints:
         yield session
         requests.delete(f"{BASE_URL}/api/sessions/{session['id']}")
         
-    def test_generate_summary_requires_messages(self, test_session_for_summary):
-        """POST /api/sessions/{id}/generate-summary should require messages"""
+    def test_generate_summary_handles_empty_session(self, test_session_for_summary):
+        """POST /api/sessions/{id}/generate-summary should handle empty sessions with fallback"""
         response = requests.post(f"{BASE_URL}/api/sessions/{test_session_for_summary['id']}/generate-summary")
-        # Should return 400 (no messages) or 400 (no key)
-        assert response.status_code == 400
+        # v2.0: Returns 200 with fallback summary for empty sessions, or 400 if no API key
+        assert response.status_code in [200, 400]
+        if response.status_code == 200:
+            data = response.json()
+            # Should have fallback summary structure
+            assert "session_insights" in data or "transcript" in data
         
     def test_get_summary_returns_null_if_none(self, test_session_for_summary):
         """GET /api/sessions/{id}/summary should return null if no summary"""
