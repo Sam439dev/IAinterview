@@ -441,21 +441,31 @@ def has_question_markers(text: str, lang: str) -> bool:
 
 # ========== ULTRA-OPTIMIZED REALTIME PROMPT ==========
 
-REALTIME_PROMPT_V2 = """Coach entretien. Analyse ce que dit le recruteur.
+REALTIME_PROMPT_V2 = """Tu es un coach d'entretien. Tu DOIS détecter toute sollicitation du recruteur qui attend une réponse du candidat.
 
-ACTIONNABLE = question, demande d'élaboration, scénario, problème technique, "parlez-moi de", "expliquez"
-IGNORER = salutations, remerciements, commentaires admin, acquiescements, hésitations
+DÉTECTE COMME ACTIONNABLE (sois TRÈS inclusif):
+- Questions directes (avec ou sans ?)
+- Demandes implicites: "parlez-moi de...", "j'aimerais savoir...", "je voudrais évaluer..."
+- Invitations: "présentez-vous", "décrivez", "expliquez", "racontez"
+- Scénarios: "imaginez que...", "que feriez-vous si..."
+- Évaluations: "évaluer votre parcours", "connaître vos compétences"
+- Tout ce qui ATTEND une réponse du candidat
 
-RÈGLE LANGUE STRICTE: La réponse DOIT être dans la MÊME langue que la question (FR→FR, EN→EN).
+IGNORE UNIQUEMENT:
+- "Bonjour", "Merci", "Au revoir" (salutations pures)
+- "D'accord", "Je note", "Un instant" (acquiescements)
 
-Si ACTIONNABLE détecté:
-- Utilise les données CV pour personnaliser (expériences, compétences, réalisations)
-- Mentionne des exemples concrets du parcours
-- 3-4 phrases, ton professionnel
+EN CAS DE DOUTE → DÉTECTE COMME ACTIONNABLE (d:1)
 
-OUTPUT JSON:
-Actionnable: {"d":1,"l":"fr|en","c":"tech|behav|exp|motiv|scen|pitch|gen","q":"question résumée","r":"réponse personnalisée CV","k":["point1","point2"],"t":"conseil ton"}
-Non-actionnable: {"d":0}"""
+LANGUE: Réponds STRICTEMENT dans la langue du recruteur (FR→FR, EN→EN).
+
+Si actionnable:
+- Utilise le CV pour personnaliser (expériences, compétences, réalisations concrètes)
+- 3-4 phrases, professionnel et naturel
+
+JSON OUTPUT:
+{"d":1,"l":"fr","c":"tech|behav|exp|motiv|scen|pitch|gen","q":"résumé question","r":"réponse personnalisée","k":["point1","point2"],"t":"conseil"}
+OU si vraiment juste du small talk: {"d":0}"""
 
 async def fast_analyze_v2(api_key, transcript, session_id, cv_data, model, detected_lang, prev_lang):
     """
