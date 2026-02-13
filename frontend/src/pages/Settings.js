@@ -272,9 +272,9 @@ function CVSection() {
 
                 {cv.parsed_data.experiences?.length > 0 && (
                   <div>
-                    <p className="text-[0.65rem] text-slate-500 font-display mb-1.5 tracking-wider flex items-center gap-1"><Briefcase className="w-3 h-3" /> EXPÉRIENCES</p>
+                    <p className="text-[0.65rem] text-slate-500 font-display mb-1.5 tracking-wider flex items-center gap-1"><Briefcase className="w-3 h-3" /> EXPÉRIENCES ({cv.parsed_data.experiences.length})</p>
                     <div className="space-y-1.5">
-                      {cv.parsed_data.experiences.slice(0, 3).map((e, i) => (
+                      {cv.parsed_data.experiences.map((e, i) => (
                         <div key={i} className="card-inner p-2.5">
                           <p className="text-xs font-medium">{e.title} <span className="text-slate-500">@ {e.company}</span></p>
                           {e.duration && <p className="text-[0.65rem] text-slate-600">{e.duration}</p>}
