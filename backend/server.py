@@ -274,18 +274,24 @@ def build_cv_context_rich(cv_data):
     if cv_data.get("unique_value"):
         parts.append(f"VALEUR UNIQUE: {cv_data['unique_value']}")
     
-    # Experiences (detailed)
+    # TOUTES LES EXPÉRIENCES (sans limite) - EXPLORATION EXHAUSTIVE
     if cv_data.get("experiences"):
-        exp_lines = []
-        for e in cv_data["experiences"][:5]:
-            line = f"• {e.get('title', '')} @ {e.get('company', '')} ({e.get('duration', '')})"
+        parts.append("\n=== PARCOURS PROFESSIONNEL COMPLET (à explorer intégralement) ===")
+        for i, e in enumerate(cv_data["experiences"], 1):
+            exp_block = []
+            exp_block.append(f"\n[EXPÉRIENCE {i}] {e.get('title', '')} @ {e.get('company', '')} ({e.get('duration', '')})")
+            if e.get('location'):
+                exp_block.append(f"  Lieu: {e.get('location')}")
+            if e.get('description'):
+                exp_block.append(f"  Contexte: {e.get('description')}")
             if e.get("key_achievements"):
-                achievements = "; ".join(e["key_achievements"][:4])
-                line += f"\n  Réalisations: {achievements}"
+                exp_block.append("  RÉALISATIONS CLÉS:")
+                for ach in e["key_achievements"]:  # TOUTES les réalisations, pas de limite
+                    exp_block.append(f"    • {ach}")
             if e.get("technologies_used"):
-                line += f"\n  Technologies: {', '.join(e['technologies_used'][:6])}"
-            exp_lines.append(line)
-        parts.append("PARCOURS:\n" + "\n".join(exp_lines))
+                exp_block.append(f"  Technologies utilisées: {', '.join(e['technologies_used'])}")
+            parts.append("\n".join(exp_block))
+        parts.append("=== FIN DU PARCOURS - SÉLECTIONNER L'EXPÉRIENCE LA PLUS PERTINENTE ===\n")
     
     # Skills
     if cv_data.get("skills_hard"):
