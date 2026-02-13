@@ -184,100 +184,95 @@ def build_cv_context(cv_data):
         parts.append(f"CV (texte brut):\n{cv_data['raw_text'][:3000]}")
     return "\n".join(parts)
 
-# Question analysis + response in one call (faster pipeline)
-ANALYSIS_AND_RESPONSE_PROMPT = """Tu es un assistant d'entretien d'embauche. Tu assistes un candidat en TEMPS RÉEL.
+# ========== REAL-TIME PIPELINE (OPTIMIZED FOR SPEED) ==========
 
-TON RÔLE PRINCIPAL: Détecter TOUTE phrase qui nécessite une réponse du candidat et fournir une suggestion.
-
-RÈGLE CRITIQUE: Sois TRÈS GÉNÉREUX dans la détection. En entretien, presque tout ce que dit un recruteur appelle une réponse. Détecte comme "question" :
-- Les questions directes ("Parlez-moi de...", "Qu'est-ce que...", "Comment...")
-- Les questions implicites ("J'aimerais en savoir plus sur...", "Intéressant, et concernant...")
-- Les demandes ("Décrivez-moi...", "Expliquez...", "Donnez un exemple...")
-- Les mises en situation ("Imaginez que...", "Si vous deviez...")
-- Les invitations ("Allez-y", "Présentez-vous", "On vous écoute")
-- Les relances ("Et ensuite ?", "Pouvez-vous développer ?", "C'est-à-dire ?")
-- Toute phrase du recruteur qui attend clairement une réponse du candidat
-
-Mets detected=false UNIQUEMENT pour :
-- Des mots isolés sans sens ("ok", "hm", "bien")
-- Du bruit audio transcrit sans signification
-- Des phrases purement administratives ("je vais noter", "une seconde")
-
-CATÉGORIES:
-- "question_technique": compétences techniques, technologies, code, architecture
-- "question_comportementale": soft skills, conflits, leadership, travail équipe
-- "question_experience": parcours, projets passés, réalisations
-- "question_motivation": pourquoi ce poste, cette entreprise, objectifs
-- "mise_en_situation": scénario hypothétique
-- "presentation": se présenter, pitch
-- "general": autre type de question/demande
-
-Réponds TOUJOURS en JSON valide:
-{
-  "detected": true,
-  "category": "question_experience",
-  "confidence": 0.85,
-  "question_summary": "Le recruteur demande de décrire une expérience passée",
-  "suggested_response": "Réponse détaillée et personnalisée basée sur le CV du candidat (4-6 phrases, structurée, professionnelle, avec exemples concrets du parcours)",
-  "key_points": ["point clé 1", "point clé 2", "point clé 3"],
-  "tone_advice": "Adopter un ton confiant et structuré"
+# Small talk patterns to filter BEFORE calling GPT (saves ~1-2s)
+SMALL_TALK_PATTERNS = {
+    "fr": ["bonjour", "bonsoir", "salut", "au revoir", "merci", "merci beaucoup",
+           "comment allez-vous", "ça va", "enchanté", "bonne journée", "à bientôt",
+           "d'accord", "ok", "très bien", "parfait", "super", "entendu",
+           "je vous en prie", "pas de souci", "un instant", "une seconde",
+           "je vais noter", "attendez", "hmm", "euh"],
+    "en": ["hello", "hi", "good morning", "good afternoon", "goodbye", "thank you",
+           "thanks", "how are you", "nice to meet you", "have a good day",
+           "alright", "okay", "sure", "perfect", "great", "got it",
+           "you're welcome", "no problem", "one moment", "one second",
+           "let me note", "hold on", "hmm", "uh"]
 }
 
-POUR LA RÉPONSE SUGGÉRÉE:
-- TOUJOURS utiliser les informations du CV du candidat (expériences, compétences, projets)
-- Citer des exemples CONCRETS tirés du parcours du candidat
-- Structurer: accroche → développement avec exemples → conclusion
-- Questions comportementales: utiliser la méthode STAR avec une expérience réelle du CV
-- Être naturel et fluide, pas robotique
-- 4 à 6 phrases minimum pour une réponse substantielle"""
+def is_small_talk(text):
+    """Fast pre-filter to skip small talk without calling GPT."""
+    clean = text.strip().lower().rstrip(".!?,;:")
+    # Very short utterances
+    if len(clean) < 4:
+        return True
+    for lang_patterns in SMALL_TALK_PATTERNS.values():
+        if clean in lang_patterns:
+            return True
+    return False
 
-async def analyze_and_respond(api_key, transcript, session_id, cv_data, model, language):
+# Lean prompt optimized for SPEED — minimal tokens, maximum signal
+REALTIME_PROMPT = """You are an interview coach. Analyze what the interviewer just said.
+
+DETECT as actionable: questions, requests, invitations to speak, follow-ups, scenarios.
+IGNORE: greetings, small talk, admin comments ("let me note this"), filler words.
+
+If actionable → generate a response suggestion using the candidate's CV data.
+Response must be in the SAME LANGUAGE as the interviewer (French or English).
+
+JSON output ONLY:
+{"d":true,"cat":"technical|behavioral|experience|motivation|scenario|pitch|general","q":"short question summary","r":"suggested response (3-5 sentences, concrete, using CV data)","kp":["key point 1","key point 2"],"tone":"tone advice"}
+
+If not actionable: {"d":false}"""
+
+async def fast_analyze(api_key, transcript, session_id, cv_data, model, language):
+    """Speed-optimized analysis: lean prompt, minimal context."""
     cv_ctx = build_cv_context(cv_data)
 
-    # Get conversation history
-    recent = await messages_col.find({"session_id": session_id}).sort("created_at", -1).limit(CONTEXT_SIZE).to_list(length=CONTEXT_SIZE)
+    # Only last 3 messages for context (speed over completeness)
+    recent = await messages_col.find(
+        {"session_id": session_id, "role": "user"}
+    ).sort("created_at", -1).limit(3).to_list(length=3)
     recent.reverse()
-    history_lines = []
-    for m in recent:
-        role_label = "RECRUTEUR" if m["role"] == "user" else "SUGGESTION"
-        history_lines.append(f"{role_label}: {m['content']}")
-    history = "\n".join(history_lines) if history_lines else "(début de l'entretien)"
+    context = " | ".join([m["content"][:80] for m in recent]) if recent else ""
 
-    if cv_ctx:
-        profile_section = f"PROFIL COMPLET DU CANDIDAT:\n{cv_ctx}"
-    else:
-        profile_section = "PROFIL: Non renseigné (répondre de manière générique mais professionnelle)"
+    profile = cv_ctx[:2000] if cv_ctx else "No CV loaded"
 
-    lang_instruction = "Réponds en français." if language == "fr" else "Réponds en anglais."
-
-    user_msg = f"""{profile_section}
-
-HISTORIQUE DE L'ENTRETIEN:
-{history}
-
-CE QUE LE RECRUTEUR VIENT DE DIRE:
-\"{transcript}\"
-
-{lang_instruction}
-IMPORTANT: Si c'est une question ou demande, detected DOIT être true et tu DOIS fournir une suggested_response personnalisée."""
+    user_msg = f"CV:{profile}\nContext:{context}\nInterviewer:\"{transcript}\""
 
     try:
         content = await openai_chat(api_key,
-            [{"role": "system", "content": ANALYSIS_AND_RESPONSE_PROMPT},
+            [{"role": "system", "content": REALTIME_PROMPT},
              {"role": "user", "content": user_msg}],
             model=model, json_mode=True)
-        print(f"[ANALYSIS] Transcript: '{transcript[:80]}...' → Response: {content[:200]}")
         result = json.loads(content)
-        # Ensure detected is truly boolean
-        result["detected"] = bool(result.get("detected", False))
-        return result
-    except json.JSONDecodeError as e:
-        print(f"[ANALYSIS ERROR] JSON parse failed: {e}, raw content: {content[:300]}")
-        # If JSON failed but we got content, try to salvage
-        return {"detected": False, "category": "none", "confidence": 0}
+
+        # Normalize compact format to full format
+        detected = bool(result.get("d", False))
+        if not detected:
+            return {"detected": False}
+
+        # Map short category to full
+        cat_map = {
+            "technical": "question_technique", "behavioral": "question_comportementale",
+            "experience": "question_experience", "motivation": "question_motivation",
+            "scenario": "mise_en_situation", "pitch": "presentation", "general": "general"
+        }
+        return {
+            "detected": True,
+            "category": cat_map.get(result.get("cat", "general"), "general"),
+            "question_summary": result.get("q", ""),
+            "suggested_response": result.get("r", ""),
+            "key_points": result.get("kp", []),
+            "tone_advice": result.get("tone", ""),
+            "confidence": 0.9
+        }
+    except json.JSONDecodeError:
+        print(f"[FAST-ANALYZE] JSON parse error, raw: {content[:200]}")
+        return {"detected": False}
     except Exception as e:
-        print(f"[ANALYSIS ERROR] {e}")
-        return {"detected": False, "category": "none", "confidence": 0}
+        print(f"[FAST-ANALYZE] Error: {e}")
+        raise
 
 # ============ API ENDPOINTS ============
 
