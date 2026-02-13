@@ -564,12 +564,13 @@ async def fast_analyze_v3(api_key, transcript, session_id, cv_data, model, detec
     context_parts = [m["content"][:120] for m in recent_user]
     conversation_flow = " → ".join(context_parts) if context_parts else "Début de conversation"
     
-    profile = cv_ctx[:3000] if cv_ctx else "CV non chargé - utiliser des réponses génériques structurées"
+    # PROFIL CV COMPLET - pas de troncation pour permettre l'exploration exhaustive
+    profile = cv_ctx if cv_ctx else "CV non chargé - utiliser des réponses génériques structurées"
     
     # Build comprehensive user message
     user_msg = f"""# LANGUE DE RÉPONSE: {detected_lang.upper()}
 
-# PROFIL COMPLET DU CANDIDAT
+# PROFIL COMPLET DU CANDIDAT (EXPLORER TOUTES LES EXPÉRIENCES)
 {profile}
 
 # FLUX DE CONVERSATION
@@ -581,7 +582,8 @@ async def fast_analyze_v3(api_key, transcript, session_id, cv_data, model, detec
 # CE QUE LE RECRUTEUR DIT MAINTENANT
 "{transcript}"
 
-Analyse et génère une suggestion structurée (Accroche + Cœur + Ouverture) avec ancrage CV obligatoire."""
+RAPPEL: Parcours TOUTES les expériences ci-dessus et sélectionne LA PLUS PERTINENTE, pas forcément la plus récente.
+Génère une suggestion structurée (Accroche + Cœur + Ouverture) avec ancrage CV obligatoire."""
     
     try:
         content = await openai_chat_fast(
