@@ -131,8 +131,9 @@ export default function Interview() {
             id: `s-${Date.now()}`, response: result.suggested_response,
             category: result.category || 'general', keyPoints: result.key_points || [],
             toneAdvice: result.tone_advice, questionSummary: result.question_summary,
-            confidence: result.confidence || 0.9, time: new Date(),
-            ms: result.pipeline_ms, cvUsed: result.cv_active
+            confidence: result.confidence || 0.95, time: new Date(),
+            ms: result.pipeline_ms, cvUsed: result.cv_active,
+            responseLang: result.response_language || result.detected_language || 'fr'
           }]);
         }
       } catch (e) {
