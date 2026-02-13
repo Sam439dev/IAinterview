@@ -212,8 +212,8 @@ export default function Interview() {
             <Clock className="w-3 h-3" /> {fmt(timer)}
           </span>
           {lastPipelineMs && isActive && (
-            <span className={`chip text-[0.6rem] font-mono ${lastPipelineMs < 2000 ? 'chip-success' : lastPipelineMs < 4000 ? 'chip-warn' : 'chip-danger'}`} data-testid="latency-badge">
-              {(lastPipelineMs / 1000).toFixed(1)}s
+            <span className={`chip text-[0.6rem] font-mono font-semibold ${lastPipelineMs < 1500 ? 'chip-success' : lastPipelineMs < 2500 ? 'chip-warn' : 'chip-danger'}`} data-testid="latency-badge">
+              ⚡ {(lastPipelineMs / 1000).toFixed(1)}s
             </span>
           )}
         </div>
