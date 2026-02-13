@@ -1,40 +1,76 @@
 # Interview Assistant AI - PRD
 
-## Problem Statement
-Interview AI Assistant with real-time audio analysis. Fixed: questions not detected, CV not used, errors silent.
+## Énoncé du Problème
+Assistant IA d'entretien avec analyse audio en temps réel. L'agent écoute en continu, détecte les questions du recruteur, et génère des suggestions de réponses personnalisées basées sur le CV du candidat.
 
 ## Architecture
-- **Frontend**: React CRA + Tailwind + React Router + ReactMarkdown
-- **Backend**: FastAPI + Motor (MongoDB) + httpx (OpenAI Whisper + GPT)
-- **AI**: Whisper (audio transcription) + GPT (question detection + response generation + session summary)
+- **Frontend**: React CRA + Tailwind CSS + React Router + ReactMarkdown + ShadCN UI
+- **Backend**: FastAPI + Motor (MongoDB async) + httpx (OpenAI Whisper + GPT)
+- **AI**: Whisper (transcription + détection langue) + GPT-4o-mini (analyse questions + génération réponses)
+- **DB**: MongoDB (user_settings, cv_documents, interview_sessions, conversation_messages)
 
-## Core Flow
-### During Session
-1. Audio recording → 8s chunks → Whisper transcribes (silently) → GPT detects questions
-2. If question detected → suggestion card appears with response, key points, tone advice
-3. **No transcript** shown during session, only suggestions
+## Exigences Critiques (IMPLÉMENTÉES ✅)
+1. **Vivacité et Réactivité**: Latence cible ≤2s entre fin question et affichage suggestion
+2. **Détection Linguistique Dynamique**: Auto-détection FR/EN via Whisper, adaptation instantanée
+3. **Performance et Priorisation**: Génération temps réel prioritaire, post-processing différé
+4. **Élimination du Small Talk**: Filtrage pré-GPT des salutations et politesses
+5. **Comportement Post-Session**: Transcription complète + résumé structuré
 
-### At Session End
-1. Stop → generates full transcript + identified questions + Q/A pairs
+## Flux Principal
 
-## What's Been Fixed (V6 - Feb 10, 2026)
+### Pendant la Session
+1. Enregistrement audio continu → chunks de 4 secondes
+2. Whisper transcrit + détecte la langue (silencieusement)
+3. Filtrage small talk pré-GPT (économise ~1-2s)
+4. GPT analyse si question actionnable → génère suggestion personnalisée
+5. Suggestion affichée avec catégorie, points clés, conseil de ton
+6. **Pas de transcription affichée** pendant la session
 
-### Bug: No questions detected
-- **Root cause**: Detection prompt too conservative, returning `detected: false` for most speech
-- **Fix**: Rewrote prompt to be very aggressive — detect as question anything that expects a response from the candidate
+### À la Fin de Session
+1. Bouton "Arrêter et résumer" → génère transcription complète
+2. Résumé structuré: questions identifiées, paires Q/R, insights globaux
 
-### Bug: CV data not used in responses
-- **Root cause**: CV parsed_data was empty (only raw_text) because the user's API key was invalid during initial upload
-- **Fix**: 
-  1. `build_cv_context()` now falls back to raw_text (first 3000 chars) when structured data is empty
-  2. Added `POST /api/cv/reparse` endpoint to re-parse CV with valid key
-  3. Settings page shows "CV non analysé" warning + "Re-parser le CV" button
+## Optimisations de Performance (Dec 2025)
+- **Whisper**: Timeout 30s, auto-detect langue (pas de param language)
+- **GPT**: Timeout 20s, max_tokens 800, température 0.5
+- **Prompt Lean**: ~100 tokens système, format JSON compact
+- **Contexte Réduit**: 2 derniers messages, CV tronqué à 1500 chars
+- **Filtrage Pré-GPT**: Patterns small talk FR/EN avant appel API
 
-### Bug: Errors swallowed silently
-- **Fix**: Added logging throughout pipeline (`[WHISPER]`, `[ANALYSIS]`, `[PROCESS-AUDIO]`), error propagation to frontend, error banners in UI
+## Ce Qui a Été Implémenté (V7 - Dec 2025)
 
-## Testing: 98% overall (96% backend, 100% frontend)
+### Pipeline Haute Performance
+- Chunks audio 4s (au lieu de 8s)
+- Filtrage small talk local avant GPT (~1-2s économisés)
+- Prompt optimisé pour rapidité
+- Timeouts réduits (30s Whisper, 20s GPT)
+- Auto-détection langue FR/EN
+
+### UI/UX Français
+- Page d'accueil avec "Votre coach d'entretien invisible et intelligent"
+- Dashboard avec statistiques (sessions, questions, latence moyenne)
+- Page Interview avec badges: CV, Langue, Compteur questions, Timer, Latence
+- Page Paramètres: Clé API, sélection modèle, gestion CV
+- Thème sombre professionnel
+
+### Backend APIs
+- CRUD Sessions avec limite 10
+- Process Audio optimisé pour latence
+- Génération résumé post-session
+- Validation clé API
+- Upload et parsing CV
+
+## Tests (V7)
+- **Backend**: 100% (19/19 tests)
+- **Frontend**: 100% (toutes pages, tous data-testid)
+- **Rapport**: /app/test_reports/iteration_7.json
 
 ## Backlog
-### P1: Session export PDF, keyboard shortcuts
-### P2: Multi-language, job description upload
+### P1 (Prioritaire)
+- Export session PDF
+- Raccourcis clavier
+
+### P2 (Futur)
+- Multi-langue étendu
+- Upload description de poste
+- Mode entraînement avec questions types
