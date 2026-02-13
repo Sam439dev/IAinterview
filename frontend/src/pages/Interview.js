@@ -322,14 +322,23 @@ export default function Interview() {
 function SuggestionCard({ s, i, onCopy, copiedId, catMap }) {
   const [open, setOpen] = useState(true);
   const cat = catMap[s.category] || catMap.general;
+  const langLabel = s.responseLang === 'en' ? 'EN' : 'FR';
+  const isGoodLatency = s.ms && s.ms < 1500;
+  const isOkLatency = s.ms && s.ms >= 1500 && s.ms < 2500;
+  
   return (
     <div className="card fade-up overflow-hidden" data-testid={`suggestion-${i}`}>
       <div className="px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-2 cursor-pointer select-none" onClick={() => setOpen(!open)}>
         <Zap className="w-3.5 h-3.5 text-accent2" />
         {cat.label && <span className={`chip text-[0.6rem] ${cat.cls}`}>{cat.label}</span>}
+        <span className={`chip text-[0.55rem] ${s.responseLang === 'en' ? 'chip-purple' : 'chip-accent'}`}>{langLabel}</span>
         {s.confidence > 0 && <span className="chip chip-neutral text-[0.6rem]">{Math.round(s.confidence * 100)}%</span>}
         <div className="flex-1" />
-        {s.ms && <span className={`text-[0.6rem] font-mono ${s.ms < 2000 ? 'text-emerald-400' : s.ms < 4000 ? 'text-amber-400' : 'text-red-400'}`}>{(s.ms / 1000).toFixed(1)}s</span>}
+        {s.ms && (
+          <span className={`text-[0.6rem] font-mono font-semibold ${isGoodLatency ? 'text-emerald-400' : isOkLatency ? 'text-amber-400' : 'text-red-400'}`}>
+            ⚡ {(s.ms / 1000).toFixed(1)}s
+          </span>
+        )}
         <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${open ? '' : '-rotate-90'}`} />
       </div>
       {open && (
