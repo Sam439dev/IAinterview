@@ -433,68 +433,98 @@ def has_question_markers(text: str, lang: str) -> bool:
     
     return False
 
-# ========== ULTRA-OPTIMIZED REALTIME PROMPT ==========
+# ========== REALTIME PROMPT - FLUX CONVERSATIONNEL CONTINU ==========
 
-REALTIME_PROMPT_V2 = """Tu es un assistant d'entretien. Analyse ce que dit le recruteur et génère une suggestion de réponse pour le candidat.
+REALTIME_PROMPT_V3 = """Tu es un assistant d'entretien expert. Tu analyses le FLUX de parole du recruteur en temps réel.
 
-RÈGLE PRINCIPALE: Si le recruteur dit quelque chose qui ATTEND une réponse du candidat → génère une suggestion (d:1).
+## RÈGLE FONDAMENTALE
+La parole humaine est NATURELLE et IMPARFAITE. Tu dois détecter les intentions même si elles sont:
+- Incomplètes ou interrompues
+- Noyées dans du discours
+- Combinées avec des commentaires
+- Reformulées progressivement
 
-Exemples de ce qui ATTEND une réponse:
-- "Présentez-vous" / "Tell me about yourself"
-- "Parlez-moi de..." / "Talk about..."  
-- "Comment..." / "How..." / "Why..." / "What..."
-- "Pouvez-vous..." / "Can you..." / "Could you..."
-- "Je voudrais évaluer/savoir/connaître..."
-- Toute question avec ou sans "?"
-- Tout impératif demandant une action
+## CE QUI DÉCLENCHE UNE SUGGESTION (d:1)
+TOUTE phrase qui attend une réponse du candidat:
+- Questions directes ou indirectes (avec ou sans "?")
+- Demandes: "parlez-moi", "décrivez", "expliquez", "tell me", "describe"
+- Invitations: "je voudrais savoir/évaluer/comprendre", "I'd like to understand"
+- Impératifs: "présentez", "donnez un exemple", "walk me through"
+- Intentions implicites: "So basically, your role on..." = demande de clarification
 
-IGNORE seulement: "Bonjour", "Merci", "D'accord", "Je note" (phrases courtes de politesse pure)
+## EXEMPLES DE DÉTECTION
+"So yeah, I was thinking about your last experience, and I'd like you to tell me how you handled leadership" → d:1 (intention noyée dans le discours)
+"Can you describe your background and also explain why you moved into product?" → d:1 (2 intentions, réponds à la principale)
+"How did you... actually, what I really want to know is how you deal with pressure" → d:1 (reformulation, prends l'intention finale)
+"We've been struggling with deadlines, so can you explain how you prioritize?" → d:1 (contexte + question)
 
+## CE QUI NE DÉCLENCHE PAS (d:0)
+UNIQUEMENT les phrases courtes de pure politesse SANS intention:
+- "Bonjour", "Merci", "D'accord", "Je note", "Un instant"
+- "Hello", "Thanks", "Okay", "Let me note that"
+
+## PRIORITÉ EN CAS D'AMBIGUÏTÉ
 DANS LE DOUTE → GÉNÈRE UNE SUGGESTION (d:1)
+Il vaut mieux suggérer une réponse inutile que rater une vraie question.
 
-LANGUE: Réponds dans la MÊME langue que le recruteur.
+## RÉPONSE
+- Utilise le CV pour personnaliser (expériences, compétences, réalisations concrètes)
+- Réponds dans la MÊME langue que le recruteur
+- 3-4 phrases professionnelles et naturelles
+- Mentionne des exemples spécifiques du parcours du candidat
 
-JSON (obligatoire):
-{"d":1,"l":"fr","c":"gen","q":"résumé","r":"suggestion de réponse 3-4 phrases utilisant le CV","k":["point1"],"t":"conseil"}
-ou {"d":0} si vraiment juste politesse"""
+## FORMAT JSON OBLIGATOIRE
+{"d":1,"l":"fr","c":"tech|behav|exp|motiv|scen|pitch|gen","q":"résumé de l'intention détectée","r":"réponse suggérée personnalisée avec le CV","k":["point clé 1","point clé 2"],"t":"conseil de ton"}
+ou {"d":0} si VRAIMENT juste de la politesse pure"""
 
-async def fast_analyze_v2(api_key, transcript, session_id, cv_data, model, detected_lang, prev_lang):
+async def fast_analyze_v3(api_key, transcript, session_id, cv_data, model, detected_lang, prev_lang):
     """
-    Ultra-optimized analysis with strict language enforcement.
-    - Uses rich CV context
-    - Enforces language consistency
-    - Minimal tokens for speed
+    Analyse en flux continu - détection d'intentions dans la parole naturelle.
+    - Comprend les intentions implicites
+    - Gère les reformulations
+    - Utilise pleinement le CV
     """
     cv_ctx = build_cv_context_rich(cv_data)
     
-    # Get minimal context (only last message for speed)
+    # Get more context for better understanding (last 3 messages)
     recent = await messages_col.find(
         {"session_id": session_id, "role": "user", "is_small_talk": {"$ne": True}}
-    ).sort("created_at", -1).limit(1).to_list(length=1)
+    ).sort("created_at", -1).limit(3).to_list(length=3)
+    recent.reverse()
     
-    context = recent[0]["content"][:50] if recent else ""
-    profile = cv_ctx[:2000] if cv_ctx else "Pas de CV"
+    context_parts = [m["content"][:100] for m in recent]
+    context = " → ".join(context_parts) if context_parts else ""
     
-    # Enforce language in the user message
-    lang_instruction = f"LANGUE DÉTECTÉE: {detected_lang.upper()}. RÉPONDS EN {detected_lang.upper()}."
+    profile = cv_ctx[:2500] if cv_ctx else "Pas de CV chargé"
     
-    user_msg = f"{lang_instruction}\nCV:\n{profile}\nContexte précédent: {context}\nRecruteur dit: \"{transcript}\""
+    # Build user message with strong language instruction
+    user_msg = f"""LANGUE: {detected_lang.upper()} - Réponds en {detected_lang.upper()}
+
+PROFIL CANDIDAT:
+{profile}
+
+CONTEXTE CONVERSATION:
+{context}
+
+RECRUTEUR DIT MAINTENANT:
+"{transcript}"
+
+Analyse cette phrase et génère une suggestion si elle contient une intention qui attend une réponse."""
     
     try:
         content = await openai_chat_fast(
             api_key,
-            [{"role": "system", "content": REALTIME_PROMPT_V2},
+            [{"role": "system", "content": REALTIME_PROMPT_V3},
              {"role": "user", "content": user_msg}],
-            model=model, json_mode=True, timeout_s=15.0, max_tokens=700
+            model=model, json_mode=True, timeout_s=18.0, max_tokens=800
         )
         result = json.loads(content)
         
-        # Check for d:1 (detected) - be flexible with type
-        detected = result.get("d") in [1, True, "1", "true"]
+        # Flexible detection check
+        detected = result.get("d") in [1, True, "1", "true", 1.0]
         if not detected:
             return {"detected": False}
         
-        # Validate language match
         response_lang = result.get("l", detected_lang)
         
         cat_map = {
@@ -514,7 +544,25 @@ async def fast_analyze_v2(api_key, transcript, session_id, cv_data, model, detec
             "confidence": 0.95
         }
     except json.JSONDecodeError as e:
-        print(f"[FAST-ANALYZE] JSON error: {e}, raw: {content[:200] if 'content' in dir() else 'N/A'}")
+        print(f"[FAST-ANALYZE] JSON error: {e}")
+        # Try to extract response even if JSON is malformed
+        try:
+            if '"r":' in content:
+                import re
+                match = re.search(r'"r"\s*:\s*"([^"]+)"', content)
+                if match:
+                    return {
+                        "detected": True,
+                        "category": "general",
+                        "question_summary": transcript[:50],
+                        "suggested_response": match.group(1),
+                        "key_points": [],
+                        "tone_advice": "",
+                        "response_language": detected_lang,
+                        "confidence": 0.7
+                    }
+        except:
+            pass
         return {"detected": False}
     except Exception as e:
         print(f"[FAST-ANALYZE] Error: {e}")
