@@ -453,29 +453,30 @@ async def get_messages(session_id: str):
     msgs = await messages_col.find({"session_id": session_id}).sort("created_at", 1).to_list(length=1000)
     return ser_list(msgs)
 
-# Main pipeline: process audio chunk (transcribe silently, detect questions, return suggestions only)
+# Main pipeline: process audio chunk — OPTIMIZED FOR SPEED (target ≤2s)
 @app.post("/api/interview/process-audio")
 async def process_audio(data: ProcessAudioInput):
     t0 = time.time()
     api_key = await get_api_key()
     if not api_key:
         raise HTTPException(400, "Clé API non configurée")
-    settings = await settings_col.find_one({"user_id": "default"}, {"_id": 0})
-    model = (settings or {}).get("preferred_model", "gpt-4o-mini")
 
     session = await sessions_col.find_one({"_id": ObjectId(data.session_id)})
     if not session:
         raise HTTPException(404, "Session non trouvée")
 
-    # Decode and transcribe audio
+    settings = await settings_col.find_one({"user_id": "default"}, {"_id": 0})
+    model = (settings or {}).get("preferred_model", "gpt-4o-mini")
+
+    # 1. Whisper transcription
     audio_bytes = base64.b64decode(data.audio_data)
     t1 = time.time()
     tr = await whisper(api_key, audio_bytes, data.mime_type, data.language)
-    transcription_ms = int((time.time() - t1) * 1000)
+    whisper_ms = int((time.time() - t1) * 1000)
 
     if "error" in tr:
-        print(f"[WHISPER ERROR] {tr['error'][:200]}")
-        return {"detected": False, "error": "Erreur de transcription audio", "pipeline_ms": int((time.time() - t0) * 1000)}
+        print(f"[WHISPER ERR] {tr['error'][:150]}")
+        return {"detected": False, "error": "transcription_failed", "pipeline_ms": int((time.time() - t0) * 1000)}
 
     transcript_text = (tr.get("text") or "").strip()
     detected_lang = tr.get("language", "fr")
@@ -483,64 +484,67 @@ async def process_audio(data: ProcessAudioInput):
     if not transcript_text or len(transcript_text) < 3:
         return {"detected": False, "pipeline_ms": int((time.time() - t0) * 1000)}
 
-    # Save transcribed text as user message (stored for end-of-session summary)
+    # 2. Fast pre-filter: skip small talk WITHOUT calling GPT (saves ~1-2s)
+    if is_small_talk(transcript_text):
+        await messages_col.insert_one({
+            "session_id": data.session_id, "role": "user",
+            "content": transcript_text, "detected_language": detected_lang,
+            "is_small_talk": True, "created_at": now_utc()
+        })
+        print(f"[SKIP] Small talk: '{transcript_text}' ({whisper_ms}ms)")
+        return {"detected": False, "filtered": "small_talk", "detected_language": detected_lang, "pipeline_ms": int((time.time() - t0) * 1000)}
+
+    # 3. Save transcribed text (for end-of-session summary)
     await messages_col.insert_one({
         "session_id": data.session_id, "role": "user",
         "content": transcript_text, "detected_language": detected_lang,
-        "transcription_ms": transcription_ms, "created_at": now_utc()
+        "whisper_ms": whisper_ms, "created_at": now_utc()
     })
 
-    # Get CV for context
+    # 4. Get CV
     cv_doc = await cv_col.find_one({"is_active": True})
     cv_data = cv_doc.get("parsed_data") if cv_doc else None
 
-    # Analyze: detect question + generate suggestion
+    # 5. Fast analyze + generate suggestion
     t2 = time.time()
     try:
-        analysis = await analyze_and_respond(api_key, transcript_text, data.session_id, cv_data, model, detected_lang)
+        analysis = await fast_analyze(api_key, transcript_text, data.session_id, cv_data, model, detected_lang)
     except Exception as e:
-        print(f"[PROCESS-AUDIO] Analysis failed: {e}")
-        analysis = {"detected": False}
-    response_ms = int((time.time() - t2) * 1000)
+        print(f"[ANALYZE ERR] {e}")
+        return {"detected": False, "error": "analysis_failed", "detected_language": detected_lang, "pipeline_ms": int((time.time() - t0) * 1000)}
+    analysis_ms = int((time.time() - t2) * 1000)
 
     detected = analysis.get("detected", False)
-    ai_response = analysis.get("suggested_response")
-    category = analysis.get("category", "none")
-    key_points = analysis.get("key_points", [])
-    tone_advice = analysis.get("tone_advice")
-    question_summary = analysis.get("question_summary")
-    confidence = analysis.get("confidence", 0)
+    pipeline_ms = int((time.time() - t0) * 1000)
+    print(f"[PIPE] '{transcript_text[:50]}' lang={detected_lang} det={detected} w={whisper_ms}ms a={analysis_ms}ms T={pipeline_ms}ms")
 
-    print(f"[PROCESS-AUDIO] Transcript: '{transcript_text[:60]}' | Detected: {detected} | Category: {category} | Has CV: {cv_data is not None}")
+    if detected:
+        ai_response = analysis.get("suggested_response", "")
+        category = analysis.get("category", "general")
+        key_points = analysis.get("key_points", [])
+        tone_advice = analysis.get("tone_advice", "")
+        question_summary = analysis.get("question_summary", "")
 
-    if detected and ai_response:
         await messages_col.insert_one({
             "session_id": data.session_id, "role": "assistant",
             "content": ai_response, "category": category,
             "key_points": key_points, "tone_advice": tone_advice,
-            "question_summary": question_summary, "confidence": confidence,
-            "response_ms": response_ms, "created_at": now_utc()
+            "question_summary": question_summary,
+            "response_ms": analysis_ms, "created_at": now_utc()
         })
         await sessions_col.update_one(
             {"_id": ObjectId(data.session_id)},
             {"$inc": {"total_questions": 1, "total_responses": 1}, "$set": {"updated_at": now_utc()}}
         )
+        return {
+            "detected": True, "category": category, "confidence": 0.9,
+            "question_summary": question_summary, "suggested_response": ai_response,
+            "key_points": key_points, "tone_advice": tone_advice,
+            "detected_language": detected_lang, "response_ms": analysis_ms,
+            "pipeline_ms": pipeline_ms, "cv_active": cv_data is not None
+        }
 
-    pipeline_ms = int((time.time() - t0) * 1000)
-
-    # Return suggestion only — NO transcript in response (transcript is hidden during session)
-    return {
-        "detected": detected,
-        "category": category,
-        "confidence": confidence,
-        "question_summary": question_summary,
-        "suggested_response": ai_response,
-        "key_points": key_points,
-        "tone_advice": tone_advice,
-        "response_ms": response_ms,
-        "pipeline_ms": pipeline_ms,
-        "cv_active": cv_data is not None
-    }
+    return {"detected": False, "detected_language": detected_lang, "pipeline_ms": pipeline_ms}
 
 
 # --- Session Summary (end of session) ---
