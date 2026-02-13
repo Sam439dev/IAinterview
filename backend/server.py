@@ -485,11 +485,12 @@ async def fast_analyze_v2(api_key, transcript, session_id, cv_data, model, detec
             api_key,
             [{"role": "system", "content": REALTIME_PROMPT_V2},
              {"role": "user", "content": user_msg}],
-            model=model, json_mode=True, timeout_s=12.0, max_tokens=500
+            model=model, json_mode=True, timeout_s=15.0, max_tokens=700
         )
         result = json.loads(content)
         
-        detected = result.get("d", 0) == 1
+        # Check for d:1 (detected) - be flexible with type
+        detected = result.get("d") in [1, True, "1", "true"]
         if not detected:
             return {"detected": False}
         
