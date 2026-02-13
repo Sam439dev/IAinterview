@@ -78,11 +78,12 @@ async def get_api_key():
         return None
     return s["openai_api_key"]
 
-async def openai_chat(api_key, messages, model="gpt-4o-mini", json_mode=False):
-    payload = {"model": model, "messages": messages, "temperature": 0.6, "max_tokens": 2000}
+async def openai_chat(api_key, messages, model="gpt-4o-mini", json_mode=False, timeout_s=30.0, max_tokens=1500):
+    """Speed-optimized OpenAI call with reduced timeout and tokens"""
+    payload = {"model": model, "messages": messages, "temperature": 0.5, "max_tokens": max_tokens}
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
-    async with httpx.AsyncClient(timeout=60.0) as c:
+    async with httpx.AsyncClient(timeout=timeout_s) as c:
         r = await c.post("https://api.openai.com/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             json=payload)
