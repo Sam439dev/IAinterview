@@ -528,44 +528,54 @@ DOUTE → d:1
 
 async def fast_analyze_v3(api_key, transcript, session_id, cv_data, model, detected_lang, prev_lang):
     """
-    Analyse en flux continu - détection d'intentions dans la parole naturelle.
-    - Comprend les intentions implicites
-    - Gère les reformulations
-    - Utilise pleinement le CV
+    Copilote d'entretien expert - Analyse en flux continu.
+    - Détection d'intentions dans la parole naturelle
+    - Ancrage CV systématique
+    - Suggestions extensibles avec points d'entrée
     """
     cv_ctx = build_cv_context_rich(cv_data)
     
-    # Get more context for better understanding (last 3 messages)
-    recent = await messages_col.find(
+    # Get conversation context (last 3 user messages for flow understanding)
+    recent_user = await messages_col.find(
         {"session_id": session_id, "role": "user", "is_small_talk": {"$ne": True}}
     ).sort("created_at", -1).limit(3).to_list(length=3)
-    recent.reverse()
+    recent_user.reverse()
     
-    context_parts = [m["content"][:100] for m in recent]
-    context = " → ".join(context_parts) if context_parts else ""
+    # Get last AI suggestion for non-redundancy check
+    last_ai = await messages_col.find_one(
+        {"session_id": session_id, "role": "assistant"},
+        sort=[("created_at", -1)]
+    )
+    last_suggestion = last_ai.get("content", "")[:200] if last_ai else ""
     
-    profile = cv_ctx[:2500] if cv_ctx else "Pas de CV chargé"
+    context_parts = [m["content"][:120] for m in recent_user]
+    conversation_flow = " → ".join(context_parts) if context_parts else "Début de conversation"
     
-    # Build user message with strong language instruction
-    user_msg = f"""LANGUE: {detected_lang.upper()} - Réponds en {detected_lang.upper()}
+    profile = cv_ctx[:3000] if cv_ctx else "CV non chargé - utiliser des réponses génériques structurées"
+    
+    # Build comprehensive user message
+    user_msg = f"""# LANGUE DE RÉPONSE: {detected_lang.upper()}
 
-PROFIL CANDIDAT:
+# PROFIL COMPLET DU CANDIDAT
 {profile}
 
-CONTEXTE CONVERSATION:
-{context}
+# FLUX DE CONVERSATION
+{conversation_flow}
 
-RECRUTEUR DIT MAINTENANT:
+# DERNIÈRE SUGGESTION IA (pour éviter répétition)
+{last_suggestion if last_suggestion else "Aucune suggestion précédente"}
+
+# CE QUE LE RECRUTEUR DIT MAINTENANT
 "{transcript}"
 
-Analyse cette phrase et génère une suggestion si elle contient une intention qui attend une réponse."""
+Analyse et génère une suggestion structurée (Accroche + Cœur + Ouverture) avec ancrage CV obligatoire."""
     
     try:
         content = await openai_chat_fast(
             api_key,
-            [{"role": "system", "content": REALTIME_PROMPT_V3},
+            [{"role": "system", "content": COPILOT_SYSTEM_PROMPT},
              {"role": "user", "content": user_msg}],
-            model=model, json_mode=True, timeout_s=18.0, max_tokens=800
+            model=model, json_mode=True, timeout_s=20.0, max_tokens=900
         )
         result = json.loads(content)
         
@@ -593,7 +603,7 @@ Analyse cette phrase et génère une suggestion si elle contient une intention q
             "confidence": 0.95
         }
     except json.JSONDecodeError as e:
-        print(f"[FAST-ANALYZE] JSON error: {e}")
+        print(f"[COPILOT] JSON error: {e}")
         # Try to extract response even if JSON is malformed
         try:
             if '"r":' in content:
@@ -614,7 +624,7 @@ Analyse cette phrase et génère une suggestion si elle contient une intention q
             pass
         return {"detected": False}
     except Exception as e:
-        print(f"[FAST-ANALYZE] Error: {e}")
+        print(f"[COPILOT] Error: {e}")
         raise
 
 # ========== API ENDPOINTS ==========
