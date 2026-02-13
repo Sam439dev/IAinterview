@@ -1,101 +1,96 @@
-# Interview Assistant AI - PRD v2.0
+# Interview Assistant AI - PRD v3.0
 
 ## Énoncé du Problème
-Assistant IA d'entretien avec analyse audio en temps réel. L'agent écoute en continu, détecte les questions du recruteur, et génère des suggestions de réponses personnalisées basées sur le CV du candidat.
+Assistant IA d'entretien avec analyse audio en temps réel. Un copilote expert qui aide le candidat à répondre aux questions d'un recruteur avec précision, crédibilité et profondeur variable.
 
-## Exigences Critiques (6 Problèmes Résolus v2.0)
+## Prompt Copilote Expert (v3.0)
 
-### 1. ✅ Détection de Langue Robuste (FR/EN)
-- Auto-détection par Whisper (sans param language = détection automatique)
-- Tracking de langue par session (fallback sur langue précédente si ambiguïté)
-- Instruction stricte dans le prompt GPT pour respecter la langue détectée
-- Badge langue coloré (FR=cyan, EN=violet)
+### Identité
+**Métaphore**: Stratège silencieux qui chuchote des conseils précis – jamais un remplaçant.
 
-### 2. ✅ Latence ≤2s (Cible ~1s)
-- Chunks audio: 3 secondes (vs 4s avant)
-- Timeouts réduits: Whisper 20s, GPT 12s
-- Tokens réduits: max 500 pour analyse, 600 pour réponse
-- Température basse: 0.3 (plus déterministe = plus rapide)
-- CV cache en mémoire (TTL 60s, évite DB roundtrip)
-- Requêtes parallèles (CV fetch pendant session check)
+### Règles Fondamentales (Inviolables)
 
-### 3. ✅ Parsing CV Exhaustif
-- Nouveau prompt CV avec 25+ champs structurés
-- Extraction: expériences (détaillées), skills hard/soft, technologies, méthodologies, formations, certifications, langues, points forts, valeur unique
-- Contexte CV riche (build_cv_context_rich) injecté dans chaque suggestion
-- Personnalisation systématique des réponses avec données CV
+1. **Extensibilité obligatoire**
+   - ❌ INTERDIT: Réponses fermées
+   - ✅ OBLIGATOIRE: Points d'entrée pour approfondissement
 
-### 4. ✅ Détection d'Intention Améliorée
-- Filtrage small talk étendu (FR + EN, 60+ patterns)
-- Détection de commentaires (vs questions)
-- Marqueurs de questions explicites (?, comment, pourquoi, tell me...)
-- Règles strictes: small talk et commentaires → jamais de suggestion
+2. **Ancrage CV systématique**
+   - ❌ INTERDIT: Exemples génériques, théories abstraites
+   - ✅ OBLIGATOIRE: Citer éléments concrets du CV
 
-### 5. ✅ Summary Robuste avec Fallback
-- Try/catch avec fallback dégradé (create_fallback_summary)
-- Résumé toujours généré, même si erreur LLM
-- Structure complète: transcript, questions, QA pairs, insights, topics
-- Latence moyenne calculée et incluse
+3. **Non-redondance stricte**
+   - ❌ INTERDIT: Répéter information reformulée
+   - ✅ OBLIGATOIRE: Chaque échange apporte nouvelle couche
 
-### 6. ✅ Qualité Production (ChatGPT Voice Level)
-- Réactivité comparable aux meilleurs agents vocaux
-- Suggestions contextualisées avec CV
-- Interaction fluide sans latence perceptible
-- Indicateurs visuels de performance (latence, langue)
+### Architecture des Réponses
+
+**Niveau 1 - Réponse Initiale**
+- Accroche: Reformulation implicite
+- Cœur: 2-3 points clés actionnables
+- Ouverture: Indice d'approfondissement possible
+
+**Niveau 2 - Approfondissement**
+- Contexte spécifique → Action concrète → Résultat → Lien question
+
+### Méthode PAIR (Questions Complexes)
+- **P**roblème: Reformulation + vrais enjeux
+- **A**nalyse: Contraintes, paramètres
+- **I**mplémentation: Solution + compromis
+- **R**ésultats: Impacts, indicateurs
+
+### Gestion des Pièges
+- Question bateau → Illustrer par situations CV
+- Relance inattendue → Activer niveau 2 avec ancrage CV
+- Blocage → Structure de rattrapage
 
 ## Architecture Technique
 
 ```
 /app/
-├── backend/
-│   └── server.py (v2.0)
-│       ├── CV cache in-memory (60s TTL)
-│       ├── Session language tracking
-│       ├── Enhanced small talk filter
-│       ├── fast_analyze_v2 (12s timeout, 500 tokens)
-│       ├── whisper_fast (20s timeout, auto-detect)
-│       └── Robust summary with fallback
-├── frontend/
-│   └── src/pages/Interview.js
-│       ├── 3s audio chunks
-│       ├── Colored language badge (FR/EN)
-│       ├── Latency indicator with emoji
-│       └── Response language in suggestion cards
+├── backend/server.py
+│   ├── COPILOT_SYSTEM_PROMPT (prompt expert complet)
+│   ├── fast_analyze_v3 (avec contexte conversation + non-redondance)
+│   ├── build_cv_context_rich (contexte CV exhaustif)
+│   └── Détection flux conversationnel continu
+└── frontend/
+    └── Settings.js (affichage CV complet: skills_hard, skills_soft, technologies, methodologies)
 ```
 
-## Flux de Traitement Audio (v2.0)
+## Flux de Traitement
 
 ```
 Audio 3s → Whisper (20s) → Auto-detect langue
                               ↓
-              Small talk / Comment filter (local, 0ms)
+              Small talk filter (conservateur)
                               ↓
-                   GPT fast_analyze_v2 (12s)
+              fast_analyze_v3 avec COPILOT_SYSTEM_PROMPT
                               ↓
-                   Suggestion personnalisée CV
+              Suggestion structurée (Accroche + Cœur + Ouverture)
                               ↓
-                   Frontend (affichage instantané)
+              Ancrage CV obligatoire
 ```
 
-## Tests Validés (Dec 2025)
-- Backend: 100% (19/19 tests)
-- Frontend: 100% (tous data-testid présents)
-- Version: 2.0
+## CV - Données Exploitées
+- full_name, current_role, years_experience, seniority
+- experiences (avec key_achievements, technologies_used)
+- skills_hard, skills_soft
+- technologies, methodologies
+- education, certifications
+- strengths, unique_value
+- languages_spoken, industries
 
-## Checklist Produit
-- [x] Langue correcte 100% suggestions
-- [x] Switch FR⇄EN sans erreur
-- [x] Latence ≤2s (P95)
-- [x] Suggestions alignées CV
-- [x] Aucun small talk pris en compte
-- [x] Summary généré sans erreur bloquante
+## Tests Validés
+- CV affichage complet: ✅
+- Détection intentions: ✅ (prompt expert)
+- Ancrage CV: ✅ (règle inviolable)
+- Non-redondance: ✅ (check dernière suggestion)
 
 ## Backlog
-### P1 (Prioritaire)
+### P1
 - Export session PDF
 - Raccourcis clavier
 
-### P2 (Futur)
-- Multi-langue étendu (ES, DE)
+### P2
+- Multi-langue étendu
 - Upload description de poste
-- Mode entraînement avec questions types
+- Mode entraînement
