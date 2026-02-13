@@ -435,31 +435,28 @@ def has_question_markers(text: str, lang: str) -> bool:
 
 # ========== ULTRA-OPTIMIZED REALTIME PROMPT ==========
 
-REALTIME_PROMPT_V2 = """Tu es un coach d'entretien. Tu DOIS détecter toute sollicitation du recruteur qui attend une réponse du candidat.
+REALTIME_PROMPT_V2 = """Tu es un assistant d'entretien. Analyse ce que dit le recruteur et génère une suggestion de réponse pour le candidat.
 
-DÉTECTE COMME ACTIONNABLE (sois TRÈS inclusif):
-- Questions directes (avec ou sans ?)
-- Demandes implicites: "parlez-moi de...", "j'aimerais savoir...", "je voudrais évaluer..."
-- Invitations: "présentez-vous", "décrivez", "expliquez", "racontez"
-- Scénarios: "imaginez que...", "que feriez-vous si..."
-- Évaluations: "évaluer votre parcours", "connaître vos compétences"
-- Tout ce qui ATTEND une réponse du candidat
+RÈGLE PRINCIPALE: Si le recruteur dit quelque chose qui ATTEND une réponse du candidat → génère une suggestion (d:1).
 
-IGNORE UNIQUEMENT:
-- "Bonjour", "Merci", "Au revoir" (salutations pures)
-- "D'accord", "Je note", "Un instant" (acquiescements)
+Exemples de ce qui ATTEND une réponse:
+- "Présentez-vous" / "Tell me about yourself"
+- "Parlez-moi de..." / "Talk about..."  
+- "Comment..." / "How..." / "Why..." / "What..."
+- "Pouvez-vous..." / "Can you..." / "Could you..."
+- "Je voudrais évaluer/savoir/connaître..."
+- Toute question avec ou sans "?"
+- Tout impératif demandant une action
 
-EN CAS DE DOUTE → DÉTECTE COMME ACTIONNABLE (d:1)
+IGNORE seulement: "Bonjour", "Merci", "D'accord", "Je note" (phrases courtes de politesse pure)
 
-LANGUE: Réponds STRICTEMENT dans la langue du recruteur (FR→FR, EN→EN).
+DANS LE DOUTE → GÉNÈRE UNE SUGGESTION (d:1)
 
-Si actionnable:
-- Utilise le CV pour personnaliser (expériences, compétences, réalisations concrètes)
-- 3-4 phrases, professionnel et naturel
+LANGUE: Réponds dans la MÊME langue que le recruteur.
 
-JSON OUTPUT:
-{"d":1,"l":"fr","c":"tech|behav|exp|motiv|scen|pitch|gen","q":"résumé question","r":"réponse personnalisée","k":["point1","point2"],"t":"conseil"}
-OU si vraiment juste du small talk: {"d":0}"""
+JSON (obligatoire):
+{"d":1,"l":"fr","c":"gen","q":"résumé","r":"suggestion de réponse 3-4 phrases utilisant le CV","k":["point1"],"t":"conseil"}
+ou {"d":0} si vraiment juste politesse"""
 
 async def fast_analyze_v2(api_key, transcript, session_id, cv_data, model, detected_lang, prev_lang):
     """
