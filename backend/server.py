@@ -1,12 +1,13 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, Dict, Any
 import os
 import json
 import base64
 import io
 import time
+import asyncio
 from datetime import datetime, timezone
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -35,6 +36,38 @@ cv_col = db["cv_documents"]
 sessions_col = db["interview_sessions"]
 messages_col = db["conversation_messages"]
 
+# ========== IN-MEMORY CACHE FOR CV (avoid DB roundtrip) ==========
+_cv_cache: Dict[str, Any] = {"data": None, "loaded_at": 0}
+
+async def get_cached_cv():
+    """Get CV from cache or DB. Cache expires after 60s."""
+    now = time.time()
+    if _cv_cache["data"] and (now - _cv_cache["loaded_at"]) < 60:
+        return _cv_cache["data"]
+    cv_doc = await cv_col.find_one({"is_active": True})
+    if cv_doc:
+        _cv_cache["data"] = cv_doc.get("parsed_data")
+        _cv_cache["loaded_at"] = now
+    return _cv_cache["data"]
+
+def invalidate_cv_cache():
+    """Call when CV is updated/uploaded."""
+    _cv_cache["data"] = None
+    _cv_cache["loaded_at"] = 0
+
+# ========== SESSION LANGUAGE TRACKING ==========
+_session_lang: Dict[str, str] = {}
+
+def get_session_lang(session_id: str) -> str:
+    """Get last detected language for session (fallback for ambiguity)."""
+    return _session_lang.get(session_id, "fr")
+
+def set_session_lang(session_id: str, lang: str):
+    """Update session language."""
+    if lang in ("fr", "en", "french", "english"):
+        normalized = "fr" if lang in ("fr", "french") else "en"
+        _session_lang[session_id] = normalized
+
 # Pydantic
 class SettingsInput(BaseModel):
     openai_api_key: Optional[str] = None
@@ -51,9 +84,8 @@ class SessionUpdate(BaseModel):
 
 class ProcessAudioInput(BaseModel):
     session_id: str
-    audio_data: str  # base64 encoded
+    audio_data: str
     mime_type: str
-    language: Optional[str] = "fr"
 
 # Helpers
 def ser(doc):
@@ -70,7 +102,6 @@ def now_utc():
     return datetime.now(timezone.utc).isoformat()
 
 MAX_SESSIONS = 10
-CONTEXT_SIZE = 8
 
 async def get_api_key():
     s = await settings_col.find_one({"user_id": "default"}, {"_id": 0})
@@ -78,189 +109,398 @@ async def get_api_key():
         return None
     return s["openai_api_key"]
 
+# ========== OPTIMIZED OPENAI CALLS ==========
+
+async def openai_chat_fast(api_key, messages, model="gpt-4o-mini", json_mode=False, timeout_s=15.0, max_tokens=600):
+    """Ultra-fast OpenAI call: reduced timeout, tokens, temperature."""
+    payload = {
+        "model": model, 
+        "messages": messages, 
+        "temperature": 0.3,  # Lower = faster, more deterministic
+        "max_tokens": max_tokens,
+        "top_p": 0.9
+    }
+    if json_mode:
+        payload["response_format"] = {"type": "json_object"}
+    
+    async with httpx.AsyncClient(timeout=timeout_s) as c:
+        r = await c.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json=payload
+        )
+        if r.status_code != 200:
+            print(f"[OPENAI ERROR] {r.status_code}: {r.text[:200]}")
+            raise HTTPException(r.status_code, f"OpenAI: {r.text}")
+        return r.json()["choices"][0]["message"]["content"]
+
 async def openai_chat(api_key, messages, model="gpt-4o-mini", json_mode=False, timeout_s=30.0, max_tokens=1500):
-    """Speed-optimized OpenAI call with reduced timeout and tokens"""
+    """Standard OpenAI call for non-realtime tasks."""
     payload = {"model": model, "messages": messages, "temperature": 0.5, "max_tokens": max_tokens}
     if json_mode:
         payload["response_format"] = {"type": "json_object"}
     async with httpx.AsyncClient(timeout=timeout_s) as c:
-        r = await c.post("https://api.openai.com/v1/chat/completions",
+        r = await c.post(
+            "https://api.openai.com/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json=payload)
+            json=payload
+        )
         if r.status_code != 200:
-            print(f"[OPENAI ERROR] Status {r.status_code}: {r.text[:200]}")
+            print(f"[OPENAI ERROR] {r.status_code}: {r.text[:200]}")
             raise HTTPException(r.status_code, f"OpenAI: {r.text}")
         return r.json()["choices"][0]["message"]["content"]
 
-async def whisper(api_key, audio_bytes, mime_type, language_hint=None):
-    """Whisper transcription with automatic language detection (no language param = auto-detect)"""
+async def whisper_fast(api_key, audio_bytes, mime_type):
+    """Optimized Whisper: auto-detect language, reduced timeout."""
     ext_map = {"audio/webm": "webm", "audio/wav": "wav", "audio/mp3": "mp3",
                "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/m4a": "m4a"}
     ext = ext_map.get(mime_type, "webm")
     headers = {"Authorization": f"Bearer {api_key}"}
     files = {"file": (f"audio.{ext}", io.BytesIO(audio_bytes), mime_type)}
-    # Don't specify language to let Whisper auto-detect FR/EN
     data = {"model": "whisper-1", "response_format": "verbose_json"}
-    async with httpx.AsyncClient(timeout=30.0) as c:  # Reduced timeout for speed
-        r = await c.post("https://api.openai.com/v1/audio/transcriptions", headers=headers, files=files, data=data)
+    
+    async with httpx.AsyncClient(timeout=20.0) as c:
+        r = await c.post("https://api.openai.com/v1/audio/transcriptions", 
+                         headers=headers, files=files, data=data)
         if r.status_code != 200:
             return {"error": r.text}
         res = r.json()
-        return {"text": res.get("text", ""), "language": res.get("language", "unknown"), "duration": res.get("duration", 0)}
+        return {
+            "text": res.get("text", ""), 
+            "language": res.get("language", "unknown"), 
+            "duration": res.get("duration", 0)
+        }
 
-# CV helpers
+# ========== ENHANCED CV PARSING ==========
+
+CV_PARSE_PROMPT = """Tu es un expert RH senior. Extrais TOUTES les informations de ce CV de manière exhaustive.
+
+RÉPONDS EN JSON VALIDE UNIQUEMENT:
+{
+  "full_name": "nom complet",
+  "email": "email ou null",
+  "phone": "téléphone ou null",
+  "location": "ville/région ou null",
+  "linkedin": "url linkedin ou null",
+  "summary": "résumé professionnel détaillé (3-4 phrases)",
+  "current_role": "poste actuel ou dernier poste",
+  "years_experience": "nombre estimé",
+  "seniority": "junior|mid|senior|lead|executive",
+  "experiences": [
+    {
+      "title": "titre du poste",
+      "company": "entreprise",
+      "duration": "période (ex: 2020-2023)",
+      "duration_months": 36,
+      "location": "lieu",
+      "description": "description courte du rôle",
+      "key_achievements": ["réalisation quantifiée 1", "réalisation 2", "réalisation 3"],
+      "technologies_used": ["tech1", "tech2"]
+    }
+  ],
+  "skills_hard": ["compétence technique 1", "compétence 2"],
+  "skills_soft": ["compétence comportementale 1"],
+  "technologies": ["technologie/outil 1", "tech 2"],
+  "methodologies": ["agile", "scrum", "etc"],
+  "education": [
+    {"degree": "diplôme", "institution": "école", "year": "année", "field": "domaine"}
+  ],
+  "certifications": ["certification 1"],
+  "languages_spoken": [{"language": "français", "level": "natif"}, {"language": "anglais", "level": "courant"}],
+  "strengths": ["point fort professionnel 1", "point fort 2", "point fort 3"],
+  "unique_value": "ce qui rend ce candidat unique (1 phrase)",
+  "career_trajectory": "progression de carrière observée",
+  "industries": ["secteur d'activité 1", "secteur 2"]
+}
+
+RÈGLES STRICTES:
+- Extrais TOUT ce qui est mentionné, même implicitement
+- Pour les expériences: inclus TOUTES les réalisations, même mineures
+- Pour les compétences: sépare hard skills (techniques) et soft skills (comportementales)
+- Quantifie quand possible (%, chiffres, équipes gérées)
+- Si un champ n'existe pas, mets null ou []
+- NE JAMAIS renvoyer un JSON vide ou incomplet"""
+
 async def extract_cv_text(buf, mime):
     if mime == "application/pdf":
         try:
             from PyPDF2 import PdfReader
             reader = PdfReader(io.BytesIO(buf))
-            return "".join(p.extract_text() or "" for p in reader.pages)[:12000]
+            return "".join(p.extract_text() or "" for p in reader.pages)[:15000]
         except Exception:
             return ""
     elif mime == "text/plain":
-        return buf.decode("utf-8", errors="ignore")[:12000]
+        return buf.decode("utf-8", errors="ignore")[:15000]
     return ""
 
 async def parse_cv_llm(api_key, raw_text):
     if not raw_text or len(raw_text.strip()) < 20:
         return {"raw_text": raw_text}
-    prompt = """Tu es un expert RH. Extrais les informations structurées de ce CV.
-Réponds UNIQUEMENT en JSON valide:
-{
-  "full_name": "string ou null",
-  "email": "string ou null",
-  "summary": "résumé professionnel court",
-  "current_role": "poste actuel ou dernier poste",
-  "years_experience": "nombre d'années estimé",
-  "experiences": [{"title": "string", "company": "string", "duration": "string", "key_achievements": ["réalisation1"]}],
-  "skills": ["compétence1"],
-  "technologies": ["tech1"],
-  "education": [{"degree": "string", "institution": "string"}],
-  "languages": ["langue1"],
-  "certifications": ["cert1"],
-  "strengths": ["point fort professionnel 1"]
-}
-IMPORTANT: Extrais le MAXIMUM d'informations. Si un champ n'est pas trouvé, mets une liste vide ou null. Ne renvoie jamais un JSON vide."""
     try:
-        content = await openai_chat(api_key,
-            [{"role": "system", "content": prompt}, {"role": "user", "content": f"Voici le CV à analyser:\n\n{raw_text[:8000]}"}],
-            json_mode=True)
+        content = await openai_chat(
+            api_key,
+            [{"role": "system", "content": CV_PARSE_PROMPT}, 
+             {"role": "user", "content": f"CV à analyser:\n\n{raw_text[:10000]}"}],
+            json_mode=True, timeout_s=45.0, max_tokens=2500
+        )
         parsed = json.loads(content)
         parsed["raw_text"] = raw_text
+        parsed["parse_quality"] = "complete"
         return parsed
     except Exception as e:
-        print(f"CV parse error: {e}")
-        return {"raw_text": raw_text}
+        print(f"[CV PARSE ERROR] {e}")
+        return {"raw_text": raw_text, "parse_quality": "failed"}
 
-def build_cv_context(cv_data):
+def build_cv_context_rich(cv_data):
+    """Build rich CV context for suggestions - uses ALL parsed data."""
     if not cv_data:
         return ""
+    
     parts = []
+    
+    # Identity
     if cv_data.get("full_name"):
-        parts.append(f"Candidat: {cv_data['full_name']}")
+        parts.append(f"CANDIDAT: {cv_data['full_name']}")
     if cv_data.get("current_role"):
-        parts.append(f"Poste actuel: {cv_data['current_role']}")
+        parts.append(f"POSTE: {cv_data['current_role']}")
     if cv_data.get("years_experience"):
-        parts.append(f"Expérience: {cv_data['years_experience']} ans")
+        parts.append(f"EXPÉRIENCE: {cv_data['years_experience']} ans")
+    if cv_data.get("seniority"):
+        parts.append(f"NIVEAU: {cv_data['seniority']}")
+    
+    # Summary
     if cv_data.get("summary"):
-        parts.append(f"Profil: {cv_data['summary']}")
+        parts.append(f"PROFIL: {cv_data['summary']}")
+    if cv_data.get("unique_value"):
+        parts.append(f"VALEUR UNIQUE: {cv_data['unique_value']}")
+    
+    # Experiences (detailed)
     if cv_data.get("experiences"):
         exp_lines = []
-        for e in cv_data["experiences"][:4]:
-            line = f"- {e.get('title', '')} @ {e.get('company', '')} ({e.get('duration', '')})"
+        for e in cv_data["experiences"][:5]:
+            line = f"• {e.get('title', '')} @ {e.get('company', '')} ({e.get('duration', '')})"
             if e.get("key_achievements"):
-                line += ": " + "; ".join(e["key_achievements"][:2])
+                achievements = "; ".join(e["key_achievements"][:4])
+                line += f"\n  Réalisations: {achievements}"
+            if e.get("technologies_used"):
+                line += f"\n  Technologies: {', '.join(e['technologies_used'][:6])}"
             exp_lines.append(line)
-        parts.append("Parcours:\n" + "\n".join(exp_lines))
-    if cv_data.get("skills"):
-        parts.append(f"Compétences clés: {', '.join(cv_data['skills'][:15])}")
+        parts.append("PARCOURS:\n" + "\n".join(exp_lines))
+    
+    # Skills
+    if cv_data.get("skills_hard"):
+        parts.append(f"COMPÉTENCES TECHNIQUES: {', '.join(cv_data['skills_hard'][:20])}")
+    if cv_data.get("skills_soft"):
+        parts.append(f"SOFT SKILLS: {', '.join(cv_data['skills_soft'][:10])}")
     if cv_data.get("technologies"):
-        parts.append(f"Technologies: {', '.join(cv_data['technologies'][:15])}")
+        parts.append(f"TECHNOLOGIES: {', '.join(cv_data['technologies'][:20])}")
+    if cv_data.get("methodologies"):
+        parts.append(f"MÉTHODOLOGIES: {', '.join(cv_data['methodologies'][:8])}")
+    
+    # Strengths
     if cv_data.get("strengths"):
-        parts.append(f"Points forts: {', '.join(cv_data['strengths'][:5])}")
+        parts.append(f"POINTS FORTS: {', '.join(cv_data['strengths'][:6])}")
+    
+    # Education & Certifications
+    if cv_data.get("education"):
+        edu = [f"{e.get('degree', '')} - {e.get('institution', '')}" for e in cv_data["education"][:3]]
+        parts.append(f"FORMATION: {'; '.join(edu)}")
     if cv_data.get("certifications"):
-        parts.append(f"Certifications: {', '.join(cv_data['certifications'][:5])}")
-    # Fallback: if structured data is empty but raw text exists, use raw text excerpt
+        parts.append(f"CERTIFICATIONS: {', '.join(cv_data['certifications'][:5])}")
+    
+    # Languages
+    if cv_data.get("languages_spoken"):
+        langs = [f"{l.get('language', '')} ({l.get('level', '')})" for l in cv_data["languages_spoken"]]
+        parts.append(f"LANGUES: {', '.join(langs)}")
+    
+    # Industries
+    if cv_data.get("industries"):
+        parts.append(f"SECTEURS: {', '.join(cv_data['industries'][:5])}")
+    
+    # Fallback to raw text
     if not parts and cv_data.get("raw_text"):
-        parts.append(f"CV (texte brut):\n{cv_data['raw_text'][:3000]}")
+        parts.append(f"CV (texte):\n{cv_data['raw_text'][:3000]}")
+    
     return "\n".join(parts)
 
-# ========== REAL-TIME PIPELINE (OPTIMIZED FOR SPEED) ==========
+# ========== ENHANCED SMALL TALK FILTER ==========
 
-# Small talk patterns to filter BEFORE calling GPT (saves ~1-2s)
-SMALL_TALK_PATTERNS = {
-    "fr": ["bonjour", "bonsoir", "salut", "au revoir", "merci", "merci beaucoup",
-           "comment allez-vous", "ça va", "enchanté", "bonne journée", "à bientôt",
-           "d'accord", "ok", "très bien", "parfait", "super", "entendu",
-           "je vous en prie", "pas de souci", "un instant", "une seconde",
-           "je vais noter", "attendez", "hmm", "euh"],
-    "en": ["hello", "hi", "good morning", "good afternoon", "goodbye", "thank you",
-           "thanks", "how are you", "nice to meet you", "have a good day",
-           "alright", "okay", "sure", "perfect", "great", "got it",
-           "you're welcome", "no problem", "one moment", "one second",
-           "let me note", "hold on", "hmm", "uh"]
+SMALL_TALK_PATTERNS_FR = {
+    # Greetings
+    "bonjour", "bonsoir", "salut", "coucou", "hello", "hey",
+    # Farewells
+    "au revoir", "à bientôt", "bonne journée", "bonne soirée", "à plus",
+    # Thanks
+    "merci", "merci beaucoup", "je vous remercie",
+    # Acknowledgments
+    "d'accord", "ok", "okay", "très bien", "parfait", "super", "entendu", "compris",
+    "bien sûr", "absolument", "effectivement", "tout à fait", "c'est noté",
+    # Politeness
+    "je vous en prie", "pas de souci", "pas de problème", "avec plaisir",
+    "excusez-moi", "pardon",
+    # Fillers/admin
+    "un instant", "une seconde", "attendez", "je note", "je vais noter",
+    "laissez-moi", "voyons", "alors", "donc", "bon",
+    # Hesitations
+    "hmm", "euh", "heu", "ah", "oh",
 }
 
-def is_small_talk(text):
-    """Fast pre-filter to skip small talk without calling GPT."""
-    clean = text.strip().lower().rstrip(".!?,;:")
-    # Very short utterances
-    if len(clean) < 4:
+SMALL_TALK_PATTERNS_EN = {
+    # Greetings
+    "hello", "hi", "hey", "good morning", "good afternoon", "good evening",
+    # Farewells
+    "goodbye", "bye", "see you", "take care", "have a good day",
+    # Thanks
+    "thank you", "thanks", "thanks a lot", "much appreciated",
+    # Acknowledgments
+    "okay", "ok", "alright", "sure", "perfect", "great", "got it", "understood",
+    "absolutely", "exactly", "indeed", "noted", "i see",
+    # Politeness
+    "you're welcome", "no problem", "no worries", "my pleasure",
+    "excuse me", "sorry",
+    # Fillers/admin
+    "one moment", "one second", "hold on", "let me", "let me note",
+    "let me see", "so", "well", "right",
+    # Hesitations
+    "hmm", "uh", "um", "ah", "oh",
+}
+
+COMMENT_PATTERNS = {
+    # French comment indicators
+    "je vois", "intéressant", "c'est bien", "d'après ce que", "si je comprends bien",
+    "en effet", "justement", "notamment",
+    # English comment indicators  
+    "i see", "interesting", "that's good", "from what i", "if i understand",
+    "indeed", "exactly", "right",
+}
+
+def is_small_talk_or_comment(text: str) -> tuple[bool, str]:
+    """
+    Enhanced filter: detects small talk AND comments (non-questions).
+    Returns (is_filtered, reason).
+    """
+    clean = text.strip().lower()
+    # Remove punctuation for matching
+    clean_no_punct = clean.rstrip(".!?,;:…")
+    
+    # Very short = likely filler
+    if len(clean_no_punct) < 4:
+        return True, "too_short"
+    
+    # Exact match small talk
+    if clean_no_punct in SMALL_TALK_PATTERNS_FR or clean_no_punct in SMALL_TALK_PATTERNS_EN:
+        return True, "small_talk"
+    
+    # Starts with small talk
+    for pattern in SMALL_TALK_PATTERNS_FR | SMALL_TALK_PATTERNS_EN:
+        if clean_no_punct.startswith(pattern + " ") and len(clean_no_punct) < len(pattern) + 15:
+            return True, "small_talk_prefix"
+    
+    # Pure comment (no question marker)
+    words = clean_no_punct.split()
+    if len(words) <= 6:
+        for pattern in COMMENT_PATTERNS:
+            if pattern in clean_no_punct:
+                return True, "comment"
+    
+    return False, ""
+
+def has_question_markers(text: str, lang: str) -> bool:
+    """Check if text contains question indicators."""
+    clean = text.strip().lower()
+    
+    # Question mark
+    if "?" in text:
         return True
-    for lang_patterns in SMALL_TALK_PATTERNS.values():
-        if clean in lang_patterns:
+    
+    # French question starters
+    fr_starters = ["comment", "pourquoi", "qu'est-ce", "quel", "quelle", "quels", "quelles",
+                   "où", "quand", "combien", "est-ce que", "pouvez-vous", "pourriez-vous",
+                   "parlez-moi", "décrivez", "expliquez", "racontez", "dites-moi"]
+    
+    # English question starters
+    en_starters = ["how", "why", "what", "which", "where", "when", "who", "whom",
+                   "can you", "could you", "would you", "tell me", "describe",
+                   "explain", "walk me through", "give me"]
+    
+    starters = fr_starters if lang == "fr" else en_starters
+    for starter in starters:
+        if clean.startswith(starter) or f" {starter}" in clean:
             return True
+    
+    # Imperative forms (requests)
+    imperatives_fr = ["présentez", "détaillez", "donnez", "montrez", "citez"]
+    imperatives_en = ["present", "detail", "give", "show", "list", "name"]
+    imperatives = imperatives_fr if lang == "fr" else imperatives_en
+    
+    for imp in imperatives:
+        if imp in clean:
+            return True
+    
     return False
 
-# Lean prompt optimized for SPEED — minimal tokens, maximum signal
-REALTIME_PROMPT = """Interview coach. Analyze the interviewer's utterance.
+# ========== ULTRA-OPTIMIZED REALTIME PROMPT ==========
 
-ACTION = questions, requests to elaborate, scenarios, technical problems, "tell me about..."
-IGNORE = greetings, acknowledgments, "let me note", "one moment", filler
+REALTIME_PROMPT_V2 = """Coach entretien. Analyse ce que dit le recruteur.
 
-If ACTION detected:
-- Use candidate CV to craft a personalized response
-- Match the interviewer's language (French OR English)
-- Be concrete, use CV data (projects, skills, experiences)
+ACTIONNABLE = question, demande d'élaboration, scénario, problème technique, "parlez-moi de", "expliquez"
+IGNORER = salutations, remerciements, commentaires admin, acquiescements, hésitations
 
-OUTPUT JSON only:
-If actionable: {"d":true,"c":"tech|behav|exp|motiv|scen|pitch|gen","q":"brief question","r":"response 3-4 sentences with CV specifics","k":["point1","point2"],"t":"tone tip"}
-If not: {"d":false}"""
+RÈGLE LANGUE STRICTE: La réponse DOIT être dans la MÊME langue que la question (FR→FR, EN→EN).
 
-async def fast_analyze(api_key, transcript, session_id, cv_data, model, language):
-    """Speed-optimized analysis: lean prompt, minimal context, faster GPT call."""
-    cv_ctx = build_cv_context(cv_data)
+Si ACTIONNABLE détecté:
+- Utilise les données CV pour personnaliser (expériences, compétences, réalisations)
+- Mentionne des exemples concrets du parcours
+- 3-4 phrases, ton professionnel
 
-    # Only last 2 messages for context (speed over completeness)
+OUTPUT JSON:
+Actionnable: {"d":1,"l":"fr|en","c":"tech|behav|exp|motiv|scen|pitch|gen","q":"question résumée","r":"réponse personnalisée CV","k":["point1","point2"],"t":"conseil ton"}
+Non-actionnable: {"d":0}"""
+
+async def fast_analyze_v2(api_key, transcript, session_id, cv_data, model, detected_lang, prev_lang):
+    """
+    Ultra-optimized analysis with strict language enforcement.
+    - Uses rich CV context
+    - Enforces language consistency
+    - Minimal tokens for speed
+    """
+    cv_ctx = build_cv_context_rich(cv_data)
+    
+    # Get minimal context (only last message for speed)
     recent = await messages_col.find(
-        {"session_id": session_id, "role": "user"}
-    ).sort("created_at", -1).limit(2).to_list(length=2)
-    recent.reverse()
-    context = " | ".join([m["content"][:60] for m in recent]) if recent else ""
-
-    profile = cv_ctx[:1500] if cv_ctx else "No CV"
-
-    user_msg = f"CV:{profile}\nPrev:{context}\nNow:\"{transcript}\""
-
+        {"session_id": session_id, "role": "user", "is_small_talk": {"$ne": True}}
+    ).sort("created_at", -1).limit(1).to_list(length=1)
+    
+    context = recent[0]["content"][:50] if recent else ""
+    profile = cv_ctx[:2000] if cv_ctx else "Pas de CV"
+    
+    # Enforce language in the user message
+    lang_instruction = f"LANGUE DÉTECTÉE: {detected_lang.upper()}. RÉPONDS EN {detected_lang.upper()}."
+    
+    user_msg = f"{lang_instruction}\nCV:\n{profile}\nContexte précédent: {context}\nRecruteur dit: \"{transcript}\""
+    
     try:
-        # Use reduced timeout and max_tokens for speed
-        content = await openai_chat(api_key,
-            [{"role": "system", "content": REALTIME_PROMPT},
+        content = await openai_chat_fast(
+            api_key,
+            [{"role": "system", "content": REALTIME_PROMPT_V2},
              {"role": "user", "content": user_msg}],
-            model=model, json_mode=True, timeout_s=20.0, max_tokens=800)
+            model=model, json_mode=True, timeout_s=12.0, max_tokens=500
+        )
         result = json.loads(content)
-
-        # Normalize compact format to full format
-        detected = bool(result.get("d", False))
+        
+        detected = result.get("d", 0) == 1
         if not detected:
             return {"detected": False}
-
-        # Map short category to full
+        
+        # Validate language match
+        response_lang = result.get("l", detected_lang)
+        
         cat_map = {
             "tech": "question_technique", "behav": "question_comportementale",
             "exp": "question_experience", "motiv": "question_motivation",
             "scen": "mise_en_situation", "pitch": "presentation", "gen": "general"
         }
+        
         return {
             "detected": True,
             "category": cat_map.get(result.get("c", "gen"), "general"),
@@ -268,20 +508,21 @@ async def fast_analyze(api_key, transcript, session_id, cv_data, model, language
             "suggested_response": result.get("r", ""),
             "key_points": result.get("k", []),
             "tone_advice": result.get("t", ""),
-            "confidence": 0.9
+            "response_language": response_lang,
+            "confidence": 0.95
         }
-    except json.JSONDecodeError:
-        print(f"[FAST-ANALYZE] JSON parse error, raw: {content[:200]}")
+    except json.JSONDecodeError as e:
+        print(f"[FAST-ANALYZE] JSON error: {e}, raw: {content[:200] if 'content' in dir() else 'N/A'}")
         return {"detected": False}
     except Exception as e:
         print(f"[FAST-ANALYZE] Error: {e}")
         raise
 
-# ============ API ENDPOINTS ============
+# ========== API ENDPOINTS ==========
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "version": "2.0"}
 
 # Settings
 @app.get("/api/settings")
@@ -344,6 +585,7 @@ async def upload_cv(file: UploadFile = File(...)):
         "is_active": True, "created_at": now_utc()
     }
     result = await cv_col.insert_one(doc)
+    invalidate_cv_cache()
     doc["id"] = str(result.inserted_id)
     doc.pop("_id", None)
     doc.pop("file_data", None)
@@ -352,11 +594,12 @@ async def upload_cv(file: UploadFile = File(...)):
 @app.delete("/api/cv/{cv_id}")
 async def delete_cv(cv_id: str):
     await cv_col.delete_one({"_id": ObjectId(cv_id)})
+    invalidate_cv_cache()
     return {"success": True}
 
 @app.post("/api/cv/reparse")
 async def reparse_cv():
-    """Re-parse the active CV using LLM (fixes cases where initial parse failed)"""
+    """Re-parse the active CV using enhanced LLM parsing."""
     api_key = await get_api_key()
     if not api_key:
         raise HTTPException(400, "Clé API non configurée")
@@ -366,36 +609,24 @@ async def reparse_cv():
     raw_text = cv.get("raw_text", "")
     if not raw_text or len(raw_text.strip()) < 20:
         raise HTTPException(400, "CV sans contenu texte extractible")
-    # Call LLM directly — let errors propagate to the user
-    prompt = """Tu es un expert RH. Extrais les informations structurées de ce CV.
-Réponds UNIQUEMENT en JSON valide:
-{
-  "full_name": "string ou null",
-  "email": "string ou null",
-  "summary": "résumé professionnel court",
-  "current_role": "poste actuel ou dernier poste",
-  "years_experience": "nombre d'années estimé",
-  "experiences": [{"title": "string", "company": "string", "duration": "string", "key_achievements": ["réalisation1"]}],
-  "skills": ["compétence1"],
-  "technologies": ["tech1"],
-  "education": [{"degree": "string", "institution": "string"}],
-  "languages": ["langue1"],
-  "certifications": ["cert1"],
-  "strengths": ["point fort professionnel 1"]
-}
-IMPORTANT: Extrais le MAXIMUM d'informations. Si un champ n'est pas trouvé, mets une liste vide ou null. Ne renvoie jamais un JSON vide."""
-    # This will raise HTTPException if OpenAI call fails (invalid key etc)
-    content = await openai_chat(api_key,
-        [{"role": "system", "content": prompt}, {"role": "user", "content": f"Voici le CV à analyser:\n\n{raw_text[:8000]}"}],
-        json_mode=True)
+    
+    content = await openai_chat(
+        api_key,
+        [{"role": "system", "content": CV_PARSE_PROMPT}, 
+         {"role": "user", "content": f"CV à analyser:\n\n{raw_text[:10000]}"}],
+        json_mode=True, timeout_s=45.0, max_tokens=2500
+    )
     parsed_data = json.loads(content)
     parsed_data["raw_text"] = raw_text
+    parsed_data["parse_quality"] = "complete"
+    
     await cv_col.update_one({"_id": cv["_id"]}, {"$set": {"parsed_data": parsed_data}})
+    invalidate_cv_cache()
+    
     doc = ser(cv)
     doc["parsed_data"] = parsed_data
     doc.pop("file_data", None)
     return doc
-
 
 # Sessions
 @app.get("/api/sessions")
@@ -428,6 +659,7 @@ async def create_session(data: SessionCreate):
         "status": "active",
         "total_questions": 0, "total_responses": 0,
         "avg_latency_ms": 0, "duration_seconds": 0,
+        "latency_samples": [],
         "created_at": now_utc(), "updated_at": now_utc()
     }
     result = await sessions_col.insert_one(doc)
@@ -449,6 +681,8 @@ async def update_session(session_id: str, data: SessionUpdate):
 async def delete_session(session_id: str):
     await messages_col.delete_many({"session_id": session_id})
     await sessions_col.delete_one({"_id": ObjectId(session_id)})
+    # Clean session language cache
+    _session_lang.pop(session_id, None)
     return {"success": True}
 
 @app.get("/api/sessions/{session_id}/messages")
@@ -456,189 +690,319 @@ async def get_messages(session_id: str):
     msgs = await messages_col.find({"session_id": session_id}).sort("created_at", 1).to_list(length=1000)
     return ser_list(msgs)
 
-# Main pipeline: process audio chunk — OPTIMIZED FOR SPEED (target ≤2s)
+# ========== MAIN PIPELINE: ULTRA-OPTIMIZED (target ≤2s, ideal ~1s) ==========
+
 @app.post("/api/interview/process-audio")
 async def process_audio(data: ProcessAudioInput):
     t0 = time.time()
+    
+    # Parallel: get API key + cached CV
     api_key = await get_api_key()
     if not api_key:
         raise HTTPException(400, "Clé API non configurée")
-
+    
+    # Start CV fetch in parallel with session check
+    cv_task = asyncio.create_task(get_cached_cv())
+    
     session = await sessions_col.find_one({"_id": ObjectId(data.session_id)})
     if not session:
         raise HTTPException(404, "Session non trouvée")
-
+    
     settings = await settings_col.find_one({"user_id": "default"}, {"_id": 0})
     model = (settings or {}).get("preferred_model", "gpt-4o-mini")
-
-    # 1. Whisper transcription (auto-detect language for FR/EN)
+    
+    # Get previous language for this session (for ambiguity fallback)
+    prev_lang = get_session_lang(data.session_id)
+    
+    # 1. Whisper transcription (auto-detect language)
     audio_bytes = base64.b64decode(data.audio_data)
     t1 = time.time()
-    tr = await whisper(api_key, audio_bytes, data.mime_type)  # No language param = auto-detect
+    tr = await whisper_fast(api_key, audio_bytes, data.mime_type)
     whisper_ms = int((time.time() - t1) * 1000)
-
+    
     if "error" in tr:
         print(f"[WHISPER ERR] {tr['error'][:150]}")
         return {"detected": False, "error": "transcription_failed", "pipeline_ms": int((time.time() - t0) * 1000)}
-
+    
     transcript_text = (tr.get("text") or "").strip()
-    detected_lang = tr.get("language", "fr")
-
+    detected_lang = tr.get("language", "unknown")
+    
+    # Normalize language
+    if detected_lang in ("french", "fr"):
+        detected_lang = "fr"
+    elif detected_lang in ("english", "en"):
+        detected_lang = "en"
+    else:
+        # Fallback to previous session language if detection unclear
+        detected_lang = prev_lang
+    
+    # Update session language
+    set_session_lang(data.session_id, detected_lang)
+    
     if not transcript_text or len(transcript_text) < 3:
-        return {"detected": False, "pipeline_ms": int((time.time() - t0) * 1000)}
-
-    # 2. Fast pre-filter: skip small talk WITHOUT calling GPT (saves ~1-2s)
-    if is_small_talk(transcript_text):
+        return {"detected": False, "detected_language": detected_lang, "pipeline_ms": int((time.time() - t0) * 1000)}
+    
+    # 2. Enhanced small talk / comment filter (saves ~1-2s by skipping GPT)
+    is_filtered, filter_reason = is_small_talk_or_comment(transcript_text)
+    
+    if is_filtered:
+        # Still save for transcript
         await messages_col.insert_one({
             "session_id": data.session_id, "role": "user",
             "content": transcript_text, "detected_language": detected_lang,
-            "is_small_talk": True, "created_at": now_utc()
+            "is_small_talk": True, "filter_reason": filter_reason,
+            "whisper_ms": whisper_ms, "created_at": now_utc()
         })
-        print(f"[SKIP] Small talk: '{transcript_text}' ({whisper_ms}ms)")
-        return {"detected": False, "filtered": "small_talk", "detected_language": detected_lang, "pipeline_ms": int((time.time() - t0) * 1000)}
-
-    # 3. Save transcribed text (for end-of-session summary)
+        print(f"[SKIP] {filter_reason}: '{transcript_text[:40]}' ({whisper_ms}ms)")
+        return {
+            "detected": False, "filtered": filter_reason, 
+            "detected_language": detected_lang, 
+            "pipeline_ms": int((time.time() - t0) * 1000)
+        }
+    
+    # 3. Check for question markers (additional validation)
+    has_question = has_question_markers(transcript_text, detected_lang)
+    
+    # 4. Save transcribed text (for end-of-session summary)
     await messages_col.insert_one({
         "session_id": data.session_id, "role": "user",
         "content": transcript_text, "detected_language": detected_lang,
+        "has_question_markers": has_question,
         "whisper_ms": whisper_ms, "created_at": now_utc()
     })
-
-    # 4. Get CV
-    cv_doc = await cv_col.find_one({"is_active": True})
-    cv_data = cv_doc.get("parsed_data") if cv_doc else None
-
-    # 5. Fast analyze + generate suggestion
+    
+    # 5. Get CV from cache (should be ready by now)
+    cv_data = await cv_task
+    
+    # 6. Fast analyze + generate suggestion
     t2 = time.time()
     try:
-        analysis = await fast_analyze(api_key, transcript_text, data.session_id, cv_data, model, detected_lang)
+        analysis = await fast_analyze_v2(
+            api_key, transcript_text, data.session_id, 
+            cv_data, model, detected_lang, prev_lang
+        )
     except Exception as e:
         print(f"[ANALYZE ERR] {e}")
-        return {"detected": False, "error": "analysis_failed", "detected_language": detected_lang, "pipeline_ms": int((time.time() - t0) * 1000)}
+        return {
+            "detected": False, "error": "analysis_failed", 
+            "detected_language": detected_lang, 
+            "pipeline_ms": int((time.time() - t0) * 1000)
+        }
+    
     analysis_ms = int((time.time() - t2) * 1000)
-
-    detected = analysis.get("detected", False)
     pipeline_ms = int((time.time() - t0) * 1000)
-    print(f"[PIPE] '{transcript_text[:50]}' lang={detected_lang} det={detected} w={whisper_ms}ms a={analysis_ms}ms T={pipeline_ms}ms")
-
+    
+    detected = analysis.get("detected", False)
+    print(f"[PIPE] '{transcript_text[:40]}' lang={detected_lang} det={detected} w={whisper_ms}ms a={analysis_ms}ms T={pipeline_ms}ms")
+    
     if detected:
         ai_response = analysis.get("suggested_response", "")
         category = analysis.get("category", "general")
         key_points = analysis.get("key_points", [])
         tone_advice = analysis.get("tone_advice", "")
         question_summary = analysis.get("question_summary", "")
-
+        response_lang = analysis.get("response_language", detected_lang)
+        
         await messages_col.insert_one({
             "session_id": data.session_id, "role": "assistant",
             "content": ai_response, "category": category,
             "key_points": key_points, "tone_advice": tone_advice,
             "question_summary": question_summary,
+            "response_language": response_lang,
             "response_ms": analysis_ms, "created_at": now_utc()
         })
+        
+        # Update session stats with latency sample
         await sessions_col.update_one(
             {"_id": ObjectId(data.session_id)},
-            {"$inc": {"total_questions": 1, "total_responses": 1}, "$set": {"updated_at": now_utc()}}
+            {
+                "$inc": {"total_questions": 1, "total_responses": 1},
+                "$push": {"latency_samples": {"$each": [pipeline_ms], "$slice": -20}},
+                "$set": {"updated_at": now_utc()}
+            }
         )
+        
         return {
-            "detected": True, "category": category, "confidence": 0.9,
+            "detected": True, "category": category, "confidence": 0.95,
             "question_summary": question_summary, "suggested_response": ai_response,
             "key_points": key_points, "tone_advice": tone_advice,
-            "detected_language": detected_lang, "response_ms": analysis_ms,
-            "pipeline_ms": pipeline_ms, "cv_active": cv_data is not None
+            "detected_language": detected_lang, "response_language": response_lang,
+            "response_ms": analysis_ms, "pipeline_ms": pipeline_ms, 
+            "cv_active": cv_data is not None
         }
-
+    
     return {"detected": False, "detected_language": detected_lang, "pipeline_ms": pipeline_ms}
 
+# ========== ROBUST SESSION SUMMARY ==========
 
-# --- Session Summary (end of session) ---
+SUMMARY_PROMPT_V2 = """Expert analyse entretiens. Analyse cette session et produis un résumé structuré.
 
-SUMMARY_PROMPT = """Tu es un expert en analyse d'entretiens d'embauche.
-On te fournit l'intégralité des échanges d'une session d'entretien.
-Les messages "RECRUTEUR" sont ce que l'interlocuteur a dit.
-Les messages "SUGGESTION" sont les réponses suggérées par l'IA.
+Messages "RECRUTEUR" = ce que l'intervieweur a dit
+Messages "SUGGESTION" = réponses suggérées par l'IA
 
-Produis une analyse structurée en JSON:
+JSON OUTPUT:
 {
   "transcript": [
-    {"speaker": "recruteur", "text": "ce que le recruteur a dit"},
-    {"speaker": "candidat (suggestion IA)", "text": "la réponse suggérée"}
+    {"speaker": "recruteur", "text": "...", "language": "fr|en"},
+    {"speaker": "suggestion_ia", "text": "..."}
   ],
   "identified_questions": [
-    {
-      "question": "la question ou demande identifiée",
-      "category": "technique | comportementale | experience | motivation | mise_en_situation | presentation | general",
-      "context": "contexte bref de la question dans la conversation"
-    }
+    {"question": "...", "category": "technique|comportementale|experience|motivation|scenario|presentation|general", "context": "bref contexte"}
   ],
   "qa_pairs": [
-    {
-      "question": "la question du recruteur",
-      "suggested_answer": "la réponse suggérée par l'IA",
-      "category": "catégorie de la question"
-    }
+    {"question": "question du recruteur", "suggested_answer": "réponse IA", "category": "..."}
   ],
   "session_insights": {
     "total_exchanges": 0,
     "questions_detected": 0,
     "dominant_category": "catégorie la plus fréquente",
-    "general_feedback": "feedback général sur la session (2-3 phrases)"
-  }
+    "languages_used": ["fr", "en"],
+    "avg_response_time_ms": 0,
+    "general_feedback": "feedback constructif 2-3 phrases"
+  },
+  "key_topics": ["thème 1", "thème 2"],
+  "improvement_suggestions": ["suggestion 1"]
 }
 
 RÈGLES:
-- Reconstitue la conversation complète dans "transcript" dans l'ordre chronologique
-- Identifie TOUTES les questions ou demandes du recruteur dans "identified_questions"
-- Pour chaque question identifiée qui a reçu une suggestion, crée une paire dans "qa_pairs"
-- Si un message du recruteur n'est pas une question, inclus-le quand même dans le transcript mais pas dans identified_questions
-- Le feedback doit être constructif et bienveillant"""
-
+- Reconstitue TOUTE la conversation chronologiquement
+- Identifie TOUTES les questions du recruteur
+- Associe chaque question à sa suggestion quand elle existe
+- Feedback bienveillant et constructif
+- Si données manquantes, utiliser des valeurs par défaut plutôt que d'échouer"""
 
 @app.post("/api/sessions/{session_id}/generate-summary")
 async def generate_summary(session_id: str):
     api_key = await get_api_key()
     if not api_key:
         raise HTTPException(400, "Clé API non configurée")
-
+    
     session = await sessions_col.find_one({"_id": ObjectId(session_id)})
     if not session:
         raise HTTPException(404, "Session non trouvée")
-
-    # Get all messages
+    
     msgs = await messages_col.find({"session_id": session_id}).sort("created_at", 1).to_list(length=1000)
+    
+    # Handle empty session gracefully
     if not msgs:
-        raise HTTPException(400, "Aucun message dans cette session")
-
-    # Build conversation text
+        fallback_summary = {
+            "transcript": [],
+            "identified_questions": [],
+            "qa_pairs": [],
+            "session_insights": {
+                "total_exchanges": 0,
+                "questions_detected": 0,
+                "dominant_category": "none",
+                "languages_used": [],
+                "avg_response_time_ms": 0,
+                "general_feedback": "Session sans échanges enregistrés."
+            },
+            "key_topics": [],
+            "improvement_suggestions": ["Assurez-vous que le micro fonctionne correctement pour la prochaine session."]
+        }
+        await sessions_col.update_one(
+            {"_id": ObjectId(session_id)},
+            {"$set": {"summary": fallback_summary, "status": "completed", "updated_at": now_utc()}}
+        )
+        return fallback_summary
+    
+    # Build conversation
     lines = []
+    latencies = []
     for m in msgs:
+        if m.get("is_small_talk"):
+            continue
         role_label = "RECRUTEUR" if m["role"] == "user" else "SUGGESTION"
-        lines.append(f"{role_label}: {m['content']}")
-    conversation = "\n\n".join(lines)
-
+        lang = m.get("detected_language", "")
+        lang_tag = f" [{lang.upper()}]" if lang else ""
+        lines.append(f"{role_label}{lang_tag}: {m['content']}")
+        if m.get("response_ms"):
+            latencies.append(m["response_ms"])
+    
+    conversation = "\n\n".join(lines) if lines else "Session vide"
+    avg_latency = round(sum(latencies) / len(latencies)) if latencies else 0
+    
     settings = await settings_col.find_one({"user_id": "default"}, {"_id": 0})
     model = (settings or {}).get("preferred_model", "gpt-4o-mini")
-
+    
     try:
         content = await openai_chat(
             api_key,
             [
-                {"role": "system", "content": SUMMARY_PROMPT},
-                {"role": "user", "content": f"Analyse cette session d'entretien:\n\n{conversation}"}
+                {"role": "system", "content": SUMMARY_PROMPT_V2},
+                {"role": "user", "content": f"Session d'entretien:\n\n{conversation}\n\nLatence moyenne: {avg_latency}ms"}
             ],
-            model=model, json_mode=True
+            model=model, json_mode=True, timeout_s=60.0, max_tokens=3000
         )
         summary = json.loads(content)
+        
+        # Inject actual avg latency
+        if "session_insights" in summary:
+            summary["session_insights"]["avg_response_time_ms"] = avg_latency
+            
+    except json.JSONDecodeError as e:
+        print(f"[SUMMARY JSON ERROR] {e}")
+        # Fallback: create minimal summary from raw data
+        summary = create_fallback_summary(msgs, avg_latency)
     except Exception as e:
-        raise HTTPException(500, f"Erreur de génération: {str(e)}")
-
-    # Store summary in session
+        print(f"[SUMMARY ERROR] {e}")
+        summary = create_fallback_summary(msgs, avg_latency)
+    
     await sessions_col.update_one(
         {"_id": ObjectId(session_id)},
         {"$set": {"summary": summary, "status": "completed", "updated_at": now_utc()}}
     )
-
+    
     return summary
 
+def create_fallback_summary(msgs, avg_latency):
+    """Create degraded but non-empty summary when LLM fails."""
+    transcript = []
+    questions = []
+    qa_pairs = []
+    languages = set()
+    
+    last_user_msg = None
+    for m in msgs:
+        if m.get("is_small_talk"):
+            continue
+        
+        lang = m.get("detected_language", "unknown")
+        languages.add(lang)
+        
+        if m["role"] == "user":
+            transcript.append({"speaker": "recruteur", "text": m["content"], "language": lang})
+            last_user_msg = m["content"]
+        else:
+            transcript.append({"speaker": "suggestion_ia", "text": m["content"]})
+            if last_user_msg:
+                questions.append({
+                    "question": last_user_msg[:100],
+                    "category": m.get("category", "general"),
+                    "context": ""
+                })
+                qa_pairs.append({
+                    "question": last_user_msg,
+                    "suggested_answer": m["content"],
+                    "category": m.get("category", "general")
+                })
+                last_user_msg = None
+    
+    return {
+        "transcript": transcript,
+        "identified_questions": questions,
+        "qa_pairs": qa_pairs,
+        "session_insights": {
+            "total_exchanges": len(transcript),
+            "questions_detected": len(questions),
+            "dominant_category": "general",
+            "languages_used": list(languages),
+            "avg_response_time_ms": avg_latency,
+            "general_feedback": "Résumé généré automatiquement. Session terminée."
+        },
+        "key_topics": [],
+        "improvement_suggestions": []
+    }
 
 @app.get("/api/sessions/{session_id}/summary")
 async def get_summary(session_id: str):
