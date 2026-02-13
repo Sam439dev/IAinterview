@@ -175,7 +175,13 @@ function CVSection() {
     try { await deleteCV(cv.id); setCv(null); } catch {}
   };
 
-  const hasParsedData = cv?.parsed_data && (cv.parsed_data.skills?.length > 0 || cv.parsed_data.full_name || cv.parsed_data.experiences?.length > 0);
+  const hasParsedData = cv?.parsed_data && (
+    cv.parsed_data.skills_hard?.length > 0 || 
+    cv.parsed_data.skills_soft?.length > 0 ||
+    cv.parsed_data.skills?.length > 0 || 
+    cv.parsed_data.full_name || 
+    cv.parsed_data.experiences?.length > 0
+  );
 
   return (
     <div className="card" data-testid="cv-section">
