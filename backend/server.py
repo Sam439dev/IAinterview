@@ -471,10 +471,10 @@ async def process_audio(data: ProcessAudioInput):
     settings = await settings_col.find_one({"user_id": "default"}, {"_id": 0})
     model = (settings or {}).get("preferred_model", "gpt-4o-mini")
 
-    # 1. Whisper transcription
+    # 1. Whisper transcription (auto-detect language for FR/EN)
     audio_bytes = base64.b64decode(data.audio_data)
     t1 = time.time()
-    tr = await whisper(api_key, audio_bytes, data.mime_type, data.language)
+    tr = await whisper(api_key, audio_bytes, data.mime_type)  # No language param = auto-detect
     whisper_ms = int((time.time() - t1) * 1000)
 
     if "error" in tr:
