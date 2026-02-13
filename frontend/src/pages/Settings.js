@@ -259,7 +259,14 @@ function CVSection() {
                 {cv.parsed_data.technologies?.length > 0 && (
                   <div>
                     <p className="text-[0.65rem] text-slate-500 font-display mb-1.5 tracking-wider">TECHNOLOGIES</p>
-                    <div className="flex flex-wrap gap-1">{cv.parsed_data.technologies.map((t, i) => <span key={i} className="chip chip-purple text-[0.6rem]">{t}</span>)}</div>
+                    <div className="flex flex-wrap gap-1">{cv.parsed_data.technologies.map((t, i) => <span key={i} className="chip chip-warn text-[0.6rem]">{t}</span>)}</div>
+                  </div>
+                )}
+
+                {cv.parsed_data.methodologies?.length > 0 && (
+                  <div>
+                    <p className="text-[0.65rem] text-slate-500 font-display mb-1.5 tracking-wider">MÉTHODOLOGIES</p>
+                    <div className="flex flex-wrap gap-1">{cv.parsed_data.methodologies.map((m, i) => <span key={i} className="chip chip-neutral text-[0.6rem]">{m}</span>)}</div>
                   </div>
                 )}
 
