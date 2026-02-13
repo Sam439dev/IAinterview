@@ -120,7 +120,7 @@ export default function Interview() {
       setChunkCount(p => p + 1);
       try {
         const b64 = await blobToBase64(blob);
-        const result = await processAudio({ session_id: sid, audio_data: b64, mime_type: 'audio/webm', language: detectedLang });
+        const result = await processAudio({ session_id: sid, audio_data: b64, mime_type: 'audio/webm' });  // No language - auto-detect
         setLastError(null);
         if (result.detected_language) setDetectedLang(result.detected_language);
         if (result.pipeline_ms) setLastPipelineMs(result.pipeline_ms);
