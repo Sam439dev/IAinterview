@@ -213,18 +213,19 @@ def is_small_talk(text):
     return False
 
 # Lean prompt optimized for SPEED — minimal tokens, maximum signal
-REALTIME_PROMPT = """You are an interview coach. Analyze what the interviewer just said.
+REALTIME_PROMPT = """Interview coach. Analyze the interviewer's utterance.
 
-DETECT as actionable: questions, requests, invitations to speak, follow-ups, scenarios.
-IGNORE: greetings, small talk, admin comments ("let me note this"), filler words.
+ACTION = questions, requests to elaborate, scenarios, technical problems, "tell me about..."
+IGNORE = greetings, acknowledgments, "let me note", "one moment", filler
 
-If actionable → generate a response suggestion using the candidate's CV data.
-Response must be in the SAME LANGUAGE as the interviewer (French or English).
+If ACTION detected:
+- Use candidate CV to craft a personalized response
+- Match the interviewer's language (French OR English)
+- Be concrete, use CV data (projects, skills, experiences)
 
-JSON output ONLY:
-{"d":true,"cat":"technical|behavioral|experience|motivation|scenario|pitch|general","q":"short question summary","r":"suggested response (3-5 sentences, concrete, using CV data)","kp":["key point 1","key point 2"],"tone":"tone advice"}
-
-If not actionable: {"d":false}"""
+OUTPUT JSON only:
+If actionable: {"d":true,"c":"tech|behav|exp|motiv|scen|pitch|gen","q":"brief question","r":"response 3-4 sentences with CV specifics","k":["point1","point2"],"t":"tone tip"}
+If not: {"d":false}"""
 
 async def fast_analyze(api_key, transcript, session_id, cv_data, model, language):
     """Speed-optimized analysis: lean prompt, minimal context."""
