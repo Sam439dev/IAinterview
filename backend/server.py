@@ -824,10 +824,10 @@ async def process_audio(data: ProcessAudioInput):
     # 5. Get CV from cache (should be ready by now)
     cv_data = await cv_task
     
-    # 6. Fast analyze + generate suggestion
+    # 6. Fast analyze + generate suggestion (V3 - flux conversationnel)
     t2 = time.time()
     try:
-        analysis = await fast_analyze_v2(
+        analysis = await fast_analyze_v3(
             api_key, transcript_text, data.session_id, 
             cv_data, model, detected_lang, prev_lang
         )
