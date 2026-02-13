@@ -376,33 +376,27 @@ COMMENT_PATTERNS = {
 
 def is_small_talk_or_comment(text: str) -> tuple[bool, str]:
     """
-    Enhanced filter: detects small talk AND comments (non-questions).
+    Filter ONLY pure small talk. Be CONSERVATIVE - when in doubt, let it through to GPT.
     Returns (is_filtered, reason).
     """
     clean = text.strip().lower()
-    # Remove punctuation for matching
     clean_no_punct = clean.rstrip(".!?,;:…")
     
-    # Very short = likely filler
-    if len(clean_no_punct) < 4:
+    # Very short = likely filler (but not if it ends with ?)
+    if len(clean_no_punct) < 4 and "?" not in text:
         return True, "too_short"
     
-    # Exact match small talk
+    # ONLY exact match small talk (be strict here)
     if clean_no_punct in SMALL_TALK_PATTERNS_FR or clean_no_punct in SMALL_TALK_PATTERNS_EN:
         return True, "small_talk"
     
-    # Starts with small talk
-    for pattern in SMALL_TALK_PATTERNS_FR | SMALL_TALK_PATTERNS_EN:
-        if clean_no_punct.startswith(pattern + " ") and len(clean_no_punct) < len(pattern) + 15:
-            return True, "small_talk_prefix"
+    # Short phrases starting with small talk (but ONLY if very short)
+    if len(clean_no_punct) < 20:
+        for pattern in ["bonjour", "bonsoir", "merci", "hello", "hi", "thanks", "thank you"]:
+            if clean_no_punct == pattern or clean_no_punct.startswith(pattern + " ") and len(clean_no_punct) < len(pattern) + 10:
+                return True, "small_talk_prefix"
     
-    # Pure comment (no question marker)
-    words = clean_no_punct.split()
-    if len(words) <= 6:
-        for pattern in COMMENT_PATTERNS:
-            if pattern in clean_no_punct:
-                return True, "comment"
-    
+    # Do NOT filter anything else - let GPT decide
     return False, ""
 
 def has_question_markers(text: str, lang: str) -> bool:
