@@ -228,25 +228,26 @@ If actionable: {"d":true,"c":"tech|behav|exp|motiv|scen|pitch|gen","q":"brief qu
 If not: {"d":false}"""
 
 async def fast_analyze(api_key, transcript, session_id, cv_data, model, language):
-    """Speed-optimized analysis: lean prompt, minimal context."""
+    """Speed-optimized analysis: lean prompt, minimal context, faster GPT call."""
     cv_ctx = build_cv_context(cv_data)
 
-    # Only last 3 messages for context (speed over completeness)
+    # Only last 2 messages for context (speed over completeness)
     recent = await messages_col.find(
         {"session_id": session_id, "role": "user"}
-    ).sort("created_at", -1).limit(3).to_list(length=3)
+    ).sort("created_at", -1).limit(2).to_list(length=2)
     recent.reverse()
-    context = " | ".join([m["content"][:80] for m in recent]) if recent else ""
+    context = " | ".join([m["content"][:60] for m in recent]) if recent else ""
 
-    profile = cv_ctx[:2000] if cv_ctx else "No CV loaded"
+    profile = cv_ctx[:1500] if cv_ctx else "No CV"
 
-    user_msg = f"CV:{profile}\nContext:{context}\nInterviewer:\"{transcript}\""
+    user_msg = f"CV:{profile}\nPrev:{context}\nNow:\"{transcript}\""
 
     try:
+        # Use reduced timeout and max_tokens for speed
         content = await openai_chat(api_key,
             [{"role": "system", "content": REALTIME_PROMPT},
              {"role": "user", "content": user_msg}],
-            model=model, json_mode=True)
+            model=model, json_mode=True, timeout_s=20.0, max_tokens=800)
         result = json.loads(content)
 
         # Normalize compact format to full format
@@ -256,17 +257,17 @@ async def fast_analyze(api_key, transcript, session_id, cv_data, model, language
 
         # Map short category to full
         cat_map = {
-            "technical": "question_technique", "behavioral": "question_comportementale",
-            "experience": "question_experience", "motivation": "question_motivation",
-            "scenario": "mise_en_situation", "pitch": "presentation", "general": "general"
+            "tech": "question_technique", "behav": "question_comportementale",
+            "exp": "question_experience", "motiv": "question_motivation",
+            "scen": "mise_en_situation", "pitch": "presentation", "gen": "general"
         }
         return {
             "detected": True,
-            "category": cat_map.get(result.get("cat", "general"), "general"),
+            "category": cat_map.get(result.get("c", "gen"), "general"),
             "question_summary": result.get("q", ""),
             "suggested_response": result.get("r", ""),
-            "key_points": result.get("kp", []),
-            "tone_advice": result.get("tone", ""),
+            "key_points": result.get("k", []),
+            "tone_advice": result.get("t", ""),
             "confidence": 0.9
         }
     except json.JSONDecodeError:
