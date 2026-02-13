@@ -4,7 +4,7 @@ import { ArrowLeft, Mic, Square, Pause, Play, Clock, Loader2, AlertCircle, Copy,
 import ReactMarkdown from 'react-markdown';
 import { getSettings, createSession, updateSession, getMessages, processAudio, getActiveCV } from '../services/api';
 
-const CHUNK_DURATION_MS = 4000; // 4 seconds for faster detection
+const CHUNK_DURATION_MS = 3000; // 3 seconds for ultra-fast detection (target ≤2s latency)
 
 export default function Interview() {
   const { sessionId: paramId } = useParams();
