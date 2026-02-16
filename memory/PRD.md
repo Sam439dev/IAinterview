@@ -1,82 +1,76 @@
-# Interview Assistant AI - PRD v3.1
+# Interview Assistant AI - PRD v3.2
 
-## Énoncé du Problème
-Assistant IA d'entretien avec analyse audio en temps réel. Un copilote expert qui aide le candidat à répondre aux questions d'un recruteur avec précision, crédibilité et profondeur variable.
+## Problème Racine Résolu ✅
 
-## Prompt Copilote Expert V2 - EXPLORATION EXHAUSTIVE DU CV
+Le parsing du CV s'arrêtait après ~15000 caractères, ignorant les pages 8-13 du document.
 
-### Règles Fondamentales (4 règles inviolables)
+### Avant (Problème)
+- Extraction limitée à 15000 caractères
+- Parsing limité à 10000 caractères
+- Seulement 4 expériences sur 10 extraites
+- 6 entreprises manquantes (Crédit du Nord, BNP ALMT, Malakoff, Allianz, Euler, TATV)
 
-1. **Extensibilité obligatoire** - Chaque réponse contient des points d'entrée pour approfondir
-2. **Ancrage CV systématique** - Citer éléments concrets du CV, pas de généricités
-3. **EXPLORATION EXHAUSTIVE DU CV** (NOUVELLE) - Parcourir TOUTES les expériences (anciennes ET récentes), sélectionner LA PLUS PERTINENTE indépendamment de l'ancienneté
-4. **Non-redondance stricte** - Chaque échange apporte une couche d'information nouvelle
+### Après (Solution)
+- Extraction COMPLÈTE de TOUTES les pages (13 pages, 36259 caractères)
+- Parsing avec 50000 caractères max et 4000 tokens
+- **10 expériences sur 10 extraites** ✅
+- Toutes les entreprises présentes dans le contexte
 
-### Mécanisme d'Extraction CV
+## Modifications Techniques
 
+### 1. `extract_cv_text()` - SANS LIMITE
+```python
+# Avant: return "".join(...)[:15000]
+# Après: return full_text  # PAS DE LIMITE
 ```
-1. Parcours TOUTES les expériences (ancienne → récente)
-2. Évalue la pertinence de CHAQUE expérience
-3. NE TE LAISSE PAS BIAISER par l'ordre chronologique
-4. Une expérience de 2022 peut être PLUS PERTINENTE qu'une de 2024
-5. Privilégie l'exemple le plus concret (chiffres, situations, défis)
-```
+- Marque chaque page: `[PAGE 1]`, `[PAGE 2]`, etc.
+- Log du nombre de pages et caractères
 
-### Exemple d'Application
-- Question: "Avez-vous géré une crise client ?"
-- CV: VOLT 2024 (projet classique) vs BFORBANK 2023 (vraie crise client)
-- ✅ SÉLECTIONNER BFORBANK même si plus ancien
-- ❌ NE PAS se contenter de VOLT sous prétexte qu'il est récent
-
-### Gestion du Biais de Récence
-- NE PAS toujours citer la dernière expérience
-- La PERTINENCE prime sur la CHRONOLOGIE
-- Vérification mentale: "Ai-je exploré TOUTES les expériences ?"
-
-## Améliorations Techniques v3.1
-
-### Backend (server.py)
-- `build_cv_context_rich()` : Affiche TOUTES les expériences sans limite
-- Format structuré: `[EXPÉRIENCE 1]`, `[EXPÉRIENCE 2]`, etc.
-- Inclut TOUTES les réalisations clés (pas de troncation)
-- Marqueur explicite: "EXPLORER TOUTES LES EXPÉRIENCES"
-
-### Frontend (Settings.js)
-- Affiche TOUTES les expériences (plus de `.slice(0, 3)`)
-- Compteur: "EXPÉRIENCES (4)"
-
-### Contexte CV Complet
-```
-=== PARCOURS PROFESSIONNEL COMPLET (à explorer intégralement) ===
-
-[EXPÉRIENCE 1] Product Manager / Product Owner @ VOLT Superfoods (2024-2025)
-  RÉALISATIONS CLÉS:
-    • Site e-commerce lancé en 3 mois
-    • Taux de conversion de 3%
-
-[EXPÉRIENCE 2] Product Owner @ M6 Publicité (2024)
-  RÉALISATIONS CLÉS:
-    • Formation de 100+ utilisateurs
-    • Amélioration KPI de 30%
-
-[EXPÉRIENCE 3] Product Manager / Product Owner @ BFORBANK (2023)
-  RÉALISATIONS CLÉS:
-    • Analyse de 1000+ feedbacks clients
-    • Intégration Live Chat mobile
-
-[EXPÉRIENCE 4] Product Owner / Scrum Master @ BNP PARIBAS (2022)
-  RÉALISATIONS CLÉS:
-    • Hub de communication multicanal
-    • Vision 360 client
-
-=== FIN DU PARCOURS - SÉLECTIONNER L'EXPÉRIENCE LA PLUS PERTINENTE ===
+### 2. `parse_cv_llm()` - Limites augmentées
+```python
+# Avant: raw_text[:10000], max_tokens=2500
+# Après: raw_text[:50000], max_tokens=4000, timeout=90s
 ```
 
-## Tests Validés
-- ✅ CV avec 4 expériences complètes
-- ✅ Contexte CV 3095 caractères (complet)
-- ✅ Toutes les expériences incluses dans le contexte
-- ✅ Prompt V2 avec exploration exhaustive
+### 3. `CV_PARSE_PROMPT` - Instructions explicites
+- "PARCOURS TOUTES LES PAGES DU DOCUMENT"
+- "NE T'ARRÊTE PAS après les premières expériences"
+- "LE NOMBRE D'EXPÉRIENCES DOIT CORRESPONDRE AU CONTENU RÉEL"
+
+### 4. Nouvel endpoint `/api/cv/upload-from-url`
+- Télécharge le CV depuis une URL
+- Extrait TOUTES les pages
+- Parse avec les nouvelles limites
+
+### 5. `reparse_cv()` amélioré
+- Re-extrait le texte depuis le fichier original stocké
+- Ne se fie plus au raw_text tronqué
+
+## CV Actuel - 10 Expériences
+
+| # | Entreprise | Période | Réalisations |
+|---|------------|---------|--------------|
+| 1 | VOLT Superfoods | 2024-Présent | 3 |
+| 2 | M6 Publicité | 02-11/2024 | 3 |
+| 3 | BFORBANK | 2022-2024 | 3 |
+| 4 | BNP PARIBAS | 2021-2022 | 2 |
+| 5 | Groupe Crédit du Nord | 2020-2021 | 2 |
+| 6 | BNP PARIBAS ALMT IT | 2019-2020 | 2 |
+| 7 | MALAKOFF MEDERIC | 2017-2018 | 2 |
+| 8 | ALLIANZ INFORMATIQUE | 2016-2017 | 2 |
+| 9 | EULER HERMES | 2016 | 2 |
+| 10 | TATV/Touring assurance | 2015-2016 | 2 |
+
+## Contexte CV pour l'Agent
+- **5769 caractères** de contexte structuré
+- Toutes les 10 entreprises présentes
+- Toutes les réalisations clés incluses
+
+## Critères de Validation ✅
+- [x] Expérience en dernière page (TATV) mobilisable
+- [x] Projets absents de la première page mentionnables
+- [x] Nombre d'expériences non limité artificiellement
+- [x] Réponses approfondies cohérentes et contextualisées
 
 ## Backlog
 ### P1
