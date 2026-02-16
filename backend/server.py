@@ -173,7 +173,9 @@ async def whisper_fast(api_key, audio_bytes, mime_type):
 
 # ========== ENHANCED CV PARSING ==========
 
-CV_PARSE_PROMPT = """Tu es un expert RH senior. Extrais TOUTES les informations de ce CV de manière exhaustive.
+CV_PARSE_PROMPT = """Tu es un expert RH senior. Extrais TOUTES les informations de ce CV de manière EXHAUSTIVE.
+
+RÈGLE CRITIQUE: Tu dois parcourir TOUTES les pages du document et extraire TOUTES les expériences professionnelles, même celles situées à la fin du document.
 
 RÉPONDS EN JSON VALIDE UNIQUEMENT:
 {
@@ -193,8 +195,8 @@ RÉPONDS EN JSON VALIDE UNIQUEMENT:
       "duration": "période (ex: 2020-2023)",
       "duration_months": 36,
       "location": "lieu",
-      "description": "description courte du rôle",
-      "key_achievements": ["réalisation quantifiée 1", "réalisation 2", "réalisation 3"],
+      "description": "contexte et mission principale",
+      "key_achievements": ["réalisation quantifiée 1", "réalisation 2", "réalisation 3", "...TOUTES les réalisations"],
       "technologies_used": ["tech1", "tech2"]
     }
   ],
@@ -214,12 +216,14 @@ RÉPONDS EN JSON VALIDE UNIQUEMENT:
 }
 
 RÈGLES STRICTES:
-- Extrais TOUT ce qui est mentionné, même implicitement
-- Pour les expériences: inclus TOUTES les réalisations, même mineures
-- Pour les compétences: sépare hard skills (techniques) et soft skills (comportementales)
+- PARCOURS TOUTES LES PAGES DU DOCUMENT (le texte contient des marqueurs [PAGE X])
+- Extrais TOUTES les expériences professionnelles, de la plus récente à la plus ancienne
+- NE T'ARRÊTE PAS après les premières expériences - continue jusqu'à la FIN du document
+- Pour chaque expérience: inclus TOUTES les réalisations mentionnées
 - Quantifie quand possible (%, chiffres, équipes gérées)
 - Si un champ n'existe pas, mets null ou []
-- NE JAMAIS renvoyer un JSON vide ou incomplet"""
+- NE JAMAIS renvoyer un JSON vide ou incomplet
+- LE NOMBRE D'EXPÉRIENCES DOIT CORRESPONDRE AU CONTENU RÉEL DU CV"""
 
 async def extract_cv_text(buf, mime):
     """Extrait le texte de TOUTES les pages du PDF sans limitation."""
