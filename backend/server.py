@@ -748,32 +748,95 @@ async def delete_cv(cv_id: str):
 
 @app.post("/api/cv/reparse")
 async def reparse_cv():
-    """Re-parse the active CV using enhanced LLM parsing."""
+    """Re-parse the active CV using enhanced LLM parsing with FULL text."""
     api_key = await get_api_key()
     if not api_key:
         raise HTTPException(400, "Clé API non configurée")
     cv = await cv_col.find_one({"is_active": True})
     if not cv:
         raise HTTPException(404, "Aucun CV actif")
-    raw_text = cv.get("raw_text", "")
+    
+    # Check if we have the original file data to re-extract
+    file_data_b64 = cv.get("file_data")
+    mime_type = cv.get("mime_type", "application/pdf")
+    
+    if file_data_b64:
+        # Re-extract text from original file WITHOUT limits
+        file_bytes = base64.b64decode(file_data_b64)
+        raw_text = await extract_cv_text(file_bytes, mime_type)
+        print(f"[REPARSE] Re-extracted {len(raw_text)} chars from original file")
+    else:
+        raw_text = cv.get("raw_text", "")
+        print(f"[REPARSE] Using existing raw_text: {len(raw_text)} chars")
+    
     if not raw_text or len(raw_text.strip()) < 20:
         raise HTTPException(400, "CV sans contenu texte extractible")
     
-    content = await openai_chat(
-        api_key,
-        [{"role": "system", "content": CV_PARSE_PROMPT}, 
-         {"role": "user", "content": f"CV à analyser:\n\n{raw_text[:10000]}"}],
-        json_mode=True, timeout_s=45.0, max_tokens=2500
-    )
-    parsed_data = json.loads(content)
-    parsed_data["raw_text"] = raw_text
-    parsed_data["parse_quality"] = "complete"
+    # Parse with FULL text
+    parsed_data = await parse_cv_llm(api_key, raw_text)
     
-    await cv_col.update_one({"_id": cv["_id"]}, {"$set": {"parsed_data": parsed_data}})
+    # Update both raw_text and parsed_data
+    await cv_col.update_one(
+        {"_id": cv["_id"]}, 
+        {"$set": {"parsed_data": parsed_data, "raw_text": raw_text}}
+    )
     invalidate_cv_cache()
     
     doc = ser(cv)
     doc["parsed_data"] = parsed_data
+    doc.pop("file_data", None)
+    return doc
+
+class CVUrlInput(BaseModel):
+    url: str
+
+@app.post("/api/cv/upload-from-url")
+async def upload_cv_from_url(data: CVUrlInput):
+    """Upload CV from URL - extracts ALL pages without limits."""
+    api_key = await get_api_key()
+    if not api_key:
+        raise HTTPException(400, "Clé API non configurée")
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as c:
+            r = await c.get(data.url)
+            if r.status_code != 200:
+                raise HTTPException(400, f"Impossible de télécharger le fichier: {r.status_code}")
+            content = r.content
+    except Exception as e:
+        raise HTTPException(400, f"Erreur de téléchargement: {e}")
+    
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(400, "Fichier trop volumineux (max 10MB)")
+    
+    # Detect mime type
+    mime = "application/pdf" if data.url.lower().endswith(".pdf") else "application/octet-stream"
+    
+    # Extract ALL text from ALL pages
+    raw_text = await extract_cv_text(content, mime)
+    print(f"[CV URL UPLOAD] Extracted {len(raw_text)} chars")
+    
+    # Parse with GPT
+    parsed_data = await parse_cv_llm(api_key, raw_text)
+    
+    # Deactivate old CVs
+    await cv_col.update_many({"is_active": True}, {"$set": {"is_active": False}})
+    
+    # Save new CV
+    doc = {
+        "file_name": data.url.split("/")[-1],
+        "mime_type": mime,
+        "file_data": base64.b64encode(content).decode("utf-8"),
+        "parsed_data": parsed_data,
+        "raw_text": raw_text,
+        "is_active": True,
+        "created_at": now_utc()
+    }
+    result = await cv_col.insert_one(doc)
+    invalidate_cv_cache()
+    
+    doc["id"] = str(result.inserted_id)
+    doc.pop("_id", None)
     doc.pop("file_data", None)
     return doc
 
