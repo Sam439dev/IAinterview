@@ -222,15 +222,23 @@ RÈGLES STRICTES:
 - NE JAMAIS renvoyer un JSON vide ou incomplet"""
 
 async def extract_cv_text(buf, mime):
+    """Extrait le texte de TOUTES les pages du PDF sans limitation."""
     if mime == "application/pdf":
         try:
             from PyPDF2 import PdfReader
             reader = PdfReader(io.BytesIO(buf))
-            return "".join(p.extract_text() or "" for p in reader.pages)[:15000]
-        except Exception:
+            all_pages_text = []
+            for i, page in enumerate(reader.pages):
+                page_text = page.extract_text() or ""
+                all_pages_text.append(f"[PAGE {i+1}]\n{page_text}")
+            full_text = "\n\n".join(all_pages_text)
+            print(f"[CV EXTRACT] {len(reader.pages)} pages extraites, {len(full_text)} caractères")
+            return full_text  # PAS DE LIMITE - tout le texte
+        except Exception as e:
+            print(f"[CV EXTRACT ERROR] {e}")
             return ""
     elif mime == "text/plain":
-        return buf.decode("utf-8", errors="ignore")[:15000]
+        return buf.decode("utf-8", errors="ignore")
     return ""
 
 async def parse_cv_llm(api_key, raw_text):
