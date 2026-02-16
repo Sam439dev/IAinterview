@@ -246,18 +246,31 @@ async def extract_cv_text(buf, mime):
     return ""
 
 async def parse_cv_llm(api_key, raw_text):
+    """Parse le CV avec GPT - SANS LIMITE de texte pour extraire TOUTES les expériences."""
     if not raw_text or len(raw_text.strip()) < 20:
         return {"raw_text": raw_text}
+    
+    # Calculer le nombre de pages si présent
+    page_count = raw_text.count("[PAGE")
+    print(f"[CV PARSE] Texte brut: {len(raw_text)} caractères, ~{page_count} pages détectées")
+    
     try:
+        # Envoyer TOUT le texte (jusqu'à 30000 caractères pour GPT-4o-mini)
+        # GPT-4o-mini supporte ~128k tokens en entrée
         content = await openai_chat(
             api_key,
             [{"role": "system", "content": CV_PARSE_PROMPT}, 
-             {"role": "user", "content": f"CV à analyser:\n\n{raw_text[:10000]}"}],
-            json_mode=True, timeout_s=45.0, max_tokens=2500
+             {"role": "user", "content": f"CV COMPLET à analyser ({page_count} pages):\n\n{raw_text[:50000]}"}],
+            json_mode=True, timeout_s=90.0, max_tokens=4000  # Plus de tokens pour 10+ expériences
         )
         parsed = json.loads(content)
         parsed["raw_text"] = raw_text
         parsed["parse_quality"] = "complete"
+        parsed["pages_parsed"] = page_count
+        
+        exp_count = len(parsed.get("experiences", []))
+        print(f"[CV PARSE] Succès: {exp_count} expériences extraites")
+        
         return parsed
     except Exception as e:
         print(f"[CV PARSE ERROR] {e}")
