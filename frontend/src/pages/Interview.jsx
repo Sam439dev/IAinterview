@@ -326,6 +326,9 @@ export default function Interview() {
 
   const stopRecording = useCallback(async () => {
     activeRef.current = false;
+    if (useStreaming) {
+      stopStreaming();
+    }
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
@@ -336,7 +339,7 @@ export default function Interview() {
       await updateSession(sessionId, { status: 'completed', duration_seconds: timer });
       navigate(`/session/${sessionId}/summary`);
     } catch { setEnding(false); }
-  }, [sessionId, timer, navigate]);
+  }, [sessionId, timer, navigate, useStreaming, stopStreaming]);
 
   const copyText = (text, id) => { navigator.clipboard.writeText(text); setCopiedId(id); setTimeout(() => setCopiedId(null), 2000); };
 
