@@ -754,7 +754,10 @@ async def get_active_cv():
     return doc
 
 @app.post("/api/cv/upload")
-async def upload_cv(file: UploadFile = File(...)):
+async def upload_cv(
+    file: UploadFile = File(...),
+    llm: LLMHeaders = Depends(get_llm_headers)
+):
     api_key = await get_api_key()
     if not api_key:
         raise HTTPException(400, "Clé API non configurée")
