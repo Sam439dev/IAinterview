@@ -172,10 +172,6 @@ export default function Interview() {
     sourceNodeRef.current = sourceNode;
     const processor = audioContext.createScriptProcessor(4096, 1, 1);
     processorRef.current = processor;
-    if (useStreaming) {
-      await startStreaming();
-      return;
-    }
 
 
     const ws = new WebSocket(getWsUrl());
