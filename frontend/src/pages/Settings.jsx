@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Key, FileText, Upload, Check, Eye, EyeOff, Trash2, Loader2, AlertCircle, CheckCircle2, ExternalLink, Briefcase, GraduationCap, Code2, Star, RefreshCw } from 'lucide-react';
-import { getSettings, saveSettings, validateKey, getActiveCV, uploadCV, deleteCV, reparseCV } from '../services/api';
+import { getActiveCV, uploadCV, deleteCV, reparseCV } from '../services/api';
+import { loadLlmSettings, saveLlmSettings, hasActiveKey } from '../services/llmSettings';
 import Navbar from '../components/Navbar';
 
 export default function Settings() {
