@@ -235,9 +235,6 @@ export default function Interview() {
     processor.connect(audioContext.destination);
   }, [status, hasKey, providerKey, sessionId, selectedDeviceId, settings, getWsUrl]);
 
-  };
-
-
   const startRecording = useCallback(async () => {
     if (useStreaming) {
       await startStreaming();
