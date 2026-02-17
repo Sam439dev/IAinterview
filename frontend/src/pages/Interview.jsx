@@ -406,63 +406,89 @@ export default function Interview() {
         </div>
       </header>
 
-      {/* Main: Suggestions */}
-      <div className="flex-1 overflow-y-auto" data-testid="suggestions-panel">
-        <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
-          {/* Idle empty */}
-          {suggestions.length === 0 && status === 'idle' && (
-            <div className="flex flex-col items-center justify-center py-20" data-testid="empty-state">
-              <div className="w-20 h-20 rounded-2xl bg-accent/[0.05] border border-accent/10 flex items-center justify-center mb-6 glow-accent">
-                <Mic className="w-10 h-10 text-accent/60" />
+      <main className="flex-1 overflow-hidden">
+        <div className="h-full grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 p-4">
+          <section className="card flex flex-col overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+              <div>
+                <h2 className="font-display text-sm font-semibold">Meeting View</h2>
+                <p className="text-xs text-slate-500">Placez la fenêtre de réunion ici</p>
               </div>
-              <h2 className="font-display font-semibold text-xl mb-2">Prêt à enregistrer</h2>
-              <p className="text-sm text-slate-500 text-center max-w-md mb-1">
-                L'IA écoute en continu et détecte les questions du recruteur pour vous suggérer des réponses personnalisées.
-              </p>
-              <p className="text-xs text-slate-600 text-center">Détection automatique FR / EN. Transcription à la fin de la session.</p>
+              <span className="text-[0.65rem] text-slate-500">PiP bientôt</span>
             </div>
-          )}
-
-          {/* Recording/processing empty */}
-          {suggestions.length === 0 && isActive && (
-            <div className="flex flex-col items-center justify-center py-16" data-testid="listening-state">
-              <div className="flex items-center gap-1 h-16 mb-4">
-                {[...Array(7)].map((_, i) => <div key={i} className="wave-bar" style={{ animationDelay: `${i * 0.08}s`, width: '4px' }} />)}
+            <div className="flex-1 flex items-center justify-center text-center text-slate-500 text-sm px-6">
+              <div className="space-y-2">
+                <p className="font-display text-slate-300">[ MEETING VIEW ]</p>
+                <p className="text-xs text-slate-500">Positionnez votre appli de visio à côté. Le mode PiP arrivera bientôt.</p>
               </div>
-              <p className="text-sm text-accent font-display mb-1">Écoute en cours...</p>
-              <p className="text-xs text-slate-500">
-                {chunkCount > 0 ? `${chunkCount} segment${chunkCount > 1 ? 's' : ''} analysé${chunkCount > 1 ? 's' : ''}` : 'En attente de question'}
-              </p>
-              {lastError && (
-                <div className="mt-3 p-2.5 rounded-lg bg-red-500/[0.06] border border-red-500/15 max-w-md" data-testid="error-msg">
-                  <p className="text-xs text-red-400 flex items-center gap-1.5"><AlertCircle className="w-3 h-3" /> {lastError}</p>
+            </div>
+          </section>
+
+          <aside className="card flex flex-col overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+              <h2 className="font-display text-sm font-semibold">🤖 Suggestions</h2>
+              <span className="text-[0.65rem] text-slate-500">{transcriptLines.length} lignes</span>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="space-y-2">
+                <p className="text-xs text-slate-500">Transcript en direct</p>
+                {transcriptLines.length ? (
+                  <div className="space-y-2">
+                    {transcriptLines.map(line => (
+                      <div key={line.id} className={`rounded-lg border px-3 py-2 ${line.isQuestion ? 'border-amber-500/30 bg-amber-500/10' : 'border-white/10 bg-white/5'}`}>
+                        <div className="flex items-center gap-2 text-[0.65rem] text-slate-400 mb-1">
+                          <span className="uppercase">{line.speaker === 'interviewer' ? 'Interviewer' : 'Candidate'}</span>
+                          {line.isQuestion && <span className="text-amber-400">Question détectée</span>}
+                        </div>
+                        <p className="text-sm text-slate-200 leading-relaxed">{line.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">Aucune transcription pour le moment.</p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs text-slate-500">⭐ Suggested Answers</p>
+                {suggestions.length ? (
+                  <div className="space-y-3">
+                    {suggestions.map(s => (
+                      <div key={s.id} className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[0.7rem] text-slate-400">Suggested Answer</span>
+                          <button className="text-xs text-slate-300 hover:text-white flex items-center gap-1" onClick={() => handleCopy(s.fullText || s.preview)}>
+                            <Copy className="w-3 h-3" /> Copier
+                          </button>
+                        </div>
+                        <p className="text-sm text-slate-200 leading-relaxed">{s.expanded ? s.fullText : s.preview}</p>
+                        {s.fullText && s.fullText.length > 220 && (
+                          <button className="text-xs text-slate-400 hover:text-slate-200" onClick={() => toggleSuggestion(s.id)}>
+                            {s.expanded ? 'Show less' : 'Show more'}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">Aucune suggestion pour l'instant.</p>
+                )}
+              </div>
+
+              {coachingTips.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-500">💡 Coaching</p>
+                  {coachingTips.map(tip => (
+                    <div key={tip.id} className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs text-emerald-200">
+                      {tip.text}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-          )}
-
-          {/* Suggestions */}
-          {suggestions.map((s, i) => (
-            <SuggestionCard key={s.id} s={s} i={i} onCopy={copyText} copiedId={copiedId} catMap={catMap} />
-          ))}
-
-          {/* Inline processing */}
-          {status === 'processing' && suggestions.length > 0 && (
-            <div className="flex items-center justify-center gap-2.5 p-3 card animate-pulse" data-testid="processing-indicator">
-              <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-              <span className="text-xs text-amber-400 font-display">Analyse...</span>
-            </div>
-          )}
-
-          {lastError && suggestions.length > 0 && (
-            <div className="p-2.5 rounded-lg bg-red-500/[0.06] border border-red-500/15">
-              <p className="text-xs text-red-400 flex items-center gap-1.5"><AlertCircle className="w-3 h-3" /> {lastError}</p>
-            </div>
-          )}
-
-          <div ref={sugEndRef} />
+          </aside>
         </div>
-      </div>
+      </main>
 
       {/* Controls */}
       <div className="border-t border-white/[0.04] bg-base/90 backdrop-blur-xl flex-shrink-0 z-50" data-testid="controls">
