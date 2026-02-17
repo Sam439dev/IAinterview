@@ -6,7 +6,7 @@ export default defineConfig({
   envPrefix: ['VITE_', 'REACT_APP_'],
   esbuild: {
     loader: 'jsx',
-    include: /src\/.*\.js$/
+    include: /.*\.jsx?$/
   },
   optimizeDeps: {
     esbuildOptions: {
