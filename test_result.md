@@ -182,6 +182,9 @@
 
 
 ## metadata:
+##     -agent: "main"
+##     -message: "User requested free-text target role input; please re-test Settings Profile Builder UI."\
+
 ##   created_by: "main_agent"
 ##   version: "1.0"
 ##   test_sequence: 6
