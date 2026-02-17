@@ -4,9 +4,7 @@ import { buildLlmHeaders } from './llmSettings';
 const API = import.meta.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
 const ax = axios.create({ baseURL: API, headers: { 'Content-Type': 'application/json' } });
 
-export const getSettings = () => ax.get('/api/settings').then(r => r.data);
-export const saveSettings = (d) => ax.post('/api/settings', d).then(r => r.data);
-export const validateKey = (key) => ax.post('/api/settings/validate-key', { openai_api_key: key }).then(r => r.data);
+
 export const getActiveCV = () => ax.get('/api/cv/active').then(r => r.data);
 export const uploadCV = (file) => {
   const fd = new FormData();
