@@ -121,6 +121,18 @@
 ##     working: true
 ##     file: "backend/server.py"
 ##     stuck_count: 0
+##   - task: "Streaming UI (device selection + live transcript + suggestions)"
+##     implemented: true
+##     working: "NA"
+##     file: "frontend/src/pages/Interview.jsx"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: true
+##     status_history:
+##         -working: "NA"
+##         -agent: "main"
+##         -comment: "Added WebSocket streaming mode, device selector, live transcript, and streaming suggestions UI." 
+
 ##     priority: "high"
 ##     needs_retesting: false
 ##     status_history:
