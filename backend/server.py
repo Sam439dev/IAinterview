@@ -950,20 +950,12 @@ async def process_audio(
 ):
     t0 = time.time()
     
-    # Parallel: get API key + cached CV
-    api_key = await get_api_key()
-    if not api_key:
-        raise HTTPException(400, "Clé API non configurée")
-    
     # Start CV fetch in parallel with session check
     cv_task = asyncio.create_task(get_cached_cv())
     
-    session = await sessions_col.find_one({"_id": ObjectId(data.session_id)})
+    session = await sessions_col.find_one({"_id": data.session_id})
     if not session:
         raise HTTPException(404, "Session non trouvée")
-    
-    settings = await settings_col.find_one({"user_id": "default"}, {"_id": 0})
-    model = (settings or {}).get("preferred_model", "gpt-4o-mini")
     
     # Get previous language for this session (for ambiguity fallback)
     prev_lang = get_session_lang(data.session_id)
