@@ -306,11 +306,14 @@ async def parse_cv_llm(llm: LLMHeaders, raw_text: str):
     try:
         # Envoyer TOUT le texte (jusqu'à 30000 caractères pour GPT-4o-mini)
         # GPT-4o-mini supporte ~128k tokens en entrée
-        content = await openai_chat(
-            api_key,
-            [{"role": "system", "content": CV_PARSE_PROMPT}, 
-             {"role": "user", "content": f"CV COMPLET à analyser ({page_count} pages):\n\n{raw_text[:50000]}"}],
-            json_mode=True, timeout_s=90.0, max_tokens=4000  # Plus de tokens pour 10+ expériences
+        user_prompt = f"CV COMPLET à analyser ({page_count} pages):\n\n{raw_text[:50000]}"
+        content = await llm_chat(
+            llm,
+            CV_PARSE_PROMPT,
+            user_prompt,
+            temperature=0.2,
+            max_tokens=4000,
+            timeout_s=90.0
         )
         parsed = json.loads(content)
         parsed["raw_text"] = raw_text
