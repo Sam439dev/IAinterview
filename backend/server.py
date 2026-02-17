@@ -625,6 +625,9 @@ async def stream_llm_suggestions(
     question: str,
     context: str
 ):
+    if not llm_api_key or not llm_model:
+        return
+
     suggestion_id = str(uuid.uuid4())
     await websocket.send_json({"type": "suggestion_start", "id": suggestion_id})
 
