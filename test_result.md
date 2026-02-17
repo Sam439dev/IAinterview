@@ -135,6 +135,10 @@
 ##         -working: true
 ##         -agent: "testing"
 ##         -comment: "PASSED comprehensive frontend testing: 1) Vite migration successful - app loads correctly with module scripts and HMR indicators. 2) Navigation working: Home → Dashboard → Settings flow complete. 3) LLM Settings UI fully functional: provider select (OpenAI/Anthropic/Gemini/DeepSeek), API key input with show/hide toggle, model input with datalist, STT key input with show/hide toggle, save button correctly updates localStorage. 4) Dashboard shows proper key-required alert when no API key configured. 5) Interview page loads correctly and shows configure prompt when no key, with disabled start button. 6) All UI interactions work without backend calls. No critical console errors found. All test scenarios completed successfully."
+##         -working: true
+##         -agent: "user"
+##         -comment: "User confirmed preview host issue resolved after adding allowedHosts in Vite config."
+
 
 ## metadata:
 ##   created_by: "main_agent"
