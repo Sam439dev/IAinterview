@@ -928,7 +928,7 @@ async def update_session(session_id: str, data: SessionUpdate):
         update["status"] = data.status
     if data.duration_seconds is not None:
         update["duration_seconds"] = data.duration_seconds
-    await sessions_col.update_one({"_id": ObjectId(session_id)}, {"$set": update})
+    await sessions_col.update_one({"_id": session_id}, {"$set": update})
     return {"success": True}
 
 @app.delete("/api/sessions/{session_id}")
