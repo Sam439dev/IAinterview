@@ -943,7 +943,11 @@ async def get_messages(session_id: str):
 # ========== MAIN PIPELINE: ULTRA-OPTIMIZED (target ≤2s, ideal ~1s) ==========
 
 @app.post("/api/interview/process-audio")
-async def process_audio(data: ProcessAudioInput):
+async def process_audio(
+    data: ProcessAudioInput,
+    llm: LLMHeaders = Depends(get_llm_headers),
+    stt_api_key: str = Depends(get_stt_api_key)
+):
     t0 = time.time()
     
     # Parallel: get API key + cached CV
