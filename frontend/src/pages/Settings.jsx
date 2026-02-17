@@ -69,6 +69,8 @@ function ApiKeySection() {
   const [keys, setKeys] = useState({ openai: '', anthropic: '', gemini: '', deepseek: '' });
   const [sttKey, setSttKey] = useState('');
   const [saved, setSaved] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
+  const [clearTarget, setClearTarget] = useState(null); // 'provider' or 'stt'
 
   const providerLabels = {
     openai: 'OpenAI',
@@ -116,14 +118,26 @@ function ApiKeySection() {
   }, [provider]);
 
   const hasKey = !!keys[provider];
+  const hasSttKey = !!sttKey;
 
   const handleSave = () => {
     saveLlmSettings({ provider, model, keys, sttOpenAIKey: sttKey });
     setSaved(true);
   };
 
-  const handleClearProvider = () => {
-    setKeys(prev => ({ ...prev, [provider]: '' }));
+  const handleClearClick = (target) => {
+    setClearTarget(target);
+    setShowClearModal(true);
+  };
+
+  const handleConfirmClear = () => {
+    if (clearTarget === 'provider') {
+      setKeys(prev => ({ ...prev, [provider]: '' }));
+    } else if (clearTarget === 'stt') {
+      setSttKey('');
+    }
+    setShowClearModal(false);
+    setClearTarget(null);
   };
 
   const handleKeyChange = (value) => {
@@ -132,6 +146,18 @@ function ApiKeySection() {
 
   return (
     <div className="card" data-testid="api-key-section">
+      <ConfirmModal
+        isOpen={showClearModal}
+        title="Effacer la clé API"
+        message={clearTarget === 'stt' 
+          ? "Êtes-vous sûr de vouloir effacer la clé Whisper (transcription) ? Cette action est irréversible."
+          : `Êtes-vous sûr de vouloir effacer la clé ${providerLabels[provider]} ? Cette action est irréversible.`
+        }
+        onConfirm={handleConfirmClear}
+        onCancel={() => setShowClearModal(false)}
+        confirmLabel="Effacer"
+        danger={true}
+      />
       <div className="px-5 py-4 border-b border-white/[0.04] flex items-center gap-2.5">
         <div className="w-8 h-8 rounded-lg bg-accent/10 border border-accent/20 flex items-center justify-center">
           <Key className="w-4 h-4 text-accent" />
@@ -175,13 +201,23 @@ function ApiKeySection() {
               value={keys[provider] || ''}
               onChange={e => handleKeyChange(e.target.value)}
               placeholder="sk-..."
-              className="input pr-12"
+              className="input pr-20"
               data-testid="api-key-input"
             />
             <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-1">
-              <button className="btn-ghost p-1.5" onClick={() => setShowKey(!showKey)}>
+              <button className="btn-ghost p-1.5" onClick={() => setShowKey(!showKey)} title={showKey ? "Masquer" : "Afficher"}>
                 {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
+              {hasKey && (
+                <button 
+                  className="btn-ghost p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10" 
+                  onClick={() => handleClearClick('provider')}
+                  title="Effacer cette clé"
+                  data-testid="clear-provider-key-btn"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
           <p className="text-xs text-slate-600 mt-1.5">
@@ -213,13 +249,23 @@ function ApiKeySection() {
               value={sttKey}
               onChange={e => setSttKey(e.target.value)}
               placeholder="sk-..."
-              className="input pr-12"
+              className="input pr-20"
               data-testid="stt-key-input"
             />
             <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-1">
-              <button className="btn-ghost p-1.5" onClick={() => setShowStt(!showStt)}>
+              <button className="btn-ghost p-1.5" onClick={() => setShowStt(!showStt)} title={showStt ? "Masquer" : "Afficher"}>
                 {showStt ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
+              {hasSttKey && (
+                <button 
+                  className="btn-ghost p-1.5 text-red-400 hover:text-red-300 hover:bg-red-500/10" 
+                  onClick={() => handleClearClick('stt')}
+                  title="Effacer cette clé"
+                  data-testid="clear-stt-key-btn"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
           <p className="text-xs text-slate-600 mt-1.5">
@@ -227,14 +273,11 @@ function ApiKeySection() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 pt-1">
-          <button className="btn btn-primary text-xs" onClick={handleSave} data-testid="save-btn">
-            <Check className="w-4 h-4" /> Sauvegarder localement
+        <div className="flex items-center gap-3 pt-2 border-t border-white/[0.04]">
+          <button className="btn btn-primary text-sm flex-1" onClick={handleSave} data-testid="save-btn">
+            <Check className="w-4 h-4" /> Sauvegarder
           </button>
-          <button className="btn btn-danger-outline text-xs" onClick={handleClearProvider} data-testid="remove-key-btn">
-            <Trash2 className="w-3.5 h-3.5" /> Effacer la clé
-          </button>
-          {saved && <span className="text-xs text-emerald-400">Sauvegardé ✓</span>}
+          {saved && <span className="text-sm text-emerald-400 font-medium">Sauvegardé ✓</span>}
         </div>
       </div>
     </div>
