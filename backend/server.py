@@ -51,6 +51,8 @@ db = client[DB_NAME]
 cv_col = db["cv_documents"]
 sessions_col = db["interview_sessions"]
 messages_col = db["conversation_messages"]
+profiles_col = db["profiles"]
+
 
 # ========== IN-MEMORY CACHE FOR CV (avoid DB roundtrip) ==========
 _cv_cache: Dict[str, Any] = {"data": None, "loaded_at": 0}
