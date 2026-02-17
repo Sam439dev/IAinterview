@@ -107,7 +107,7 @@ export default function Interview() {
     loadDevices();
   }, [selectedDeviceId]);
 
-  useEffect(() => { sugEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [suggestions]);
+ 
 
   useEffect(() => {
     if (['recording', 'processing'].includes(status)) {
