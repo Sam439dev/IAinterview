@@ -12,7 +12,7 @@ export const getActiveCV = () => ax.get('/api/cv/active').then(r => r.data);
 export const uploadCV = (file) => {
   const fd = new FormData();
   fd.append('file', file);
-  return ax.post('/api/cv/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
+  return ax.post('/api/cv/upload', fd, { headers: { ...buildLlmHeaders(), 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
 };
 export const deleteCV = (id) => ax.delete(`/api/cv/${id}`).then(r => r.data);
 export const reparseCV = () => ax.post('/api/cv/reparse').then(r => r.data);
