@@ -1125,7 +1125,10 @@ RÈGLES:
 - Si données manquantes, utiliser des valeurs par défaut plutôt que d'échouer"""
 
 @app.post("/api/sessions/{session_id}/generate-summary")
-async def generate_summary(session_id: str):
+async def generate_summary(
+    session_id: str,
+    llm: LLMHeaders = Depends(get_llm_headers)
+):
     
     session = await sessions_col.find_one({"_id": session_id})
     if not session:
