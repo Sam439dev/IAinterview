@@ -392,3 +392,174 @@ function CVSection() {
     </div>
   );
 }
+
+
+function ProfileBuilderSection() {
+  const [companyName, setCompanyName] = useState('');
+  const [jobDescription, setJobDescription] = useState('');
+  const [targetRole, setTargetRole] = useState('software_engineer');
+  const [building, setBuilding] = useState(false);
+  const [result, setResult] = useState(null);
+  const [error, setError] = useState('');
+
+  const handleBuild = async () => {
+    if (!companyName.trim() || !jobDescription.trim()) {
+      setError('Veuillez renseigner le nom de l’entreprise et la description du poste.');
+      return;
+    }
+    setBuilding(true);
+    setError('');
+    try {
+      const res = await buildProfile({
+        company_name: companyName,
+        job_description: jobDescription,
+        target_role: targetRole
+      });
+      setResult(res);
+    } catch (e) {
+      const msg = e?.response?.data?.detail || 'Erreur lors de la construction du profil.';
+      setError(msg);
+    } finally {
+      setBuilding(false);
+    }
+  };
+
+  const companySummary = result?.company_summary?.summary || result?.company_summary;
+  const jdSummary = result?.jd_analysis?.summary || '';
+
+  return (
+    <div className="card">
+      <div className="px-5 py-4 border-b border-white/[0.04] flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+          <Star className="w-4 h-4 text-purple-300" />
+        </div>
+        <div>
+          <h2 className="font-display font-semibold text-sm">Profil d’entretien (ingestion)</h2>
+          <p className="text-xs text-slate-500">JD + entreprise + CV → FAISS persisté</p>
+        </div>
+      </div>
+      <div className="p-5 space-y-4">
+        <div className="grid gap-3">
+          <div>
+            <label className="block text-xs text-slate-500 mb-1.5 font-display">Entreprise</label>
+            <input className="input" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="ex: Stripe" />
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1.5 font-display">Rôle cible</label>
+            <select className="input" value={targetRole} onChange={e => setTargetRole(e.target.value)}>
+              <option value="software_engineer">Software Engineer</option>
+              <option value="product_manager">Product Manager</option>
+              <option value="data_scientist">Data Scientist</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-slate-500 mb-1.5 font-display">Description du poste</label>
+            <textarea
+              className="input min-h-[140px]"
+              value={jobDescription}
+              onChange={e => setJobDescription(e.target.value)}
+              placeholder="Collez la description du poste ici..."
+            />
+          </div>
+        </div>
+
+        {error && (
+          <div className="text-xs text-red-400 flex items-center gap-1">
+            <AlertCircle className="w-3 h-3" /> {error}
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <button className="btn btn-primary text-xs" onClick={handleBuild} disabled={building}>
+            {building ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Construire le profil
+          </button>
+          {result && (
+            <span className="text-xs text-emerald-400">Index créé · {result.doc_count} documents</span>
+          )}
+        </div>
+
+        {result && (
+          <div className="card-inner p-3 space-y-2">
+            {jdSummary && (
+              <div>
+                <p className="text-[0.7rem] text-slate-500 font-display mb-1">Synthèse JD</p>
+                <p className="text-xs text-slate-300 leading-relaxed">{jdSummary}</p>
+              </div>
+            )}
+            {companySummary && (
+              <div>
+                <p className="text-[0.7rem] text-slate-500 font-display mb-1">Résumé entreprise</p>
+                <p className="text-xs text-slate-300 leading-relaxed">{companySummary}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CacheSection() {
+  const [status, setStatus] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [clearing, setClearing] = useState(false);
+
+  const loadStatus = async () => {
+    setLoading(true);
+    try {
+      const s = await getIngestionStatus();
+      setStatus(s);
+    } catch (e) {
+      setStatus(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadStatus();
+  }, []);
+
+  const handleClear = async () => {
+    setClearing(true);
+    try {
+      await clearProfileCache();
+      await loadStatus();
+    } finally {
+      setClearing(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <div className="px-5 py-4 border-b border-white/[0.04] flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+          <RefreshCw className="w-4 h-4 text-amber-300" />
+        </div>
+        <div>
+          <h2 className="font-display font-semibold text-sm">Cache vectoriel</h2>
+          <p className="text-xs text-slate-500">Gérer l’index FAISS persistant</p>
+        </div>
+      </div>
+      <div className="p-5 space-y-3">
+        {loading ? (
+          <div className="text-xs text-slate-500 flex items-center gap-2">
+            <Loader2 className="w-3.5 h-3.5 animate-spin" /> Chargement du statut...
+          </div>
+        ) : status?.available ? (
+          <div className="text-xs text-slate-300">
+            Index actif · {status.doc_count || 0} documents
+            {status.created_at && <span className="text-slate-500"> · {new Date(status.created_at).toLocaleString()}</span>}
+          </div>
+        ) : (
+          <div className="text-xs text-slate-500">Aucun index persisté pour le moment.</div>
+        )}
+
+        <button className="btn btn-danger-outline text-xs" onClick={handleClear} disabled={clearing}>
+          {clearing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />} Clear Cache
+        </button>
+      </div>
+    </div>
+  );
+}
+
