@@ -86,6 +86,26 @@ def set_session_lang(session_id: str, lang: str):
         normalized = "fr" if lang in ("fr", "french") else "en"
         _session_lang[session_id] = normalized
 
+ROLE_TEMPLATES_PATH = Path(__file__).resolve().parent / "data" / "prompt_templates.json"
+
+
+def load_role_templates() -> Dict[str, str]:
+    if not ROLE_TEMPLATES_PATH.exists():
+        return {}
+    return json.loads(ROLE_TEMPLATES_PATH.read_text())
+
+
+ROLE_TEMPLATES = load_role_templates()
+
+
+def get_role_template(target_role: Optional[str]) -> str:
+    if not target_role:
+        return ""
+    key = target_role.lower().replace(" ", "_")
+    return ROLE_TEMPLATES.get(key, "")
+
+
+
 
 SUPPORTED_LLM_PROVIDERS = {"openai", "anthropic", "gemini", "deepseek"}
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
