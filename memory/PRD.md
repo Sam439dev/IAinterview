@@ -84,21 +84,21 @@ Real-time AI Interview Assistant - Production-ready replica of LockedIn AI's Int
 
 ## Pending/Future Tasks
 
-### P1 - High Priority
-- [ ] End-to-end testing of streaming with real API keys
-- [ ] Speaker diarization integration in UI
-- [ ] Latency optimization (<300ms target)
+### P1 - High Priority (In Progress)
+- [x] End-to-end testing of streaming pipeline - COMPLETED ✅
+- [x] Speaker diarization UI integration - COMPLETED ✅
+- [ ] Live streaming test with real API keys (requires user API key)
 
 ### P2 - Medium Priority
-- [ ] Coaching layer with filler word counters
 - [ ] Post-interview analysis page
 - [ ] Session summary generation
+- [ ] Export transcript functionality
 
 ### P3 - Future Enhancements
 - [ ] Local STT with faster-whisper (no API required)
 - [ ] Intent detection with DistilBERT
-- [ ] Export transcript functionality
 - [ ] Performance metrics dashboard
+- [ ] Multi-language support
 
 ## Success Metrics
 - Button visibility: 100% of users can find "Effacer"
