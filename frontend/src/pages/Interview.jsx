@@ -112,6 +112,126 @@ export default function Interview() {
     const base = import.meta.env.REACT_APP_BACKEND_URL || '';
     const wsBase = base.replace(/^http/, 'ws');
     return `${wsBase.replace(/\/$/, '')}/api/ws/stream`;
+  const stopStreaming = useCallback(() => {
+    activeRef.current = false;
+    if (wsRef.current && wsRef.current.readyState === 1) {
+      wsRef.current.send(JSON.stringify({ type: 'stop' }));
+    }
+    wsRef.current?.close();
+    wsRef.current = null;
+
+    processorRef.current?.disconnect();
+    sourceNodeRef.current?.disconnect();
+    audioContextRef.current?.close();
+    processorRef.current = null;
+    sourceNodeRef.current = null;
+    audioContextRef.current = null;
+
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    streamRef.current = null;
+
+    setWsStatus('disconnected');
+    setStatus('idle');
+  }, []);
+
+  const startStreaming = useCallback(async () => {
+    if (status === 'recording') return;
+    if (!hasKey || !providerKey) {
+      alert('Veuillez configurer votre clé API avant de démarrer le streaming.');
+      return;
+    }
+    setStreamError('');
+    setStreamTranscript('');
+    setSuggestions([]);
+
+    let sid = sessionId;
+    if (!sid) {
+      const s = await createSession({ title: `Session ${new Date().toLocaleString()}` });
+      sid = s.id;
+      setSessionId(sid);
+    }
+
+    activeRef.current = true;
+    const constraints = {
+      audio: {
+        deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    streamRef.current = stream;
+
+    const audioContext = new AudioContext();
+    audioContextRef.current = audioContext;
+    const sourceNode = audioContext.createMediaStreamSource(stream);
+    sourceNodeRef.current = sourceNode;
+    const processor = audioContext.createScriptProcessor(4096, 1, 1);
+    processorRef.current = processor;
+
+    const ws = new WebSocket(getWsUrl());
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      setWsStatus('connected');
+      ws.send(JSON.stringify({
+        type: 'start',
+        session_id: sid,
+        llm_provider: settings?.provider || 'openai',
+        llm_model: settings?.model || 'gpt-4o',
+        llm_api_key: providerKey,
+        sample_rate: 16000
+      }));
+      setStatus('recording');
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === 'transcript') {
+          setStreamTranscript(msg.text);
+        }
+        if (msg.type === 'suggestion_start') {
+          setSuggestions(prev => [...prev, {
+            id: msg.id,
+            category: 'Streaming',
+            question: 'Suggestion en direct',
+            response: ''
+          }]);
+        }
+        if (msg.type === 'suggestion_delta') {
+          setSuggestions(prev => prev.map(s => s.id === msg.id ? { ...s, response: s.response + msg.text } : s));
+        }
+      } catch (e) {
+        console.warn('WS message error', e);
+      }
+    };
+
+    ws.onerror = () => {
+      setStreamError('Connexion WebSocket échouée.');
+      setWsStatus('error');
+    };
+
+    ws.onclose = () => {
+      setWsStatus('disconnected');
+    };
+
+    processor.onaudioprocess = (event) => {
+      if (!activeRef.current || ws.readyState !== 1) return;
+      const input = event.inputBuffer.getChannelData(0);
+      const downsampled = downsampleBuffer(input, audioContext.sampleRate, 16000);
+      if (!downsampled.length) return;
+      const int16 = floatTo16BitPCM(downsampled);
+      const base64 = arrayBufferToBase64(int16.buffer);
+      ws.send(JSON.stringify({ type: 'audio_chunk', audio: base64, sample_rate: 16000 }));
+    };
+
+    sourceNode.connect(processor);
+    processor.connect(audioContext.destination);
+  }, [status, hasKey, providerKey, sessionId, selectedDeviceId, settings, getWsUrl]);
+
   };
 
 
