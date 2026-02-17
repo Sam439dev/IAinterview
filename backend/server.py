@@ -294,7 +294,7 @@ async def extract_cv_text(buf, mime):
         return buf.decode("utf-8", errors="ignore")
     return ""
 
-async def parse_cv_llm(api_key, raw_text):
+async def parse_cv_llm(llm: LLMHeaders, raw_text: str):
     """Parse le CV avec GPT - SANS LIMITE de texte pour extraire TOUTES les expériences."""
     if not raw_text or len(raw_text.strip()) < 20:
         return {"raw_text": raw_text}
