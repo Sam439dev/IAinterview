@@ -485,13 +485,25 @@ export default function Interview() {
         const msg = JSON.parse(event.data);
         if (msg.type === 'transcript') {
           const deltaText = msg.delta || msg.text || '';
+          const speaker = msg.speaker || 'interviewer';
           if (deltaText) {
             addTranscriptLine({
-              speaker: msg.speaker || 'interviewer',
+              speaker,
               text: deltaText,
               isQuestion: deltaText.trim().endsWith('?')
             });
             updateFillerCounts(deltaText);
+            
+            // Track speaker counts
+            setSpeakerCounts(prev => ({
+              ...prev,
+              [speaker]: (prev[speaker] || 0) + 1
+            }));
+            
+            // Count questions from interviewer
+            if (deltaText.trim().endsWith('?') && speaker === 'interviewer') {
+              setQuestionCount(prev => prev + 1);
+            }
           }
         }
         if (msg.type === 'suggestion_start') {
