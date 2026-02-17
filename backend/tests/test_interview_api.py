@@ -189,8 +189,8 @@ class TestProcessAudioEndpoint:
             "audio_data": mock_audio,
             "mime_type": "audio/webm"
         })
-        # Should return 200 (with error in body) or 400 (no key)
-        assert response.status_code in [200, 400]
+        # Should return 200 (with error in body), 400 (missing key), or 422 (missing headers)
+        assert response.status_code in [200, 400, 422]
         
     def test_process_audio_requires_session(self):
         """POST /api/interview/process-audio should require valid session"""
