@@ -663,11 +663,11 @@ RAPPEL: Parcours TOUTES les expériences ci-dessus et sélectionne LA PLUS PERTI
 Génère une suggestion structurée (Accroche + Cœur + Ouverture) avec ancrage CV obligatoire."""
     
     try:
-        content = await openai_chat_fast(
-            api_key,
-            [{"role": "system", "content": COPILOT_SYSTEM_PROMPT},
-             {"role": "user", "content": user_msg}],
-            model=model, json_mode=True, timeout_s=20.0, max_tokens=900
+        content = await llm_chat_fast(
+            llm,
+            COPILOT_SYSTEM_PROMPT,
+            user_msg,
+            max_tokens=900
         )
         result = json.loads(content)
         
