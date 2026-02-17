@@ -436,6 +436,7 @@ async def parse_cv_llm(llm: LLMHeaders, raw_text: str):
             "projects": [],
             "certifications": [],
             "languages": []
+        }
     except Exception as e:
         print(f"[CV PARSE ERROR] {e}")
         return {"raw_text": raw_text, "parse_quality": "failed"}
