@@ -634,7 +634,7 @@ export default function Interview() {
     setEnding(true);
     try {
       await updateSession(sessionId, { status: 'completed', duration_seconds: timer });
-      navigate(`/session/${sessionId}/summary`);
+      navigate(`/analysis/${sessionId}`);
     } catch {
       setEnding(false);
     }
