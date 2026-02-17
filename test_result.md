@@ -184,6 +184,9 @@
 ##         -comment: "Added Profile Builder (JD + company + role) and Clear Cache controls in Settings."
 ##         -working: "NA"
 ##         -agent: "main"
+##     -agent: "main"
+##     -message: "Backend retest after CV parsing retry logic; no API keys available, so validate endpoints and ensure no 500s."
+
 ##         -comment: "Updated target role field to free-text input; ready for UI retest."
 
 ##         -working: "NA"
