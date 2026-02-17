@@ -393,21 +393,50 @@ async def parse_cv_llm(llm: LLMHeaders, raw_text: str):
             timeout_s=90.0
         )
         parsed = safe_json_loads(content)
-        if not parsed:
-            return {
-                "parse_quality": "failed",
-                "raw_excerpt": raw_text[:2000],
-                "full_name": "",
-                "current_role": "",
-                "contact": {"email": "", "phone": "", "location": ""},
-                "skills_hard": [],
-                "skills_soft": [],
-                "experiences": [],
-                "education": [],
-                "projects": [],
-                "certifications": [],
-                "languages": []
-            }
+        if parsed:
+            parsed["raw_text"] = raw_text
+            parsed["parse_quality"] = "complete"
+            parsed["pages_parsed"] = page_count
+            
+            exp_count = len(parsed.get("experiences", []))
+            print(f"[CV PARSE] Succès: {exp_count} expériences extraites")
+            
+            return parsed
+
+        retry_prompt = f"CV (extrait):\n{raw_text[:20000]}"
+        retry_content = await llm_chat(
+            llm,
+            CV_PARSE_PROMPT + "\nRéponds uniquement en JSON valide.",
+            retry_prompt,
+            temperature=0.1,
+            max_tokens=2500,
+            timeout_s=60.0
+        )
+        retry_parsed = safe_json_loads(retry_content)
+        if retry_parsed:
+            retry_parsed["raw_text"] = raw_text
+            retry_parsed["parse_quality"] = "complete"
+            retry_parsed["pages_parsed"] = page_count
+            
+            exp_count = len(retry_parsed.get("experiences", []))
+            print(f"[CV PARSE] Succès après retry: {exp_count} expériences extraites")
+            
+            return retry_parsed
+
+        return {
+            "parse_quality": "failed",
+            "raw_excerpt": raw_text[:2000],
+            "full_name": "",
+            "current_role": "",
+            "contact": {"email": "", "phone": "", "location": ""},
+            "skills_hard": [],
+            "skills_soft": [],
+            "experiences": [],
+            "education": [],
+            "projects": [],
+            "certifications": [],
+            "languages": []
+        }
         parsed["raw_text"] = raw_text
         parsed["parse_quality"] = "complete"
         parsed["pages_parsed"] = page_count
