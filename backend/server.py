@@ -1128,6 +1128,61 @@ async def fast_analyze_v3(llm: LLMHeaders, transcript, session_id, cv_data, dete
         {"session_id": session_id, "role": "user", "is_small_talk": {"$ne": True}}
     ).sort("created_at", -1).limit(3).to_list(length=3)
     recent_user.reverse()
+
+# WebSocket streaming endpoint
+@app.websocket("/api/ws/stream")
+async def websocket_stream(websocket: WebSocket):
+    await websocket.accept()
+    session: Optional[StreamingSession] = None
+    try:
+        while True:
+            message = await websocket.receive_json()
+            msg_type = message.get("type")
+
+            if msg_type == "start":
+                session_id = message.get("session_id") or str(uuid.uuid4())
+                llm_provider = normalize_provider(message.get("llm_provider", "openai"))
+                llm_model = message.get("llm_model", "gpt-4o")
+                llm_api_key = message.get("llm_api_key", "")
+                sample_rate = int(message.get("sample_rate", 16000))
+
+                session = StreamingSession(
+                    session_id=session_id,
+                    sample_rate=sample_rate,
+                    llm_provider=llm_provider,
+                    llm_model=llm_model,
+                    llm_api_key=llm_api_key
+                )
+                await websocket.send_json({"type": "ready", "session_id": session_id})
+                continue
+
+            if msg_type == "audio_chunk" and session:
+                chunk_b64 = message.get("audio")
+                if not chunk_b64:
+                    continue
+                samples = decode_audio_chunk(chunk_b64)
+                session.append_audio(samples)
+
+                now = time.time()
+                if now - session.last_transcribe_ts >= TRANSCRIBE_INTERVAL:
+                    session.last_transcribe_ts = now
+                    audio_window = session.get_audio_window()
+                    if audio_window is not None:
+                        asyncio.create_task(transcribe_and_send(websocket, session, audio_window))
+                continue
+
+            if msg_type == "stop":
+                await websocket.send_json({"type": "stopped"})
+                break
+    except WebSocketDisconnect:
+        return
+    except Exception as exc:
+        print(f"[WS STREAM] error: {exc}")
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
     
     # Get last AI suggestion for non-redundancy check
     last_ai = await messages_col.find_one(
