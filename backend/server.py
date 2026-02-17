@@ -1127,7 +1127,7 @@ RÈGLES:
 @app.post("/api/sessions/{session_id}/generate-summary")
 async def generate_summary(session_id: str):
     
-    session = await sessions_col.find_one({"_id": ObjectId(session_id)})
+    session = await sessions_col.find_one({"_id": session_id})
     if not session:
         raise HTTPException(404, "Session non trouvée")
     
@@ -1151,7 +1151,7 @@ async def generate_summary(session_id: str):
             "improvement_suggestions": ["Assurez-vous que le micro fonctionne correctement pour la prochaine session."]
         }
         await sessions_col.update_one(
-            {"_id": ObjectId(session_id)},
+            {"_id": session_id},
             {"$set": {"summary": fallback_summary, "status": "completed", "updated_at": now_utc()}}
         )
         return fallback_summary
@@ -1200,7 +1200,7 @@ async def generate_summary(session_id: str):
         summary = create_fallback_summary(msgs, avg_latency)
     
     await sessions_col.update_one(
-        {"_id": ObjectId(session_id)},
+        {"_id": session_id},
         {"$set": {"summary": summary, "status": "completed", "updated_at": now_utc()}}
     )
     
@@ -1257,7 +1257,7 @@ def create_fallback_summary(msgs, avg_latency):
 
 @app.get("/api/sessions/{session_id}/summary")
 async def get_summary(session_id: str):
-    session = await sessions_col.find_one({"_id": ObjectId(session_id)})
+    session = await sessions_col.find_one({"_id": session_id})
     if not session:
         raise HTTPException(404, "Session non trouvée")
     summary = session.get("summary")
