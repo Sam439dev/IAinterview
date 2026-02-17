@@ -76,7 +76,7 @@ export default function Interview() {
     return () => { activeRef.current = false; streamRef.current?.getTracks().forEach(t => t.stop()); };
   }, []);
 
-  const hasKey = settings?.has_key;
+  const hasKey = hasActiveKey(settings || undefined);
   const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
   const startRecording = useCallback(async () => {
