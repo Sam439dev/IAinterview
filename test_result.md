@@ -154,6 +154,8 @@
 ##     file: "frontend/src"
 ##     stuck_count: 0
 ##     priority: "high"
+##     - "CV parsing robustness (JSON extraction retry)"
+
 ##     needs_retesting: false
 ##     status_history:
 ##         -working: "NA"
