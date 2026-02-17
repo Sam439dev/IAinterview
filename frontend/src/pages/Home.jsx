@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Mic, FileText, BarChart3, Zap, Shield, ChevronRight, Sparkles, Brain, Copy } from 'lucide-react';
-import { getSettings } from '../services/api';
+import { hasActiveKey } from '../services/llmSettings';
 
 export default function Home() {
   const [hasKey, setHasKey] = useState(false);
