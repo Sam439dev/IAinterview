@@ -176,7 +176,8 @@
 ##   test_sequence: 3
 ##   run_ui: false
 ## test_plan:
-##   current_focus: []
+##   current_focus: 
+##     - "Profile builder UI + cache management"
 ##   stuck_tasks: []
 ##   test_all: false
 ##   test_priority: "high_first"
