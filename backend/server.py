@@ -788,7 +788,6 @@ async def delete_cv(cv_id: str):
 @app.post("/api/cv/reparse")
 async def reparse_cv():
     """Re-parse the active CV using enhanced LLM parsing with FULL text."""
- 
     cv = await cv_col.find_one({"is_active": True})
     if not cv:
         raise HTTPException(404, "Aucun CV actif")
