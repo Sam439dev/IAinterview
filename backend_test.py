@@ -303,6 +303,78 @@ class InterviewAIAPITester:
                     return False
         return success
 
+    def test_ingestion_endpoints(self):
+        """Test ingestion endpoints with FAISS persistence"""
+        print("\n📊 Testing Ingestion Endpoints...")
+        
+        # 1. Test ingestion status when no index exists (should return available=false)
+        print("\n🔍 Testing ingestion status (no index)...")
+        success, response = self.run_test("Ingestion Status (no index)", "GET", "api/ingestion/status", 200, critical=True)
+        if not success:
+            return False
+        
+        # Validate response structure for no index
+        if response.get('available') != False:
+            print(f"❌ Expected available=false when no index, got {response.get('available')}")
+            return False
+        
+        if response.get('doc_count') != 0:
+            print(f"❌ Expected doc_count=0 when no index, got {response.get('doc_count')}")
+            return False
+        
+        print(f"✅ Ingestion status correctly returns available=false when no index")
+        
+        # 2. Test clear cache (should return cleared=true even if nothing to clear)
+        print("\n🧹 Testing clear cache...")
+        success, response = self.run_test("Clear Cache", "POST", "api/ingestion/clear-cache", 200, critical=True)
+        if not success:
+            return False
+        
+        if response.get('cleared') != True:
+            print(f"❌ Expected cleared=true, got {response.get('cleared')}")
+            return False
+        
+        print(f"✅ Clear cache correctly returns cleared=true")
+        
+        # 3. Test search with empty index (should return empty matches)
+        print("\n🔍 Testing search with no index...")
+        search_data = {"query": "test query", "k": 5}
+        success, response = self.run_test("Search (no index)", "POST", "api/ingestion/search", 200, search_data, critical=True)
+        if not success:
+            return False
+        
+        if not isinstance(response.get('matches'), list):
+            print(f"❌ Expected matches to be a list, got {type(response.get('matches'))}")
+            return False
+        
+        if len(response.get('matches', [])) != 0:
+            print(f"❌ Expected empty matches when no index, got {len(response.get('matches', []))} matches")
+            return False
+        
+        print(f"✅ Search correctly returns empty matches when no index")
+        
+        # 4. Test build-profile without LLM headers (should return 422/400)
+        print("\n🔒 Testing build-profile without LLM headers...")
+        profile_data = {
+            "job_description": "Software Engineer position requiring Python and FastAPI experience",
+            "company_name": "Test Company",
+            "target_role": "Software Engineer"
+        }
+        
+        # Try 422 first
+        success, _ = self.run_test("Build Profile without LLM headers (422)", "POST", "api/ingestion/build-profile", 422, profile_data)
+        if not success:
+            # Try 400 as alternative
+            success, _ = self.run_test("Build Profile without LLM headers (400)", "POST", "api/ingestion/build-profile", 400, profile_data)
+        
+        if success:
+            print(f"✅ Build profile correctly returns 400/422 without LLM headers")
+        else:
+            print(f"❌ Build profile should return 400/422 without LLM headers")
+            return False
+        
+        return True
+
 def main():
     print("🚀 Starting Phase 2 Backend API Tests")
     print("Focus: Health, Session UUIDs, LLM Header Auth, No 500s")
