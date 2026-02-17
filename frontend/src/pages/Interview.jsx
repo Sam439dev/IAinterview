@@ -3,7 +3,7 @@ import { Link, useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Mic, Square, Pause, Play, Clock, Loader2, AlertCircle, Copy, Check, Zap, ChevronDown, FileText, Lightbulb, Globe } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { createSession, updateSession, getMessages, processAudio, getActiveCV } from '../services/api';
-import { loadLlmSettings, hasActiveKey } from '../services/llmSettings';
+import { loadLlmSettings, hasActiveKey, getProviderKey } from '../services/llmSettings';
 
 const CHUNK_DURATION_MS = 3000; // 3 seconds for ultra-fast detection (target ≤2s latency)
 
