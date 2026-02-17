@@ -934,7 +934,7 @@ async def update_session(session_id: str, data: SessionUpdate):
 @app.delete("/api/sessions/{session_id}")
 async def delete_session(session_id: str):
     await messages_col.delete_many({"session_id": session_id})
-    await sessions_col.delete_one({"_id": ObjectId(session_id)})
+    await sessions_col.delete_one({"_id": session_id})
     # Clean session language cache
     _session_lang.pop(session_id, None)
     return {"success": True}
