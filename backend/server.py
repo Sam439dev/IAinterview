@@ -394,6 +394,7 @@ async def parse_cv_llm(llm: LLMHeaders, raw_text: str):
         )
         parsed = safe_json_loads(content)
         if not parsed:
+            return {"raw_text": raw_text, "parse_quality": "failed"}
         parsed["raw_text"] = raw_text
         parsed["parse_quality"] = "complete"
         parsed["pages_parsed"] = page_count
