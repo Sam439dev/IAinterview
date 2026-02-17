@@ -158,6 +158,9 @@
 ##         -comment: "Migrated CRA to Vite, added localStorage-based LLM settings UI, and injected headers for CV upload/analysis endpoints."
 ##         -working: "NA"
 ##         -agent: "main"
+##     -agent: "main"
+##     -message: "Please test new ingestion endpoints (/api/ingestion/build-profile/status/clear-cache/search). No API keys available, so expect 422 for build-profile without LLM headers. Ensure status/clear-cache endpoints respond and no 500s."
+
 ##         -comment: "User approved frontend testing; ready to validate Vite migration and local LLM settings UI."
 ##         -working: true
 ##         -agent: "testing"
