@@ -25,3 +25,9 @@ export const getMessages = (id) => ax.get(`/api/sessions/${id}/messages`).then(r
 export const processAudio = (d) => ax.post('/api/interview/process-audio', d, withLlmHeaders()).then(r => r.data);
 export const generateSummary = (id) => ax.post(`/api/sessions/${id}/generate-summary`, null, withLlmHeaders()).then(r => r.data);
 export const getSummary = (id) => ax.get(`/api/sessions/${id}/summary`).then(r => r.data);
+
+
+export const buildProfile = (payload) => ax.post('/api/ingestion/build-profile', payload, withLlmHeaders()).then(r => r.data);
+export const getIngestionStatus = () => ax.get('/api/ingestion/status').then(r => r.data);
+export const clearProfileCache = () => ax.post('/api/ingestion/clear-cache').then(r => r.data);
+export const searchProfile = (payload) => ax.post('/api/ingestion/search', payload).then(r => r.data);
