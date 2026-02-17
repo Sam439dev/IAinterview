@@ -305,6 +305,89 @@ class InterviewAIAPITester:
                     return False
         return success
 
+    def test_websocket_streaming(self):
+        """Test WebSocket streaming endpoint with start/stop messages"""
+        print("\n🔌 Testing WebSocket Streaming...")
+        
+        # Convert HTTPS URL to WSS for WebSocket
+        ws_url = self.base_url.replace("https://", "wss://") + "/api/ws/stream"
+        print(f"   WebSocket URL: {ws_url}")
+        
+        async def test_websocket_connection():
+            try:
+                # Connect to WebSocket
+                print("   Attempting WebSocket connection...")
+                async with websockets.connect(ws_url, timeout=10) as websocket:
+                    print("✅ WebSocket connection established")
+                    
+                    # Send start message
+                    start_message = {
+                        "type": "start",
+                        "session_id": "test-session-123",
+                        "llm_provider": "openai",
+                        "llm_model": "gpt-4o",
+                        "llm_api_key": "test-key",
+                        "sample_rate": 16000
+                    }
+                    
+                    print("   Sending start message...")
+                    await websocket.send(json.dumps(start_message))
+                    
+                    # Wait for ready response
+                    print("   Waiting for ready response...")
+                    response = await asyncio.wait_for(websocket.recv(), timeout=5)
+                    response_data = json.loads(response)
+                    
+                    if response_data.get("type") == "ready":
+                        print(f"✅ Received ready response: {response_data}")
+                    else:
+                        print(f"❌ Unexpected response: {response_data}")
+                        return False
+                    
+                    # Send stop message
+                    stop_message = {"type": "stop"}
+                    print("   Sending stop message...")
+                    await websocket.send(json.dumps(stop_message))
+                    
+                    # Wait for stopped response
+                    print("   Waiting for stopped response...")
+                    response = await asyncio.wait_for(websocket.recv(), timeout=5)
+                    response_data = json.loads(response)
+                    
+                    if response_data.get("type") == "stopped":
+                        print(f"✅ Received stopped response: {response_data}")
+                        return True
+                    else:
+                        print(f"❌ Unexpected stop response: {response_data}")
+                        return False
+                        
+            except websockets.exceptions.ConnectionClosed as e:
+                print(f"❌ WebSocket connection closed unexpectedly: {e}")
+                return False
+            except asyncio.TimeoutError:
+                print(f"❌ WebSocket operation timed out")
+                return False
+            except Exception as e:
+                print(f"❌ WebSocket error: {e}")
+                return False
+        
+        # Run the async test
+        try:
+            result = asyncio.run(test_websocket_connection())
+            if result:
+                print("✅ WebSocket streaming test passed")
+                self.tests_run += 1
+                self.tests_passed += 1
+                return True
+            else:
+                print("❌ WebSocket streaming test failed")
+                self.tests_run += 1
+                return False
+        except Exception as e:
+            print(f"❌ Failed to run WebSocket test: {e}")
+            self.tests_run += 1
+            return False
+
     def test_ingestion_endpoints(self):
         """Test ingestion endpoints with FAISS persistence"""
         print("\n📊 Testing Ingestion Endpoints...")
