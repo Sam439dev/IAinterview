@@ -403,7 +403,7 @@ function CVSection() {
 function ProfileBuilderSection() {
   const [companyName, setCompanyName] = useState('');
   const [jobDescription, setJobDescription] = useState('');
-  const [targetRole, setTargetRole] = useState('software_engineer');
+  const [targetRole, setTargetRole] = useState('');
   const [building, setBuilding] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
