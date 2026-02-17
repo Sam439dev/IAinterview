@@ -306,14 +306,9 @@ export default function Interview() {
         if (result.error) { setLastError(result.error); }
         else if (result.detected && result.suggested_response) {
           setQuestionCount(p => p + 1);
-          setSuggestions(p => [...p, {
-            id: `s-${Date.now()}`, response: result.suggested_response,
-            category: result.category || 'general', keyPoints: result.key_points || [],
-            toneAdvice: result.tone_advice, questionSummary: result.question_summary,
-            confidence: result.confidence || 0.95, time: new Date(),
-            ms: result.pipeline_ms, cvUsed: result.cv_active,
-            responseLang: result.response_language || result.detected_language || 'fr'
-          }]);
+          const sidSuggestion = `s-${Date.now()}`;
+          addSuggestionStart(sidSuggestion);
+          addSuggestionDelta(sidSuggestion, result.suggested_response);
         }
       } catch (e) {
         const msg = e.response?.data?.detail || 'Erreur';
