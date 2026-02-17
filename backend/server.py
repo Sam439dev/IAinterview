@@ -737,13 +737,7 @@ async def get_settings():
 
 @app.post("/api/settings")
 async def save_settings(data: SettingsInput):
-    update = {"user_id": "default", "updated_at": now_utc()}
-    if data.openai_api_key is not None:
-        update["openai_api_key"] = data.openai_api_key if data.openai_api_key else None
-    if data.preferred_model:
-        update["preferred_model"] = data.preferred_model
-    await settings_col.update_one({"user_id": "default"}, {"$set": update}, upsert=True)
-    return {"success": True}
+    return {"success": True, "server_storage": False}
 
 @app.post("/api/settings/validate-key")
 async def validate_key(data: SettingsInput):
