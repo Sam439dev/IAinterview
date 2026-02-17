@@ -758,7 +758,7 @@ async def upload_cv(
     file: UploadFile = File(...),
     llm: LLMHeaders = Depends(get_llm_headers)
 ):
- 
+
     content = await file.read()
     if len(content) > 5 * 1024 * 1024:
         raise HTTPException(400, "Fichier trop volumineux (max 5MB)")
