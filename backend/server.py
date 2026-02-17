@@ -163,6 +163,17 @@ class ProcessAudioInput(BaseModel):
     audio_data: str
     mime_type: str
 
+
+class ProfileBuildInput(BaseModel):
+    job_description: str
+    company_name: str
+    target_role: Optional[str] = None
+
+
+class ProfileSearchInput(BaseModel):
+    query: str
+    k: Optional[int] = 5
+
 # Helpers
 def ser(doc):
     if doc is None:
