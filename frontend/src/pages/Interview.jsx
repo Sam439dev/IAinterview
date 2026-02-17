@@ -318,7 +318,7 @@ export default function Interview() {
     };
     rec.start();
     setTimeout(() => { if (rec.state === 'recording') rec.stop(); }, CHUNK_DURATION_MS);
-  }, [detectedLang]);
+  }, [detectedLang, addSuggestionStart, addSuggestionDelta]);
 
   const pauseRecording = useCallback(() => {
     if (useStreaming) {
