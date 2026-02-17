@@ -170,6 +170,10 @@
 ##         -comment: "Added Profile Builder (JD + company + role) and Clear Cache controls in Settings."
 ##         -working: "NA"
 ##         -agent: "main"
+##         -comment: "Updated target role field to free-text input; ready for UI retest."
+
+##         -working: "NA"
+##         -agent: "main"
 ##         -comment: "User approved frontend testing for Profile Builder + Cache UI."
 ##         -working: true
 ##         -agent: "testing"
