@@ -1114,7 +1114,6 @@ RÈGLES:
 
 @app.post("/api/sessions/{session_id}/generate-summary")
 async def generate_summary(session_id: str):
- 
     
     session = await sessions_col.find_one({"_id": ObjectId(session_id)})
     if not session:
