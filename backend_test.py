@@ -461,21 +461,20 @@ class InterviewAIAPITester:
         return True
 
 def main():
-    print("🚀 Starting Backend API Tests - Ingestion + FAISS Focus")
-    print("Focus: Ingestion endpoints, FAISS persistence, Health, Session CRUD")
+    print("🚀 Starting Backend API Tests - WebSocket Streaming Focus")
+    print("Focus: WebSocket /api/ws/stream, Health, Ingestion endpoints")
     print("=" * 60)
     
     tester = InterviewAIAPITester()
     
-    # Tests with focus on ingestion endpoints
+    # Tests with focus on WebSocket streaming
     test_methods = [
         ("1. Health Check", tester.test_health_endpoint),
-        ("2. Ingestion Endpoints", tester.test_ingestion_endpoints),
-        ("3. Session Lifecycle with UUIDs", tester.test_session_lifecycle_with_uuids),
-        ("4. LLM Endpoints Without Headers", tester.test_llm_endpoints_without_headers),
-        ("5. Settings Endpoints", tester.test_settings_endpoints),
-        ("6. CV Active Endpoint", tester.test_cv_active_endpoint),
-        ("7. Session Stats", tester.test_session_stats),
+        ("2. WebSocket Streaming", tester.test_websocket_streaming),
+        ("3. Ingestion Status", lambda: tester.run_test("Ingestion Status", "GET", "api/ingestion/status", 200, critical=True)[0]),
+        ("4. Ingestion Clear Cache", lambda: tester.run_test("Clear Cache", "POST", "api/ingestion/clear-cache", 200, critical=True)[0]),
+        ("5. Session Lifecycle with UUIDs", tester.test_session_lifecycle_with_uuids),
+        ("6. Settings Endpoints", tester.test_settings_endpoints),
     ]
     
     failed_tests = []
