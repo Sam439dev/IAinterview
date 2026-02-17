@@ -1016,6 +1016,7 @@ async def process_audio(
     
     # 4. Save transcribed text (for end-of-session summary)
     await messages_col.insert_one({
+        "_id": str(uuid.uuid4()),
         "session_id": data.session_id, "role": "user",
         "content": transcript_text, "detected_language": detected_lang,
         "has_question_markers": has_question,
