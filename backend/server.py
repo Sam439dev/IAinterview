@@ -1496,7 +1496,9 @@ async def generate_summary(
             max_tokens=3000,
             timeout_s=60.0
         )
-        summary = json.loads(content)
+        summary = safe_json_loads(content)
+        if not summary:
+            summary = create_fallback_summary(msgs, avg_latency)
         
         # Inject actual avg latency
         if "session_insights" in summary:
