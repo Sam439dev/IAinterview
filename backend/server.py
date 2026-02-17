@@ -758,9 +758,7 @@ async def upload_cv(
     file: UploadFile = File(...),
     llm: LLMHeaders = Depends(get_llm_headers)
 ):
-    api_key = await get_api_key()
-    if not api_key:
-        raise HTTPException(400, "Clé API non configurée")
+ 
     content = await file.read()
     if len(content) > 5 * 1024 * 1024:
         raise HTTPException(400, "Fichier trop volumineux (max 5MB)")
@@ -790,9 +788,7 @@ async def delete_cv(cv_id: str):
 @app.post("/api/cv/reparse")
 async def reparse_cv():
     """Re-parse the active CV using enhanced LLM parsing with FULL text."""
-    api_key = await get_api_key()
-    if not api_key:
-        raise HTTPException(400, "Clé API non configurée")
+ 
     cv = await cv_col.find_one({"is_active": True})
     if not cv:
         raise HTTPException(404, "Aucun CV actif")
@@ -834,9 +830,7 @@ class CVUrlInput(BaseModel):
 @app.post("/api/cv/upload-from-url")
 async def upload_cv_from_url(data: CVUrlInput):
     """Upload CV from URL - extracts ALL pages without limits."""
-    api_key = await get_api_key()
-    if not api_key:
-        raise HTTPException(400, "Clé API non configurée")
+ 
     
     try:
         async with httpx.AsyncClient(timeout=30.0) as c:
@@ -1122,9 +1116,7 @@ RÈGLES:
 
 @app.post("/api/sessions/{session_id}/generate-summary")
 async def generate_summary(session_id: str):
-    api_key = await get_api_key()
-    if not api_key:
-        raise HTTPException(400, "Clé API non configurée")
+ 
     
     session = await sessions_col.find_one({"_id": ObjectId(session_id)})
     if not session:
