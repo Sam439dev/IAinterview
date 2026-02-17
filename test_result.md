@@ -194,6 +194,9 @@
 ##     - "CV parsing robustness (JSON extraction retry)"
 
 ##     needs_retesting: false
+##     -agent: "main"
+##     -message: "Fixed Interview.jsx compile error; please re-test streaming UI if approved." 
+
 ##     status_history:
 ##     -agent: "main"
 ##     -message: "Please test backend WebSocket /api/ws/stream (connect + start message + stop), and ensure no 500s on startup."
