@@ -104,6 +104,18 @@
 ## user_problem_statement: "Phase 2: Multi-provider BYOK LLM settings (OpenAI/Anthropic/Gemini/DeepSeek) with client-side key storage, backend header-based LLM access, UUID-only Mongo IDs, and Vite migration on frontend."
 ## backend:
 ##   - task: "Ingestion + FAISS persistent index + DuckDuckGo research"
+##   - task: "Streaming pipeline (WebSocket + faster-whisper + LLM streaming)"
+##     implemented: true
+##     working: "NA"
+##     file: "backend/server.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: true
+##     status_history:
+##         -working: "NA"
+##         -agent: "main"
+##         -comment: "Added WebSocket /api/ws/stream with faster-whisper CPU streaming, diarization hooks, and OpenAI/DeepSeek token streaming." 
+
 ##   - task: "CV parsing robustness (JSON extraction retry)"
 ##     implemented: true
 ##     working: true
