@@ -604,6 +604,9 @@ def build_profile_documents(cv_doc: Dict, jd_analysis: Dict, company_summary: Di
             if isinstance(competitors, list):
                 add_doc("Concurrents: " + ", ".join(competitors), "company", "Concurrents")
 
+    if not docs and cv_doc.get("raw_text"):
+        add_doc(cv_doc["raw_text"][:2000], "resume", "CV brut")
+
     return docs
 
 
