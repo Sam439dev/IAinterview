@@ -114,6 +114,17 @@ def get_role_template(target_role: Optional[str]) -> str:
 
 
 
+WHISPER_MODEL_SIZE = os.environ.get("WHISPER_MODEL_SIZE", "small")
+WHISPER_COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE_TYPE", "int8")
+WHISPER_WINDOW_SECONDS = int(os.environ.get("WHISPER_WINDOW_SECONDS", "18"))
+WHISPER_MIN_SECONDS = float(os.environ.get("WHISPER_MIN_SECONDS", "2"))
+TRANSCRIBE_INTERVAL = float(os.environ.get("TRANSCRIBE_INTERVAL", "1.6"))
+DIARIZATION_INTERVAL = float(os.environ.get("DIARIZATION_INTERVAL", "8"))
+ENABLE_DIARIZATION = os.environ.get("ENABLE_DIARIZATION", "true").lower() == "true"
+
+_whisper_model: Optional[WhisperModel] = None
+_diarization_pipeline: Optional[Pipeline] = None
+
 SUPPORTED_LLM_PROVIDERS = {"openai", "anthropic", "gemini", "deepseek"}
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
 
