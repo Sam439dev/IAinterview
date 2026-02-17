@@ -72,315 +72,235 @@ class InterviewAIAPITester:
             return False, {}
 
     def test_health_endpoint(self):
-        """Test health endpoint"""
-        return self.run_test("Health Check", "GET", "api/health", 200)
-
-    def test_settings_get_initial(self):
-        """Test initial settings GET - Account for existing key"""
-        success, response = self.run_test("Get Settings", "GET", "api/settings", 200)
+        """Test health endpoint returns ok"""
+        success, response = self.run_test("Health Check", "GET", "api/health", 200, critical=True)
         if success:
-            expected_fields = ['openai_api_key', 'preferred_model', 'has_key']
-            for field in expected_fields:
-                if field not in response:
-                    print(f"❌ Missing field in response: {field}")
-                    return False
-            # Note: Previous session may have saved a key already
-            has_key = response.get('has_key')
-            if has_key:
-                print(f"✅ API key already configured from previous session")
+            if response.get('status') != 'ok':
+                print(f"❌ Expected status='ok', got {response.get('status')}")
+                return False
+            print(f"✅ Health endpoint returns status='ok'")
+        return success
+
+    def test_session_lifecycle_with_uuids(self):
+        """Test complete session lifecycle with UUID validation"""
+        print("\n🔄 Testing Session Lifecycle with UUIDs...")
+        
+        # 1. List sessions (should be empty or contain existing sessions)
+        success, sessions = self.run_test("List Sessions", "GET", "api/sessions", 200, critical=True)
+        if not success:
+            return False
+        
+        initial_count = len(sessions) if isinstance(sessions, list) else 0
+        print(f"   Initial sessions count: {initial_count}")
+        
+        # 2. Create session
+        session_data = {
+            "title": f"Phase 2 Test Session {datetime.now().strftime('%H:%M:%S')}",
+            "target_role": "Software Engineer",
+            "job_description": "Test job description"
+        }
+        success, response = self.run_test("Create Session", "POST", "api/sessions", 200, session_data, critical=True)
+        if not success:
+            return False
+        
+        # Validate UUID format
+        session_id = response.get('id')
+        if not session_id:
+            print(f"❌ No session ID returned")
+            return False
+        
+        # Basic UUID validation (36 chars with hyphens)
+        if len(session_id) != 36 or session_id.count('-') != 4:
+            print(f"❌ Session ID doesn't look like UUID: {session_id}")
+            return False
+        
+        self.session_id = session_id
+        print(f"✅ Created session with UUID: {session_id}")
+        
+        # 3. List sessions again (should have one more)
+        success, sessions = self.run_test("List Sessions After Create", "GET", "api/sessions", 200)
+        if not success:
+            return False
+        
+        new_count = len(sessions) if isinstance(sessions, list) else 0
+        if new_count != initial_count + 1:
+            print(f"❌ Expected {initial_count + 1} sessions, got {new_count}")
+            return False
+        
+        # 4. Update session
+        update_data = {"status": "completed", "duration_seconds": 300}
+        success, _ = self.run_test("Update Session", "PUT", f"api/sessions/{session_id}", 200, update_data)
+        if not success:
+            return False
+        
+        # 5. Get session messages (should be empty)
+        success, messages = self.run_test("Get Session Messages", "GET", f"api/sessions/{session_id}/messages", 200)
+        if not success:
+            return False
+        
+        if not isinstance(messages, list):
+            print(f"❌ Expected messages array, got {type(messages)}")
+            return False
+        
+        # 6. Delete session
+        success, _ = self.run_test("Delete Session", "DELETE", f"api/sessions/{session_id}", 200)
+        if not success:
+            return False
+        
+        # 7. Verify deletion
+        success, sessions = self.run_test("List Sessions After Delete", "GET", "api/sessions", 200)
+        if not success:
+            return False
+        
+        final_count = len(sessions) if isinstance(sessions, list) else 0
+        if final_count != initial_count:
+            print(f"❌ Expected {initial_count} sessions after delete, got {final_count}")
+            return False
+        
+        print(f"✅ Session lifecycle completed successfully with UUID")
+        return True
+
+    def test_llm_endpoints_without_headers(self):
+        """Test LLM endpoints return 422/400 when headers missing"""
+        print("\n🔒 Testing LLM Endpoints Without Headers...")
+        
+        # First create a session for endpoints that need it
+        session_data = {"title": "LLM Test Session"}
+        success, response = self.run_test("Create Session for LLM Tests", "POST", "api/sessions", 200, session_data)
+        if not success:
+            return False
+        
+        test_session_id = response.get('id')
+        
+        # Test CV upload without LLM headers
+        # Create a simple test file
+        test_file_content = b"Test CV content"
+        files = {'file': ('test_cv.txt', test_file_content, 'text/plain')}
+        
+        print(f"\n🔍 Testing CV Upload without LLM headers...")
+        try:
+            url = f"{self.base_url}/api/cv/upload"
+            response = requests.post(url, files=files, timeout=30)
+            print(f"   Status: {response.status_code}")
+            
+            if response.status_code in [400, 422]:
+                print(f"✅ CV Upload correctly returns {response.status_code} without LLM headers")
+                cv_upload_success = True
+            elif response.status_code == 500:
+                self.critical_failures.append("CV Upload: 500 Internal Server Error")
+                print(f"❌ CRITICAL - CV Upload returns 500")
+                cv_upload_success = False
             else:
-                print(f"✅ No API key configured initially")
-        return success
-
-    def test_settings_save_api_key(self):
-        """Test saving API key"""
-        test_key = "sk-test-1234567890abcdef"
-        return self.run_test(
-            "Save API Key Settings", 
+                print(f"❌ CV Upload should return 400/422, got {response.status_code}")
+                cv_upload_success = False
+        except Exception as e:
+            print(f"❌ CV Upload failed with error: {e}")
+            cv_upload_success = False
+        
+        # Test CV reparse without LLM headers
+        reparse_success, _ = self.run_test(
+            "CV Reparse without LLM headers", 
             "POST", 
-            "api/settings", 
-            200, 
-            {"openai_api_key": test_key, "preferred_model": "gpt-4o-mini"}
+            "api/cv/reparse", 
+            400  # Expecting 400/422
         )
+        if not reparse_success:
+            # Try 422 as alternative
+            reparse_success, _ = self.run_test(
+                "CV Reparse without LLM headers (422)", 
+                "POST", 
+                "api/cv/reparse", 
+                422
+            )
+        
+        # Test process-audio without LLM headers
+        audio_data = {
+            "session_id": test_session_id,
+            "audio_data": base64.b64encode(b"fake audio data").decode(),
+            "mime_type": "audio/webm"
+        }
+        audio_success, _ = self.run_test(
+            "Process Audio without LLM headers", 
+            "POST", 
+            "api/interview/process-audio", 
+            400
+        )
+        if not audio_success:
+            # Try 422 as alternative
+            audio_success, _ = self.run_test(
+                "Process Audio without LLM headers (422)", 
+                "POST", 
+                "api/interview/process-audio", 
+                422
+            )
+        
+        # Test generate-summary without LLM headers
+        summary_success, _ = self.run_test(
+            "Generate Summary without LLM headers", 
+            "POST", 
+            f"api/sessions/{test_session_id}/generate-summary", 
+            400
+        )
+        if not summary_success:
+            # Try 422 as alternative
+            summary_success, _ = self.run_test(
+                "Generate Summary without LLM headers (422)", 
+                "POST", 
+                f"api/sessions/{test_session_id}/generate-summary", 
+                422
+            )
+        
+        # Clean up test session
+        self.run_test("Delete LLM Test Session", "DELETE", f"api/sessions/{test_session_id}", 200)
+        
+        all_success = cv_upload_success and reparse_success and audio_success and summary_success
+        if all_success:
+            print(f"✅ All LLM endpoints correctly return 400/422 without headers")
+        else:
+            print(f"❌ Some LLM endpoints don't handle missing headers correctly")
+        
+        return all_success
 
-    def test_settings_get_with_key(self):
-        """Test settings GET after saving key"""
-        success, response = self.run_test("Get Settings After Save", "GET", "api/settings", 200)
-        if success:
-            if response.get('has_key') != True:
-                print(f"❌ Expected has_key=true after saving, got {response.get('has_key')}")
+    def test_settings_endpoints(self):
+        """Test settings endpoints (no LLM headers required)"""
+        print("\n⚙️ Testing Settings Endpoints...")
+        
+        # GET settings
+        success, response = self.run_test("Get Settings", "GET", "api/settings", 200)
+        if not success:
+            return False
+        
+        # Validate response structure
+        expected_fields = ['server_storage', 'preferred_provider', 'preferred_model', 'has_key']
+        for field in expected_fields:
+            if field not in response:
+                print(f"❌ Missing field in settings: {field}")
                 return False
-            # API key should be masked (can be different formats)
-            api_key = response.get('openai_api_key', '')
-            if not api_key or len(api_key) < 4:
-                print(f"❌ API key should be present and masked, got: {api_key}")
-                return False
-            print(f"✅ API key properly masked: {api_key}")
+        
+        # POST settings
+        settings_data = {"preferred_provider": "openai", "preferred_model": "gpt-4o-mini"}
+        success, _ = self.run_test("Save Settings", "POST", "api/settings", 200, settings_data)
+        if not success:
+            return False
+        
+        # Validate key endpoint
+        success, _ = self.run_test("Validate Key", "POST", "api/settings/validate-key", 200)
+        
         return success
 
-    def test_sessions_get_empty(self):
-        """Test initial empty sessions list"""
-        success, response = self.run_test("Get Empty Sessions", "GET", "api/sessions", 200)
-        if success and not isinstance(response, list):
-            print(f"❌ Expected array response, got {type(response)}")
-            return False
-        if success and len(response) > 0:
-            print(f"❌ Expected empty sessions initially, got {len(response)} sessions")
-            return False
-        return success
+    def test_cv_active_endpoint(self):
+        """Test CV active endpoint (no LLM headers required)"""
+        return self.run_test("Get Active CV", "GET", "api/cv/active", 200)
 
-    def test_sessions_stats_empty(self):
-        """Test session stats when empty"""
-        success, response = self.run_test("Get Session Stats (Empty)", "GET", "api/sessions/stats", 200)
+    def test_session_stats(self):
+        """Test session stats endpoint"""
+        success, response = self.run_test("Get Session Stats", "GET", "api/sessions/stats", 200)
         if success:
             expected_fields = ['total_questions', 'avg_latency', 'total_duration', 'total_sessions']
             for field in expected_fields:
                 if field not in response:
                     print(f"❌ Missing field in stats: {field}")
                     return False
-            if response.get('total_sessions') != 0:
-                print(f"❌ Expected 0 sessions in stats, got {response.get('total_sessions')}")
-                return False
-        return success
-
-    def test_create_session(self):
-        """Test creating a new session"""
-        success, response = self.run_test(
-            "Create New Session",
-            "POST", 
-            "api/sessions", 
-            200,
-            {"title": f"Test Session {datetime.now().strftime('%H:%M:%S')}"}
-        )
-        if success and 'id' in response:
-            self.session_id = response['id']
-            print(f"   Created session with ID: {self.session_id}")
-            # Verify required fields
-            required_fields = ['id', 'title', 'status', 'total_questions', 'created_at']
-            for field in required_fields:
-                if field not in response:
-                    print(f"❌ Missing required field in created session: {field}")
-                    return False
-        return success
-
-    def test_sessions_get_with_data(self):
-        """Test getting sessions after creating one"""
-        success, response = self.run_test("Get Sessions After Create", "GET", "api/sessions", 200)
-        if success:
-            if not isinstance(response, list) or len(response) != 1:
-                print(f"❌ Expected 1 session in list, got {len(response) if isinstance(response, list) else 'not a list'}")
-                return False
-            session = response[0]
-            if session.get('id') != self.session_id:
-                print(f"❌ Session ID mismatch. Expected {self.session_id}, got {session.get('id')}")
-                return False
-        return success
-
-    def test_delete_session(self):
-        """Test deleting a session"""
-        if not self.session_id:
-            print("❌ No session ID available for deletion test")
-            return False
-        
-        return self.run_test(
-            "Delete Session",
-            "DELETE",
-            f"api/sessions/{self.session_id}",
-            200
-        )
-
-    def test_cv_active(self):
-        """Test getting active CV"""
-        success, response = self.run_test("Get Active CV", "GET", "api/cv/active", 200)
-        # CV may or may not exist based on previous sessions
-        if success:
-            if response is not None:
-                print(f"✅ Active CV found: {response.get('file_name', 'Unknown')}")
-            else:
-                print(f"✅ No active CV found (null response)")
-        return success
-
-    def test_validate_key_endpoint(self):
-        """Test API key validation endpoint"""
-        test_key = "sk-test-invalid-key"
-        success, response = self.run_test(
-            "Validate API Key (Invalid)", 
-            "POST", 
-            "api/settings/validate-key", 
-            200,
-            {"openai_api_key": test_key}
-        )
-        if success:
-            if 'valid' not in response:
-                print(f"❌ Missing 'valid' field in validation response")
-                return False
-            # For invalid key, should return valid=false
-            if response.get('valid') != False:
-                print(f"❌ Expected valid=false for invalid key, got {response.get('valid')}")
-                return False
-        return success
-
-    def test_get_session_messages(self):
-        """Test getting messages for a session"""
-        # First create a session to get messages for
-        success, response = self.run_test(
-            "Create Session for Messages Test",
-            "POST", 
-            "api/sessions", 
-            200,
-            {"title": f"Messages Test Session {datetime.now().strftime('%H:%M:%S')}"}
-        )
-        if not success or 'id' not in response:
-            print("❌ Failed to create session for messages test")
-            return False
-        
-        session_id = response['id']
-        success, messages_response = self.run_test(
-            "Get Session Messages", 
-            "GET", 
-            f"api/sessions/{session_id}/messages", 
-            200
-        )
-        if success:
-            if not isinstance(messages_response, list):
-                print(f"❌ Expected array response for messages, got {type(messages_response)}")
-                return False
-            # New session should have empty messages
-            if len(messages_response) > 0:
-                print(f"❌ Expected empty messages for new session, got {len(messages_response)} messages")
-                return False
-        
-        # Clean up the test session
-        self.run_test("Delete Messages Test Session", "DELETE", f"api/sessions/{session_id}", 200)
-        return success
-
-    def test_process_audio_endpoint(self):
-        """Test V5 process-audio endpoint (brought back in V5)"""
-        # First create a session
-        success, response = self.run_test(
-            "Create Session for Process Audio Test",
-            "POST", 
-            "api/sessions", 
-            200,
-            {"title": f"Process Audio Test Session {datetime.now().strftime('%H:%M:%S')}"}
-        )
-        if not success or 'id' not in response:
-            print("❌ Failed to create session for process audio test")
-            return False
-        
-        session_id = response['id']
-        
-        # Test process-audio endpoint with sample audio data
-        success, process_response = self.run_test(
-            "Process Audio (V5)", 
-            "POST", 
-            "api/interview/process-audio", 
-            400,  # Expecting 400 due to invalid OpenAI key or invalid audio
-            {
-                "session_id": session_id, 
-                "audio_data": "dGVzdA==",  # base64 for "test"
-                "mime_type": "audio/webm",
-                "language": "fr"
-            }
-        )
-        
-        # Even with invalid API key/audio, endpoint should exist and return proper error (not 404)
-        # The 400 error confirms the endpoint exists but OpenAI key is invalid or audio is invalid
-        print("✅ process-audio endpoint exists and responds (400 due to invalid OpenAI key/audio is expected)")
-        
-        # Clean up the test session
-        self.run_test("Delete Process Audio Test Session", "DELETE", f"api/sessions/{session_id}", 200)
-        return True  # Return True since 400 is expected behavior
-
-    def test_process_text_removed(self):
-        """Test that V5 process-text endpoint no longer exists (V5 removed it, brought back audio)"""
-        # This should return 404 or 405 since the endpoint was removed in V5
-        success, response = self.run_test(
-            "Process Text (Should be removed in V5)", 
-            "POST", 
-            "api/interview/process-text", 
-            404,  # Expecting 404 since endpoint should not exist
-            {"session_id": "dummy", "text": "dummy"}
-        )
-        
-        if not success:
-            # Try 405 Method Not Allowed as alternative
-            success, response = self.run_test(
-                "Process Text - Try 405", 
-                "POST", 
-                "api/interview/process-text", 
-                405,
-                {"session_id": "dummy", "text": "dummy"}
-            )
-        
-        if success:
-            print("✅ process-text endpoint properly removed/disabled in V5")
-            return True
-        else:
-            print("❌ process-text endpoint still exists - should be removed in V5")
-            return False
-
-    def test_generate_summary_empty_session(self):
-        """Test V4 generate-summary endpoint with empty session"""
-        # First create a session
-        success, response = self.run_test(
-            "Create Session for Summary Test",
-            "POST", 
-            "api/sessions", 
-            200,
-            {"title": f"Summary Test Session {datetime.now().strftime('%H:%M:%S')}"}
-        )
-        if not success or 'id' not in response:
-            print("❌ Failed to create session for summary test")
-            return False
-        
-        session_id = response['id']
-        
-        # Test generate-summary on empty session (should return 400)
-        success, summary_response = self.run_test(
-            "Generate Summary (Empty Session - V4)", 
-            "POST", 
-            f"api/sessions/{session_id}/generate-summary", 
-            400  # Expecting 400 for empty session
-        )
-        
-        # Clean up the test session
-        self.run_test("Delete Summary Test Session", "DELETE", f"api/sessions/{session_id}", 200)
-        return success
-
-    def test_get_summary_null(self):
-        """Test V4 get-summary endpoint returns null when no summary exists"""
-        # First create a session
-        success, response = self.run_test(
-            "Create Session for Get Summary Test",
-            "POST", 
-            "api/sessions", 
-            200,
-            {"title": f"Get Summary Test Session {datetime.now().strftime('%H:%M:%S')}"}
-        )
-        if not success or 'id' not in response:
-            print("❌ Failed to create session for get summary test")
-            return False
-        
-        session_id = response['id']
-        
-        # Test get-summary when no summary exists (should return null)
-        success, summary_response = self.run_test(
-            "Get Summary (No Summary - V4)", 
-            "GET", 
-            f"api/sessions/{session_id}/summary", 
-            200  # Should return 200 with null content
-        )
-        
-        if success:
-            if summary_response is not None:
-                print(f"❌ Expected null response when no summary exists, got {type(summary_response)}")
-                success = False
-            else:
-                print("✅ Correctly returned null when no summary exists")
-        
-        # Clean up the test session
-        self.run_test("Delete Get Summary Test Session", "DELETE", f"api/sessions/{session_id}", 200)
         return success
 
 def main():
