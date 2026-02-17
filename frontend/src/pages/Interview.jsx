@@ -43,11 +43,6 @@ export default function Interview() {
   useEffect(() => {
     (async () => {
       try {
-  const wsRef = useRef(null);
-  const audioContextRef = useRef(null);
-  const processorRef = useRef(null);
-  const sourceNodeRef = useRef(null);
-
         const cv = await getActiveCV();
         const sett = loadLlmSettings();
         setSettings(sett);
