@@ -338,6 +338,10 @@ def safe_json_loads(raw_text: str) -> Optional[Dict]:
                 return None
     return None
 
+
+JD_ANALYSIS_PROMPT = """Tu es un recruteur senior. Analyse cette description de poste pour un entretien.
+Retourne STRICTEMENT un JSON avec les champs:
+- summary: résumé concis du poste
 - requirements: liste des exigences clés
 - keywords: mots-clés techniques et métiers
 - potential_questions: questions probables de l'intervieweur
