@@ -27,7 +27,8 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    host: true
+    host: true,
+    allowedHosts: ['speech-analyst.cluster-12.preview.emergentcf.cloud']
   },
   preview: {
     port: 3000,
