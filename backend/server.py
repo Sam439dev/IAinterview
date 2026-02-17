@@ -898,7 +898,9 @@ Génère une suggestion structurée (Accroche + Cœur + Ouverture) avec ancrage 
             user_msg,
             max_tokens=900
         )
-        result = json.loads(content)
+        result = safe_json_loads(content)
+        if not result:
+            return {"detected": False}
         
         # Flexible detection check
         detected = result.get("d") in [1, True, "1", "true", 1.0]
