@@ -42,7 +42,7 @@ export default function Interview() {
 
   const streamRef = useRef(null);
   const activeRef = useRef(false);
-  const sugEndRef = useRef(null);
+  // sugEndRef removed
 
   const [useStreaming, setUseStreaming] = useState(true);
   const [devices, setDevices] = useState([]);
