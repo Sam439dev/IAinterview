@@ -577,6 +577,146 @@ def build_cv_context_rich(cv_data):
     if cv_data.get("skills_soft"):
         parts.append(f"SOFT SKILLS: {', '.join(cv_data['skills_soft'][:10])}")
     if cv_data.get("technologies"):
+
+# ========== STREAMING PIPELINE ==========
+
+async def update_speaker_from_diarization(session: StreamingSession, audio_window: np.ndarray):
+    pipeline = get_diarization_pipeline()
+    if not pipeline:
+        return
+
+    try:
+        waveform = torch.from_numpy(audio_window).unsqueeze(0)
+        diarization = await asyncio.to_thread(
+            pipeline,
+            {"waveform": waveform, "sample_rate": session.sample_rate}
+        )
+    except Exception as exc:
+        print(f"[DIARIZATION] error: {exc}")
+        return
+
+    speaker_durations: Dict[str, float] = {}
+    for segment, _, speaker in diarization.itertracks(yield_label=True):
+        speaker_durations[speaker] = speaker_durations.get(speaker, 0.0) + segment.duration
+
+    if not speaker_durations:
+        return
+
+    for speaker, _ in sorted(speaker_durations.items(), key=lambda item: item[1], reverse=True):
+        if speaker not in session.speaker_map:
+            if "interviewer" not in session.speaker_map.values():
+                session.speaker_map[speaker] = "interviewer"
+            else:
+                session.speaker_map[speaker] = "candidate"
+
+    main_speaker = max(speaker_durations.items(), key=lambda item: item[1])[0]
+    session.last_speaker = session.speaker_map.get(main_speaker, session.last_speaker)
+
+
+async def stream_llm_suggestions(
+    websocket: WebSocket,
+    llm_provider: str,
+    llm_model: str,
+    llm_api_key: str,
+    question: str,
+    context: str
+):
+    suggestion_id = str(uuid.uuid4())
+    await websocket.send_json({"type": "suggestion_start", "id": suggestion_id})
+
+    system_prompt = (
+        "Tu es un copilote d'entretien. Fournis 2-3 suggestions de réponse professionnelles, "
+        "structurées et concises, adaptées au contexte fourni."
+    )
+    user_prompt = f"Question: {question}\n\nContexte:\n{context}"
+
+    if llm_provider in {"openai", "deepseek"}:
+        base_url = DEEPSEEK_BASE_URL if llm_provider == "deepseek" else None
+        client = AsyncOpenAI(api_key=llm_api_key, base_url=base_url)
+        stream = await client.chat.completions.create(
+            model=llm_model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.4,
+            max_tokens=600,
+            stream=True
+        )
+        async for chunk in stream:
+            delta = chunk.choices[0].delta.content or ""
+            if delta:
+                await websocket.send_json({"type": "suggestion_delta", "id": suggestion_id, "text": delta})
+    else:
+        llm_headers = LLMHeaders(provider=llm_provider, model=llm_model, api_key=llm_api_key)
+        content = await llm_chat(
+            llm_headers,
+            system_prompt,
+            user_prompt,
+            temperature=0.4,
+            max_tokens=600,
+            timeout_s=30.0
+        )
+        await websocket.send_json({"type": "suggestion_delta", "id": suggestion_id, "text": content})
+
+    await websocket.send_json({"type": "suggestion_end", "id": suggestion_id})
+
+
+async def transcribe_and_send(websocket: WebSocket, session: StreamingSession, audio_window: np.ndarray):
+    model = get_whisper_model()
+    segments, info = await asyncio.to_thread(
+        model.transcribe,
+        audio_window,
+        language=None,
+        vad_filter=True
+    )
+
+    transcript = " ".join(seg.text.strip() for seg in segments).strip()
+    if not transcript:
+        return
+
+    if transcript.startswith(session.last_transcript):
+        delta = transcript[len(session.last_transcript):].strip()
+    else:
+        delta = transcript
+
+    if not delta:
+        return
+
+    session.last_transcript = transcript
+    speaker = session.last_speaker
+    if speaker == "unknown":
+        speaker = "interviewer" if detect_request(transcript) else "candidate"
+
+    await websocket.send_json({
+        "type": "transcript",
+        "text": transcript,
+        "delta": delta,
+        "speaker": speaker
+    })
+
+    if detect_request(transcript) and transcript != session.last_request:
+        session.last_request = transcript
+        context_docs = search_profile_context(transcript, k=5)
+        context_text = "\n".join(doc["text"] for doc in context_docs if doc.get("text"))
+        if context_text:
+            context_text = "Contexte CV/JD:\n" + context_text
+        asyncio.create_task(
+            stream_llm_suggestions(
+                websocket,
+                session.llm_provider,
+                session.llm_model,
+                session.llm_api_key,
+                transcript,
+                context_text
+            )
+        )
+
+    if ENABLE_DIARIZATION and time.time() - session.diarization_ts > DIARIZATION_INTERVAL:
+        session.diarization_ts = time.time()
+        asyncio.create_task(update_speaker_from_diarization(session, audio_window))
+
+
         parts.append(f"TECHNOLOGIES: {', '.join(cv_data['technologies'][:20])}")
     if cv_data.get("methodologies"):
         parts.append(f"MÉTHODOLOGIES: {', '.join(cv_data['methodologies'][:8])}")
