@@ -39,6 +39,11 @@ export default function Interview() {
   const [wsStatus, setWsStatus] = useState('disconnected');
   const [streamTranscript, setStreamTranscript] = useState('');
   const [streamError, setStreamError] = useState('');
+  const wsRef = useRef(null);
+  const audioContextRef = useRef(null);
+  const processorRef = useRef(null);
+  const sourceNodeRef = useRef(null);
+
 
   useEffect(() => {
     (async () => {
