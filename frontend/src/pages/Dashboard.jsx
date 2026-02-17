@@ -9,7 +9,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [stats, setStats] = useState({ total_questions: 0, avg_latency: 0, total_duration: 0, total_sessions: 0 });
-  const [settings, setSettings] = useState(null);
+  const [hasKey, setHasKey] = useState(false);
   const [cv, setCv] = useState(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(null);
