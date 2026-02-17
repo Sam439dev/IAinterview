@@ -465,6 +465,149 @@ def build_cv_context_rich(cv_data):
     
     return "\n".join(parts)
 
+# ========== INGESTION HELPERS ==========
+
+async def duckduckgo_search(query: str, max_results: int = 8) -> str:
+    url = "https://api.duckduckgo.com/"
+    params = {
+        "q": query,
+        "format": "json",
+        "no_html": 1,
+        "skip_disambig": 1
+    }
+    try:
+        async with httpx.AsyncClient(timeout=12.0) as c:
+            resp = await c.get(url, params=params)
+            resp.raise_for_status()
+            data = resp.json()
+    except Exception as exc:
+        print(f"[DUCKDUCKGO] error: {exc}")
+        return ""
+
+    snippets = []
+    if data.get("AbstractText"):
+        snippets.append(data["AbstractText"])
+
+    for item in data.get("Results", [])[:max_results]:
+        text = item.get("Text")
+        if text:
+            snippets.append(text)
+
+    for item in data.get("RelatedTopics", [])[:max_results]:
+        if isinstance(item, dict) and item.get("Text"):
+            snippets.append(item["Text"])
+        elif isinstance(item, dict) and item.get("Topics"):
+            for sub in item.get("Topics", [])[:max_results]:
+                if sub.get("Text"):
+                    snippets.append(sub["Text"])
+
+    return "\n".join(snippets)
+
+
+async def analyze_job_description(llm: LLMHeaders, job_description: str, role_context: str) -> Dict:
+    user_prompt = f"ROLE CONTEXT:\n{role_context}\n\nJOB DESCRIPTION:\n{job_description}"
+    try:
+        content = await llm_chat(
+            llm,
+            JD_ANALYSIS_PROMPT,
+            user_prompt,
+            temperature=0.2,
+            max_tokens=1200,
+            timeout_s=60.0
+        )
+        return json.loads(content)
+    except Exception as exc:
+        print(f"[JD ANALYSIS] error: {exc}")
+        return {
+            "summary": job_description[:400],
+            "requirements": [],
+            "keywords": [],
+            "potential_questions": []
+        }
+
+
+async def summarize_company_research(llm: LLMHeaders, company_name: str, search_text: str) -> Dict:
+    if not search_text:
+        return {"summary": "", "recent_news": [], "competitors": []}
+
+    user_prompt = f"COMPANY: {company_name}\n\nSEARCH SNIPPETS:\n{search_text}"
+    try:
+        content = await llm_chat(
+            llm,
+            COMPANY_RESEARCH_PROMPT,
+            user_prompt,
+            temperature=0.2,
+            max_tokens=900,
+            timeout_s=60.0
+        )
+        return json.loads(content)
+    except Exception as exc:
+        print(f"[COMPANY SUMMARY] error: {exc}")
+        return {"summary": search_text[:600], "recent_news": [], "competitors": []}
+
+
+def build_profile_documents(cv_doc: Dict, jd_analysis: Dict, company_summary: Dict, job_description: str) -> List[Dict]:
+    docs = []
+
+    def add_doc(text: str, source: str, title: str):
+        if text:
+            docs.append({"text": text, "source": source, "title": title})
+
+    parsed = cv_doc.get("parsed_data") or {}
+    add_doc(parsed.get("summary") or parsed.get("profile_summary"), "resume", "Résumé")
+
+    skills = parsed.get("skills") or parsed.get("skills_hard") or []
+    if isinstance(skills, list):
+        skills_text = ", ".join(skills)
+    else:
+        skills_text = str(skills)
+    add_doc(skills_text, "resume", "Compétences")
+
+    experiences = parsed.get("experience") or parsed.get("experiences") or []
+    for exp in experiences[:10]:
+        if isinstance(exp, dict):
+            title = exp.get("title") or exp.get("role") or "Expérience"
+            company = exp.get("company") or exp.get("employer") or ""
+            summary = exp.get("summary") or exp.get("description") or ""
+            achievements = exp.get("achievements") or []
+            achievements_text = ""
+            if isinstance(achievements, list):
+                achievements_text = " | ".join(achievements[:3])
+            else:
+                achievements_text = str(achievements)
+            text = f"{title} chez {company}. {summary} {achievements_text}".strip()
+            add_doc(text, "resume", f"Expérience: {title}")
+
+    add_doc(job_description, "job_description", "Job description")
+    add_doc(jd_analysis.get("summary"), "job_description", "Synthèse JD")
+
+    if jd_analysis.get("requirements"):
+        reqs = jd_analysis.get("requirements")
+        if isinstance(reqs, list):
+            add_doc("Exigences: " + ", ".join(reqs), "job_description", "Exigences")
+
+    if jd_analysis.get("keywords"):
+        keywords = jd_analysis.get("keywords")
+        if isinstance(keywords, list):
+            add_doc("Mots-clés: " + ", ".join(keywords), "job_description", "Mots-clés")
+
+    company_text = company_summary.get("summary") if isinstance(company_summary, dict) else None
+    add_doc(company_text, "company", "Company summary")
+
+    if isinstance(company_summary, dict):
+        if company_summary.get("recent_news"):
+            news = company_summary.get("recent_news")
+            if isinstance(news, list):
+                add_doc("Actualités: " + "; ".join(news), "company", "Actualités")
+        if company_summary.get("competitors"):
+            competitors = company_summary.get("competitors")
+            if isinstance(competitors, list):
+                add_doc("Concurrents: " + ", ".join(competitors), "company", "Concurrents")
+
+    return docs
+
+
+
 # ========== ENHANCED SMALL TALK FILTER ==========
 
 SMALL_TALK_PATTERNS_FR = {
