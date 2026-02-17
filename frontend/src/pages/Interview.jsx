@@ -46,7 +46,7 @@ export default function Interview() {
   const [devices, setDevices] = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
   const [wsStatus, setWsStatus] = useState('disconnected');
-  const [streamTranscript, setStreamTranscript] = useState('');
+  // stream transcript handled by store
   const [streamError, setStreamError] = useState('');
   const wsRef = useRef(null);
   const audioContextRef = useRef(null);
