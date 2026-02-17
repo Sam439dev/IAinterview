@@ -788,7 +788,7 @@ async def delete_cv(cv_id: str):
     return {"success": True}
 
 @app.post("/api/cv/reparse")
-async def reparse_cv():
+async def reparse_cv(llm: LLMHeaders = Depends(get_llm_headers)):
     """Re-parse the active CV using enhanced LLM parsing with FULL text."""
     cv = await cv_col.find_one({"is_active": True})
     if not cv:
