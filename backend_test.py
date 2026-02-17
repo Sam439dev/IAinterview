@@ -304,29 +304,20 @@ class InterviewAIAPITester:
         return success
 
 def main():
-    print("🚀 Starting Interview AI Assistant Backend API Tests")
+    print("🚀 Starting Phase 2 Backend API Tests")
+    print("Focus: Health, Session UUIDs, LLM Header Auth, No 500s")
     print("=" * 60)
     
     tester = InterviewAIAPITester()
     
-    # Run all tests in sequence
+    # Phase 2 specific tests
     test_methods = [
-        ("Health Check", tester.test_health_endpoint),
-        ("Settings - GET", tester.test_settings_get_initial),
-        ("Settings - Save API Key", tester.test_settings_save_api_key),
-        ("Settings - GET with Key", tester.test_settings_get_with_key),
-        ("Settings - Validate Key", tester.test_validate_key_endpoint),
-        ("Sessions - Empty List", tester.test_sessions_get_empty),
-        ("Sessions - Empty Stats", tester.test_sessions_stats_empty),
-        ("Sessions - Create New", tester.test_create_session),
-        ("Sessions - GET with Data", tester.test_sessions_get_with_data),
-        ("Sessions - Get Messages", tester.test_get_session_messages),
-        ("V5 - Process Audio (Back)", tester.test_process_audio_endpoint),
-        ("V5 - Process Text Removed", tester.test_process_text_removed),
-        ("V4 - Generate Summary Empty", tester.test_generate_summary_empty_session),
-        ("V4 - Get Summary Null", tester.test_get_summary_null),
-        ("Sessions - Delete", tester.test_delete_session),
-        ("CV - Get Active", tester.test_cv_active),
+        ("1. Health Check", tester.test_health_endpoint),
+        ("2. Session Lifecycle with UUIDs", tester.test_session_lifecycle_with_uuids),
+        ("3. LLM Endpoints Without Headers", tester.test_llm_endpoints_without_headers),
+        ("4. Settings Endpoints", tester.test_settings_endpoints),
+        ("5. CV Active Endpoint", tester.test_cv_active_endpoint),
+        ("6. Session Stats", tester.test_session_stats),
     ]
     
     failed_tests = []
@@ -343,21 +334,34 @@ def main():
     
     # Print final results
     print(f"\n{'='*60}")
-    print(f"🏁 TEST RESULTS SUMMARY")
+    print(f"🏁 PHASE 2 TEST RESULTS SUMMARY")
     print(f"{'='*60}")
     print(f"📊 Tests passed: {tester.tests_passed}/{tester.tests_run}")
     
+    # Check for critical failures (500 errors)
+    if tester.critical_failures:
+        print(f"\n🚨 CRITICAL FAILURES (500 errors):")
+        for failure in tester.critical_failures:
+            print(f"   - {failure}")
+    
     if failed_tests:
-        print(f"❌ Failed tests: {len(failed_tests)}")
+        print(f"\n❌ Failed tests: {len(failed_tests)}")
         for test_name in failed_tests:
             print(f"   - {test_name}")
-        print(f"\n🔧 Backend Issues Found:")
+        
+        print(f"\n🔧 Issues Found:")
+        if tester.critical_failures:
+            print("   - CRITICAL: 500 Internal Server Errors detected")
         print("   - Check server logs for detailed error information")
-        print("   - Verify MongoDB connection is working")
-        print("   - Ensure all API endpoints are properly implemented")
+        print("   - Verify LLM header validation is working correctly")
+        print("   - Ensure UUID generation is working for sessions")
         return 1
     else:
-        print("✅ All backend tests passed!")
+        print("✅ All Phase 2 backend tests passed!")
+        print("✅ Health endpoint working")
+        print("✅ Session lifecycle with UUIDs working")
+        print("✅ LLM endpoints properly reject requests without headers")
+        print("✅ No 500 Internal Server Errors detected")
         return 0
 
 if __name__ == "__main__":
