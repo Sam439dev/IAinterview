@@ -43,10 +43,8 @@ class TestSettingsEndpoints:
         assert data["success"] == True
         
     def test_validate_key_missing(self):
-        """POST /api/settings/validate-key with empty key should fail"""
-        response = requests.post(f"{BASE_URL}/api/settings/validate-key", json={
-            "openai_api_key": ""
-        })
+        """POST /api/settings/validate-key should return invalid in BYOK mode"""
+        response = requests.post(f"{BASE_URL}/api/settings/validate-key")
         assert response.status_code == 200
         data = response.json()
         assert data["valid"] == False
