@@ -5,7 +5,7 @@ import { hasActiveKey } from '../services/llmSettings';
 
 export default function Home() {
   const [hasKey, setHasKey] = useState(false);
-  useEffect(() => { getSettings().then(s => setHasKey(s.has_key)).catch(() => {}); }, []);
+  useEffect(() => { setHasKey(hasActiveKey()); }, []);
 
   const startHref = hasKey ? '/interview' : '/settings';
 
