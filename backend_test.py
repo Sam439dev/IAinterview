@@ -317,7 +317,7 @@ class InterviewAIAPITester:
             try:
                 # Connect to WebSocket
                 print("   Attempting WebSocket connection...")
-                async with websockets.connect(ws_url, timeout=10) as websocket:
+                async with websockets.connect(ws_url) as websocket:
                     print("✅ WebSocket connection established")
                     
                     # Send start message
