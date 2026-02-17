@@ -1024,8 +1024,8 @@ async def process_audio(
     t2 = time.time()
     try:
         analysis = await fast_analyze_v3(
-            api_key, transcript_text, data.session_id, 
-            cv_data, model, detected_lang, prev_lang
+            llm, transcript_text, data.session_id,
+            cv_data, detected_lang, prev_lang
         )
     except Exception as e:
         print(f"[ANALYZE ERR] {e}")
