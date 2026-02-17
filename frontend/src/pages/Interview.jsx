@@ -246,6 +246,9 @@ export default function Interview() {
   const [pipEnabled, setPipEnabled] = useState(false);
   const [pipStream, setPipStream] = useState(null);
   const [pipError, setPipError] = useState('');
+  
+  // Speaker tracking
+  const [speakerCounts, setSpeakerCounts] = useState({ interviewer: 0, candidate: 0 });
 
   const timerRef = useRef(null);
   const recorderRef = useRef(null);
