@@ -1,62 +1,20 @@
 {
-  "company_name": "Microsoft ",
-  "job_description": "Contexte\nDans le cadre de l’évolution d’une application mobile, nous recherchons un Product Owner Senior afin de piloter le produit et accompagner la transformation de l’équipe vers un modèle offshore en Inde.\nL’équipe actuelle est composée de :\n1 Lead développeur\n1 Développeur iOS\n1 Développeur Android\n1 Product Designer\nLe Product Owner sera le référent fonctionnel du produit et garant de la vision, de la roadmap et de la qualité des livraisons.\nObjectifs de la mission\nStructurer et piloter la roadmap produit\nFiabiliser la gestion du backlog et des livraisons\nAméliorer la qualité fonctionnelle (recette & incidents)\nMettre en place un suivi analytics pertinent\nAssurer la transition vers une équipe offshore en Inde\nResponsabilités\n1. Product Management & Delivery\nConstruire et piloter la roadmap produit\nDéfinir, prioriser et maintenir le Product Backlog\nAnimer les cérémonies agiles (Sprint planning, review, retro…)\nEffectuer la recette fonctionnelle\nPlanifier et coordonner les mises en production sur les stores\nPrioriser et suivre la résolution des incidents\n2. Recueil & Expression du besoin\nConsolider les besoins métiers\nProduire les documents de cadrage des évolutions\nRédiger les User Stories et règles de gestion associées\nCo-construire les parcours utilisateurs et maquettes avec le Product Designer\n3. Suivi de performance & Analytics\nDéfinir et suivre les KPIs produit\nMettre en place et maintenir le plan de taggage\nExploiter Piano Analytics (ou équivalent)\n4. Transition Offshore (Inde)\nAssurer la passation fonctionnelle vers l’équipe offshore\nDocumenter les principales fonctionnalités\nGarantir la continuité produit et la compréhension du périmètre\nProfil recherché\nExpérience\nProduct Owner Senior (5+ ans d’expérience minimum)\nExpérience significative sur des produits mobiles (iOS / Android)\nExpérience dans un contexte de transition ou d’équipe offshore (fortement appréciée)\nCompétences\nProduit & Agile\nScrum / Agile delivery\nGestion de backlog & roadmap\nRédaction de User Stories\nRecette fonctionnelle\nUX & Collaboration\nTravail étroit avec Product Designer\nConception de parcours utilisateurs\nApproche orientée valeur métier\nData & Analytics\nSuivi de KPIs produit\nPlan de taggage\nPiano Analytics ou équivalent (GA4, Amplitude, Mixpanel…)\nSoft skills\nLeadership fonctionnel\nCommunication transverse\nAutonomie et structuration\nCapacité à travailler avec équipes internationales\nLivrables attendus\nRoadmap produit priorisée\nBacklog structuré et maintenu\nDocumentation fonctionnelle\nUser Stories détaillées\nRecettes validées\nPlan de taggage & suivi KPI\nDocumentation de passation offshore",
-  "target_role": "Product manager ",
+  "company_name": "Stripe",
+  "job_description": "Senior Software Engineer - Payments team",
+  "target_role": "Senior Engineer",
   "jd_analysis": {
-    "summary": "Nous recherchons un Product Owner Senior pour piloter l'évolution d'une application mobile et accompagner la transition de l'équipe vers un modèle offshore en Inde. Le rôle implique la gestion de la roadmap produit, l'amélioration de la qualité fonctionnelle, et la mise en place d'un suivi analytics pertinent.",
-    "requirements": [
-      "5+ ans d'expérience en tant que Product Owner Senior",
-      "Expérience significative sur des produits mobiles (iOS / Android)",
-      "Expérience dans un contexte de transition ou d'équipe offshore",
-      "Compétences en Scrum / Agile delivery",
-      "Gestion de backlog & roadmap",
-      "Rédaction de User Stories",
-      "Recette fonctionnelle",
-      "Travail étroit avec Product Designer",
-      "Suivi de KPIs produit",
-      "Connaissance de Piano Analytics ou équivalent",
-      "Leadership fonctionnel et communication transverse",
-      "Capacité à travailler avec des équipes internationales"
-    ],
-    "keywords": [
-      "Product Owner",
-      "Mobile Application",
-      "iOS",
-      "Android",
-      "Offshore",
-      "Roadmap",
-      "Backlog",
-      "User Stories",
-      "Scrum",
-      "Agile",
-      "KPIs",
-      "Piano Analytics",
-      "Transition",
-      "Product Management"
-    ],
-    "potential_questions": [
-      "Pouvez-vous décrire votre expérience avec la gestion de produits mobiles?",
-      "Comment avez-vous géré une transition vers une équipe offshore dans le passé?",
-      "Quels outils et méthodes utilisez-vous pour prioriser un backlog?",
-      "Comment assurez-vous la qualité fonctionnelle des livraisons?",
-      "Pouvez-vous donner un exemple de la façon dont vous avez collaboré avec un Product Designer?",
-      "Comment définissez-vous et suivez-vous les KPIs pour un produit?",
-      "Avez-vous de l'expérience avec Piano Analytics ou des outils similaires?"
-    ]
+    "summary": "Senior Software Engineer - Payments team",
+    "requirements": [],
+    "keywords": [],
+    "potential_questions": []
   },
   "company_summary": {
-    "summary": "Microsoft Corporation is an American multinational technology company headquartered in Redmond, Washington. Founded in 1975 by Bill Gates and Paul Allen, it became a key player in the personal computer revolution with its software products like MS-DOS and Windows. Over the years, Microsoft has expanded its offerings to include Internet services, cloud computing, artificial intelligence, and video gaming. It is recognized as one of the largest and most valuable software companies globally and is part of the Big Tech group alongside Alphabet, Amazon, Apple, Meta, and Nvidia.",
+    "summary": "Stripe, Inc. Stripe, Inc. is an Irish-American multinational financial services and software as a service...\nStripes (film) A 1981 American action comedy film directed by Ivan Reitman and starring Bill Murray, Harold...\nStryper An American Christian metal band from Orange County, California.\nStripe (pattern) A line or band that differs in color or tone from an adjacent area.\nRacing stripe Racing stripes, also called Le Mans stripes or rally stripes, were originally applied to racecars...\nService stripe An embroidered diagonal stripe worn on the sleeve of some military and paramilitary uniforms",
     "recent_news": [],
-    "competitors": [
-      "Alphabet",
-      "Amazon",
-      "Apple",
-      "Meta",
-      "Nvidia"
-    ]
+    "competitors": []
   },
-  "doc_count": 17,
-  "created_at": "2026-02-17T20:49:36.270152",
+  "doc_count": 14,
+  "created_at": "2026-02-17T21:01:14.844018",
   "documents": [
     {
       "text": "Experte chevronnée en produit digital avec plus de 10 ans d'expérience, Samantha Akkouche pilote des projets agiles et optimise l'intégration d'outils pour améliorer l'expérience utilisateur et la performance business. Son parcours diversifié dans la banque, l'assurance et la publicité lui a conféré une forte capacité d'adaptation et une expertise reconnue dans la coordination de projets complexes et orientés utilisateur.",
@@ -114,34 +72,19 @@
       "title": "Expérience: Product owner"
     },
     {
-      "text": "Contexte\nDans le cadre de l’évolution d’une application mobile, nous recherchons un Product Owner Senior afin de piloter le produit et accompagner la transformation de l’équipe vers un modèle offshore en Inde.\nL’équipe actuelle est composée de :\n1 Lead développeur\n1 Développeur iOS\n1 Développeur Android\n1 Product Designer\nLe Product Owner sera le référent fonctionnel du produit et garant de la vision, de la roadmap et de la qualité des livraisons.\nObjectifs de la mission\nStructurer et piloter la roadmap produit\nFiabiliser la gestion du backlog et des livraisons\nAméliorer la qualité fonctionnelle (recette & incidents)\nMettre en place un suivi analytics pertinent\nAssurer la transition vers une équipe offshore en Inde\nResponsabilités\n1. Product Management & Delivery\nConstruire et piloter la roadmap produit\nDéfinir, prioriser et maintenir le Product Backlog\nAnimer les cérémonies agiles (Sprint planning, review, retro…)\nEffectuer la recette fonctionnelle\nPlanifier et coordonner les mises en production sur les stores\nPrioriser et suivre la résolution des incidents\n2. Recueil & Expression du besoin\nConsolider les besoins métiers\nProduire les documents de cadrage des évolutions\nRédiger les User Stories et règles de gestion associées\nCo-construire les parcours utilisateurs et maquettes avec le Product Designer\n3. Suivi de performance & Analytics\nDéfinir et suivre les KPIs produit\nMettre en place et maintenir le plan de taggage\nExploiter Piano Analytics (ou équivalent)\n4. Transition Offshore (Inde)\nAssurer la passation fonctionnelle vers l’équipe offshore\nDocumenter les principales fonctionnalités\nGarantir la continuité produit et la compréhension du périmètre\nProfil recherché\nExpérience\nProduct Owner Senior (5+ ans d’expérience minimum)\nExpérience significative sur des produits mobiles (iOS / Android)\nExpérience dans un contexte de transition ou d’équipe offshore (fortement appréciée)\nCompétences\nProduit & Agile\nScrum / Agile delivery\nGestion de backlog & roadmap\nRédaction de User Stories\nRecette fonctionnelle\nUX & Collaboration\nTravail étroit avec Product Designer\nConception de parcours utilisateurs\nApproche orientée valeur métier\nData & Analytics\nSuivi de KPIs produit\nPlan de taggage\nPiano Analytics ou équivalent (GA4, Amplitude, Mixpanel…)\nSoft skills\nLeadership fonctionnel\nCommunication transverse\nAutonomie et structuration\nCapacité à travailler avec équipes internationales\nLivrables attendus\nRoadmap produit priorisée\nBacklog structuré et maintenu\nDocumentation fonctionnelle\nUser Stories détaillées\nRecettes validées\nPlan de taggage & suivi KPI\nDocumentation de passation offshore",
+      "text": "Senior Software Engineer - Payments team",
       "source": "job_description",
       "title": "Job description"
     },
     {
-      "text": "Nous recherchons un Product Owner Senior pour piloter l'évolution d'une application mobile et accompagner la transition de l'équipe vers un modèle offshore en Inde. Le rôle implique la gestion de la roadmap produit, l'amélioration de la qualité fonctionnelle, et la mise en place d'un suivi analytics pertinent.",
+      "text": "Senior Software Engineer - Payments team",
       "source": "job_description",
       "title": "Synthèse JD"
     },
     {
-      "text": "Exigences: 5+ ans d'expérience en tant que Product Owner Senior, Expérience significative sur des produits mobiles (iOS / Android), Expérience dans un contexte de transition ou d'équipe offshore, Compétences en Scrum / Agile delivery, Gestion de backlog & roadmap, Rédaction de User Stories, Recette fonctionnelle, Travail étroit avec Product Designer, Suivi de KPIs produit, Connaissance de Piano Analytics ou équivalent, Leadership fonctionnel et communication transverse, Capacité à travailler avec des équipes internationales",
-      "source": "job_description",
-      "title": "Exigences"
-    },
-    {
-      "text": "Mots-clés: Product Owner, Mobile Application, iOS, Android, Offshore, Roadmap, Backlog, User Stories, Scrum, Agile, KPIs, Piano Analytics, Transition, Product Management",
-      "source": "job_description",
-      "title": "Mots-clés"
-    },
-    {
-      "text": "Microsoft Corporation is an American multinational technology company headquartered in Redmond, Washington. Founded in 1975 by Bill Gates and Paul Allen, it became a key player in the personal computer revolution with its software products like MS-DOS and Windows. Over the years, Microsoft has expanded its offerings to include Internet services, cloud computing, artificial intelligence, and video gaming. It is recognized as one of the largest and most valuable software companies globally and is part of the Big Tech group alongside Alphabet, Amazon, Apple, Meta, and Nvidia.",
+      "text": "Stripe, Inc. Stripe, Inc. is an Irish-American multinational financial services and software as a service...\nStripes (film) A 1981 American action comedy film directed by Ivan Reitman and starring Bill Murray, Harold...\nStryper An American Christian metal band from Orange County, California.\nStripe (pattern) A line or band that differs in color or tone from an adjacent area.\nRacing stripe Racing stripes, also called Le Mans stripes or rally stripes, were originally applied to racecars...\nService stripe An embroidered diagonal stripe worn on the sleeve of some military and paramilitary uniforms",
       "source": "company",
       "title": "Company summary"
-    },
-    {
-      "text": "Concurrents: Alphabet, Amazon, Apple, Meta, Nvidia",
-      "source": "company",
-      "title": "Concurrents"
     }
   ]
 }
