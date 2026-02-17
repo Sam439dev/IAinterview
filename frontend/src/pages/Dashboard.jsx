@@ -16,11 +16,11 @@ export default function Dashboard() {
 
   const load = async () => {
     try {
-      const [se, st, sett, cvd] = await Promise.all([getSessions(), getStats(), getSettings(), getActiveCV()]);
+      const [se, st, cvd] = await Promise.all([getSessions(), getStats(), getActiveCV()]);
       setSessions(se || []);
       setStats(st);
-      setSettings(sett);
       setCv(cvd);
+      setHasKey(hasActiveKey());
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
