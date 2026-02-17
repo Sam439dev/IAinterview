@@ -693,6 +693,20 @@ export default function Interview() {
           <span className="chip chip-accent text-[0.65rem]" data-testid="question-count">
             <Zap className="w-3 h-3" /> {questionCount} questions
           </span>
+          {/* Speaker indicators */}
+          {isActive && (speakerCounts.interviewer > 0 || speakerCounts.candidate > 0) && (
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white/5 border border-white/10" data-testid="speaker-indicators">
+              <span className="flex items-center gap-1 text-[0.6rem] text-purple-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+                {speakerCounts.interviewer}
+              </span>
+              <span className="text-slate-600">|</span>
+              <span className="flex items-center gap-1 text-[0.6rem] text-cyan-300">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+                {speakerCounts.candidate}
+              </span>
+            </div>
+          )}
           <span className="chip chip-neutral font-mono text-sm" data-testid="timer-badge">
             <Clock className="w-3.5 h-3.5" /> {fmt(timer)}
           </span>
