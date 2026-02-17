@@ -358,18 +358,7 @@ export default function Interview() {
     } catch { setEnding(false); }
   }, [sessionId, timer, navigate, useStreaming, stopStreaming]);
 
-  const copyText = (text, id) => { navigator.clipboard.writeText(text); setCopiedId(id); setTimeout(() => setCopiedId(null), 2000); };
 
-  const catMap = {
-    question_technique: { label: 'Technique', cls: 'chip-accent' },
-    question_comportementale: { label: 'Comportementale', cls: 'chip-purple' },
-    question_experience: { label: 'Expérience', cls: 'chip-success' },
-    question_motivation: { label: 'Motivation', cls: 'chip-warn' },
-    mise_en_situation: { label: 'Mise en situation', cls: 'chip-danger' },
-    presentation: { label: 'Présentation', cls: 'chip-accent' },
-    general: { label: 'Général', cls: 'chip-neutral' },
-    none: { label: '', cls: '' },
-  };
 
   if (loading) return <div className="h-screen bg-void flex items-center justify-center"><Loader2 className="w-6 h-6 text-accent animate-spin" /></div>;
   if (ending) return (
