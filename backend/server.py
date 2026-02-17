@@ -963,7 +963,7 @@ async def process_audio(
     # 1. Whisper transcription (auto-detect language)
     audio_bytes = base64.b64decode(data.audio_data)
     t1 = time.time()
-    tr = await whisper_fast(api_key, audio_bytes, data.mime_type)
+    tr = await whisper_fast(stt_api_key, audio_bytes, data.mime_type)
     whisper_ms = int((time.time() - t1) * 1000)
     
     if "error" in tr:
