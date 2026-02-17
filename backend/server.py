@@ -37,7 +37,7 @@ app.add_middleware(
 client = AsyncIOMotorClient(MONGO_URL)
 db = client[DB_NAME]
 
-settings_col = db["user_settings"]
+
 cv_col = db["cv_documents"]
 sessions_col = db["interview_sessions"]
 messages_col = db["conversation_messages"]
