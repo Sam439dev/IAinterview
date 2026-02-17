@@ -386,12 +386,7 @@ export default function Interview() {
             <Globe className="w-3 h-3" /> {detectedLang === 'fr' ? 'FR' : detectedLang === 'en' ? 'EN' : detectedLang.toUpperCase()}
           </span>
           <span className="chip chip-accent text-[0.6rem]" data-testid="question-count">
-          {useStreaming && streamTranscript && (
-            <div className="card p-4">
-              <div className="text-xs text-slate-500 mb-1">Transcript en direct</div>
-              <p className="text-sm text-slate-200 leading-relaxed">{streamTranscript}</p>
-            </div>
-          )}
+
 
             <Zap className="w-3 h-3" /> {questionCount}
           </span>
