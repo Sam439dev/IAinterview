@@ -775,11 +775,46 @@ export default function Interview() {
               </div>
 
               {/* Coaching Tips */}
-              {coachingTips.length > 0 && (
-                <div className="space-y-2">
-                  <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Coaching</span>
+              {(coachingTips.length > 0 || totalFillers > 0) && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Coaching</span>
+                    {totalFillers > 0 && (
+                      <span className={`text-[0.65rem] px-2 py-0.5 rounded-full font-medium ${
+                        totalFillers > 10 ? 'bg-red-500/20 text-red-400' : 
+                        totalFillers > 5 ? 'bg-amber-500/20 text-amber-400' : 
+                        'bg-slate-500/20 text-slate-400'
+                      }`} data-testid="filler-count">
+                        {totalFillers} filler{totalFillers > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Filler Word Stats */}
+                  {(() => {
+                    const topFillers = getTopFillers();
+                    if (topFillers.length === 0) return null;
+                    return (
+                      <div className="flex flex-wrap gap-2" data-testid="filler-stats">
+                        {topFillers.map(({ word, count, label }) => (
+                          <div 
+                            key={word} 
+                            className={`px-2 py-1 rounded-lg text-[0.65rem] font-medium border ${
+                              count >= 5 ? 'bg-red-500/10 border-red-500/30 text-red-400' :
+                              count >= 3 ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' :
+                              'bg-slate-500/10 border-slate-500/30 text-slate-400'
+                            }`}
+                          >
+                            "{label}" × {count}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                  
+                  {/* Coaching Tips */}
                   {coachingTips.map(tip => (
-                    <div key={tip.id} className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs text-emerald-300 flex items-start gap-2">
+                    <div key={tip.id} className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs text-emerald-300 flex items-start gap-2 animate-fadeIn">
                       <Lightbulb className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                       {tip.text}
                     </div>
