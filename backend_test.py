@@ -1,6 +1,7 @@
 import requests
 import sys
 import json
+import base64
 from datetime import datetime
 
 class InterviewAIAPITester:
@@ -9,6 +10,7 @@ class InterviewAIAPITester:
         self.tests_run = 0
         self.tests_passed = 0
         self.session_id = None
+        self.critical_failures = []
 
     def run_test(self, name, method, endpoint, expected_status, data=None, headers=None):
         """Run a single API test"""
