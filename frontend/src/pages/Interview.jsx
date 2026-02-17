@@ -36,7 +36,8 @@ export default function Interview() {
   useEffect(() => {
     (async () => {
       try {
-        const [sett, cv] = await Promise.all([getSettings(), getActiveCV()]);
+        const cv = await getActiveCV();
+        const sett = loadLlmSettings();
         setSettings(sett);
         setCvActive(!!cv);
         if (paramId) {
