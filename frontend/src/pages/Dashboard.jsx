@@ -33,7 +33,7 @@ export default function Dashboard() {
     finally { setDeleting(null); }
   };
 
-  const hasKey = settings?.has_key;
+
   const canCreate = (sessions?.length || 0) < 10;
   const fmtDate = (d) => { try { return new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }); } catch { return ''; } };
 
