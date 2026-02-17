@@ -452,11 +452,12 @@ function ProfileBuilderSection() {
           </div>
           <div>
             <label className="block text-xs text-slate-500 mb-1.5 font-display">Rôle cible</label>
-            <select className="input" value={targetRole} onChange={e => setTargetRole(e.target.value)}>
-              <option value="software_engineer">Software Engineer</option>
-              <option value="product_manager">Product Manager</option>
-              <option value="data_scientist">Data Scientist</option>
-            </select>
+            <input
+              className="input"
+              value={targetRole}
+              onChange={e => setTargetRole(e.target.value)}
+              placeholder="ex: Staff Software Engineer"
+            />
           </div>
           <div>
             <label className="block text-xs text-slate-500 mb-1.5 font-display">Description du poste</label>
