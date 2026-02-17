@@ -28,9 +28,10 @@ class TestSettingsEndpoints:
         response = requests.get(f"{BASE_URL}/api/settings")
         assert response.status_code == 200
         data = response.json()
-        assert "has_key" in data
+        assert "server_storage" in data
+        assert data["server_storage"] == False
         assert "preferred_model" in data
-        assert "openai_api_key" in data
+        assert "preferred_provider" in data
         
     def test_post_settings_model_change(self):
         """POST /api/settings should update model preference"""
