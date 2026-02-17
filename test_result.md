@@ -144,17 +144,11 @@
 ##     priority: "high"
 ##     needs_retesting: false
 ##     status_history:
-##     - "Ingestion + FAISS persistent index + DuckDuckGo research"
-##     - "Profile builder UI + cache management"
-
 ##         -working: "NA"
 ##         -agent: "main"
 ##         -comment: "Migrated CRA to Vite, added localStorage-based LLM settings UI, and injected headers for CV upload/analysis endpoints."
 ##         -working: "NA"
 ##         -agent: "main"
-##     -agent: "main"
-##     -message: "Please test new ingestion endpoints (/api/ingestion/build-profile/status/clear-cache/search). No API keys available, so expect 422 for build-profile without LLM headers. Ensure status/clear-cache endpoints respond and no 500s."
-
 ##         -comment: "User approved frontend testing; ready to validate Vite migration and local LLM settings UI."
 ##         -working: true
 ##         -agent: "testing"
@@ -162,6 +156,18 @@
 ##         -working: true
 ##         -agent: "user"
 ##         -comment: "User confirmed preview host issue resolved after adding allowedHosts in Vite config."
+
+##   - task: "Profile builder UI + cache management"
+##     implemented: true
+##     working: "NA"
+##     file: "frontend/src/pages/Settings.jsx"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: true
+##     status_history:
+##         -working: "NA"
+##         -agent: "main"
+##         -comment: "Added Profile Builder (JD + company + role) and Clear Cache controls in Settings."
 
 
 ## metadata:
