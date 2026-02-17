@@ -5,6 +5,8 @@ import ReactMarkdown from 'react-markdown';
 import { createSession, updateSession, getMessages, processAudio, getActiveCV } from '../services/api';
 import { loadLlmSettings, hasActiveKey, getProviderKey } from '../services/llmSettings';
 
+import { useInterviewStore } from '../store/interviewStore';
+
 const CHUNK_DURATION_MS = 3000; // 3 seconds for ultra-fast detection (target ≤2s latency)
 
 export default function Interview() {
