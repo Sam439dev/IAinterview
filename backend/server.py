@@ -1190,13 +1190,14 @@ async def generate_summary(session_id: str):
     model = (settings or {}).get("preferred_model", "gpt-4o-mini")
     
     try:
-        content = await openai_chat(
-            api_key,
-            [
-                {"role": "system", "content": SUMMARY_PROMPT_V2},
-                {"role": "user", "content": f"Session d'entretien:\n\n{conversation}\n\nLatence moyenne: {avg_latency}ms"}
-            ],
-            model=model, json_mode=True, timeout_s=60.0, max_tokens=3000
+        user_prompt = f"Session d'entretien:\n\n{conversation}\n\nLatence moyenne: {avg_latency}ms"
+        content = await llm_chat(
+            llm,
+            SUMMARY_PROMPT_V2,
+            user_prompt,
+            temperature=0.4,
+            max_tokens=3000,
+            timeout_s=60.0
         )
         summary = json.loads(content)
         
