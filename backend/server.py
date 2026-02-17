@@ -1175,9 +1175,8 @@ async def generate_summary(
     conversation = "\n\n".join(lines) if lines else "Session vide"
     avg_latency = round(sum(latencies) / len(latencies)) if latencies else 0
     
-    settings = await settings_col.find_one({"user_id": "default"}, {"_id": 0})
-    model = (settings or {}).get("preferred_model", "gpt-4o-mini")
-    
+
+
     try:
         user_prompt = f"Session d'entretien:\n\n{conversation}\n\nLatence moyenne: {avg_latency}ms"
         content = await llm_chat(
