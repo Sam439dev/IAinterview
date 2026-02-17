@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mic, FileText, BarChart3, Settings, Clock, MessageSquare, Zap, TrendingUp, Calendar, Plus, Trash2, Play, AlertCircle, Loader2 } from 'lucide-react';
-import { getSessions, getStats, deleteSession, getSettings, getActiveCV } from '../services/api';
+import { getSessions, getStats, deleteSession, getActiveCV } from '../services/api';
+import { hasActiveKey } from '../services/llmSettings';
 import Navbar from '../components/Navbar';
 
 export default function Dashboard() {
