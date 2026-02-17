@@ -1137,9 +1137,9 @@ async def build_profile(
 
 @app.get("/api/ingestion/status")
 async def ingestion_status():
-    meta = load_profile_meta()
-    if not meta:
+    if not profile_index_exists():
         return {"available": False, "doc_count": 0}
+    meta = load_profile_meta() or {}
     return {
         "available": True,
         "doc_count": meta.get("doc_count", 0),
