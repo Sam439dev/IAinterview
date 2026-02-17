@@ -149,23 +149,44 @@ export default function Dashboard() {
               </h3>
               {cv ? (
                 <div>
-                  <div className="flex items-center gap-2.5 mb-3">
-                    <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-                      <FileText className="w-4 h-4 text-emerald-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" data-testid="cv-name">{cv.file_name}</p>
-                      <p className="text-[0.65rem] text-slate-500">{cv.parsed_data?.skills?.length || 0} compétences</p>
-                    </div>
-                  </div>
-                  {cv.parsed_data?.skills?.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {cv.parsed_data.skills.slice(0, 4).map((s, i) => (
-                        <span key={i} className="chip chip-accent text-[0.6rem]">{s}</span>
-                      ))}
-                      {cv.parsed_data.skills.length > 4 && <span className="chip chip-neutral text-[0.6rem]">+{cv.parsed_data.skills.length - 4}</span>}
-                    </div>
-                  )}
+                  {(() => {
+                    // Compute total skills from all skill fields
+                    const parsed = cv.parsed_data || {};
+                    const allSkills = [
+                      ...(parsed.skills_hard || []),
+                      ...(parsed.skills_soft || []),
+                      ...(parsed.skills || []),
+                      ...(parsed.technologies || [])
+                    ];
+                    const uniqueSkills = [...new Set(allSkills)];
+                    const skillCount = uniqueSkills.length;
+                    const displaySkills = uniqueSkills.slice(0, 5);
+                    
+                    return (
+                      <>
+                        <div className="flex items-center gap-2.5 mb-3">
+                          <div className="w-9 h-9 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                            <FileText className="w-4 h-4 text-emerald-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate" data-testid="cv-name">{cv.file_name}</p>
+                            <p className="text-[0.65rem] text-slate-500" data-testid="cv-skills-count">{skillCount} compétences</p>
+                          </div>
+                        </div>
+                        {skillCount > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {displaySkills.map((s, i) => (
+                              <span key={i} className="chip chip-accent text-[0.6rem]">{s}</span>
+                            ))}
+                            {skillCount > 5 && <span className="chip chip-neutral text-[0.6rem]">+{skillCount - 5}</span>}
+                          </div>
+                        )}
+                        {parsed.full_name && (
+                          <p className="text-xs text-slate-400 mt-2 truncate">{parsed.full_name}</p>
+                        )}
+                      </>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="text-center py-3">
