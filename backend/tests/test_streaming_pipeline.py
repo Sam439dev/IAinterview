@@ -112,17 +112,15 @@ def test_diarization_enabled():
     assert ENABLE_DIARIZATION == True, "Diarization should be enabled"
 
 
-@pytest.mark.asyncio
-async def test_transcribe_mock_audio():
+def test_transcribe_mock_audio():
     """Test transcription with mock audio (silence)"""
     model = get_whisper_model()
     
     # Create 3 seconds of near-silence with some noise
     audio = np.random.randn(48000).astype(np.float32) * 0.001
     
-    # Run transcription
-    segments, info = await asyncio.to_thread(
-        model.transcribe,
+    # Run transcription synchronously
+    segments, info = model.transcribe(
         audio,
         language=None,
         vad_filter=True
