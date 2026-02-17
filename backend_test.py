@@ -376,20 +376,21 @@ class InterviewAIAPITester:
         return True
 
 def main():
-    print("🚀 Starting Phase 2 Backend API Tests")
-    print("Focus: Health, Session UUIDs, LLM Header Auth, No 500s")
+    print("🚀 Starting Backend API Tests - Ingestion + FAISS Focus")
+    print("Focus: Ingestion endpoints, FAISS persistence, Health, Session CRUD")
     print("=" * 60)
     
     tester = InterviewAIAPITester()
     
-    # Phase 2 specific tests
+    # Tests with focus on ingestion endpoints
     test_methods = [
         ("1. Health Check", tester.test_health_endpoint),
-        ("2. Session Lifecycle with UUIDs", tester.test_session_lifecycle_with_uuids),
-        ("3. LLM Endpoints Without Headers", tester.test_llm_endpoints_without_headers),
-        ("4. Settings Endpoints", tester.test_settings_endpoints),
-        ("5. CV Active Endpoint", tester.test_cv_active_endpoint),
-        ("6. Session Stats", tester.test_session_stats),
+        ("2. Ingestion Endpoints", tester.test_ingestion_endpoints),
+        ("3. Session Lifecycle with UUIDs", tester.test_session_lifecycle_with_uuids),
+        ("4. LLM Endpoints Without Headers", tester.test_llm_endpoints_without_headers),
+        ("5. Settings Endpoints", tester.test_settings_endpoints),
+        ("6. CV Active Endpoint", tester.test_cv_active_endpoint),
+        ("7. Session Stats", tester.test_session_stats),
     ]
     
     failed_tests = []
