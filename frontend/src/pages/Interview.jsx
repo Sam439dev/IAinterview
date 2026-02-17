@@ -154,8 +154,7 @@ export default function Interview() {
       return;
     }
     setStreamError('');
-    setStreamTranscript('');
-    setSuggestions([]);
+    clearSession();
 
     let sid = sessionId;
     if (!sid) {
