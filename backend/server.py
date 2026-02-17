@@ -317,10 +317,6 @@ RÈGLES STRICTES:
 - NE JAMAIS renvoyer un JSON vide ou incomplet
 - LE NOMBRE D'EXPÉRIENCES DOIT CORRESPONDRE AU CONTENU RÉEL DU CV"""
 
-JD_ANALYSIS_PROMPT = """Tu es un recruteur senior. Analyse cette description de poste pour un entretien.
-Retourne STRICTEMENT un JSON avec les champs:
-- summary: résumé concis du poste
-
 
 def safe_json_loads(raw_text: str) -> Optional[Dict]:
     cleaned = raw_text.strip()
