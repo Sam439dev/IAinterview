@@ -535,7 +535,9 @@ async def analyze_job_description(llm: LLMHeaders, job_description: str, role_co
             max_tokens=1200,
             timeout_s=60.0
         )
-        return json.loads(content)
+        parsed = safe_json_loads(content)
+        if parsed:
+            return parsed
     except Exception as exc:
         print(f"[JD ANALYSIS] error: {exc}")
         return {
