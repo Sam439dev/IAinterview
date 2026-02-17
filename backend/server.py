@@ -339,18 +339,7 @@ RÈGLES STRICTES:
 def safe_json_loads(raw_text: str) -> Optional[Dict]:
     cleaned = raw_text.strip()
     if cleaned.startswith("```"):
-        cleaned = cleaned.replace("```json", "").replace("```", "").strip()
-    try:
-        return json.loads(cleaned)
-    except Exception:
-        start = cleaned.find("{")
-        end = cleaned.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            try:
-                return json.loads(cleaned[start:end + 1])
-            except Exception:
-                return None
-    return None
+ 
 
 
 # ========== STREAMING AUDIO HELPERS ==========
@@ -426,18 +415,7 @@ def detect_request(text: str) -> bool:
     return any(trigger in lowered for trigger in triggers)
 
 
-        cleaned = cleaned.replace("```json", "").replace("```", "").strip()
-    try:
-        return json.loads(cleaned)
-    except Exception:
-        start = cleaned.find("{")
-        end = cleaned.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            try:
-                return json.loads(cleaned[start:end + 1])
-            except Exception:
-                return None
-    return None
+ 
 
 
 JD_ANALYSIS_PROMPT = """Tu es un recruteur senior. Analyse cette description de poste pour un entretien.
