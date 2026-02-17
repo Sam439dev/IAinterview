@@ -103,6 +103,18 @@
 #====================================================================================================
 ## user_problem_statement: "Phase 2: Multi-provider BYOK LLM settings (OpenAI/Anthropic/Gemini/DeepSeek) with client-side key storage, backend header-based LLM access, UUID-only Mongo IDs, and Vite migration on frontend."
 ## backend:
+##   - task: "Ingestion + FAISS persistent index + DuckDuckGo research"
+##     implemented: true
+##     working: "NA"
+##     file: "backend/server.py, backend/vector_store.py"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: true
+##     status_history:
+##         -working: "NA"
+##         -agent: "main"
+##         -comment: "Added ingestion endpoints, DuckDuckGo company research + JD analysis, FAISS persistence on disk, and clear-cache endpoint."
+
 ##   - task: "LLM header auth + UUID-only IDs"
 ##     implemented: true
 ##     working: true
