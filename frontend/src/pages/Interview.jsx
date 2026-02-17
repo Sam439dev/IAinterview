@@ -267,7 +267,7 @@ export default function Interview() {
       console.error('Mic error:', e);
       alert("Impossible d'accéder au micro. Vérifiez les permissions.");
     }
-  }, [hasKey, sessionId, navigate]);
+  }, [hasKey, sessionId, navigate, useStreaming, startStreaming]);
 
   const recordLoop = useCallback((stream, sid) => {
     if (!stream?.active || !activeRef.current) return;
