@@ -74,6 +74,44 @@ def set_session_lang(session_id: str, lang: str):
         normalized = "fr" if lang in ("fr", "french") else "en"
         _session_lang[session_id] = normalized
 
+
+SUPPORTED_LLM_PROVIDERS = {"openai", "anthropic", "gemini", "deepseek"}
+DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
+
+class LLMHeaders(BaseModel):
+    provider: str
+    model: str
+    api_key: str
+
+
+def normalize_provider(provider: str) -> str:
+    return provider.strip().lower()
+
+
+async def get_llm_headers(
+    x_llm_provider: str = Header(..., alias="X-LLM-Provider"),
+    x_llm_model: str = Header(..., alias="X-LLM-Model"),
+    x_llm_api_key: str = Header(..., alias="X-LLM-Api-Key")
+) -> LLMHeaders:
+    if not x_llm_provider or not x_llm_model or not x_llm_api_key:
+        raise HTTPException(400, "Missing LLM credentials")
+    provider = normalize_provider(x_llm_provider)
+    if provider not in SUPPORTED_LLM_PROVIDERS:
+        raise HTTPException(400, f"Unsupported LLM provider: {provider}")
+    return LLMHeaders(provider=provider, model=x_llm_model.strip(), api_key=x_llm_api_key.strip())
+
+
+async def get_stt_api_key(
+    x_stt_api_key: Optional[str] = Header(None, alias="X-STT-Api-Key"),
+    x_llm_provider: str = Header(..., alias="X-LLM-Provider"),
+    x_llm_api_key: str = Header(..., alias="X-LLM-Api-Key")
+) -> str:
+    if x_stt_api_key:
+        return x_stt_api_key
+    if normalize_provider(x_llm_provider) == "openai":
+        return x_llm_api_key
+    raise HTTPException(400, "OpenAI STT key required until local STT is enabled")
+
 # Pydantic
 class SettingsInput(BaseModel):
     openai_api_key: Optional[str] = None
