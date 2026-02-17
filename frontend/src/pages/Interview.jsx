@@ -204,18 +204,21 @@ export default function Interview() {
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'transcript') {
-          setStreamTranscript(msg.text);
+          const deltaText = msg.delta || msg.text || '';
+          if (deltaText) {
+            addTranscriptLine({
+              speaker: msg.speaker || 'interviewer',
+              text: deltaText,
+              isQuestion: deltaText.trim().endsWith('?')
+            });
+            updateFillerCounts(deltaText);
+          }
         }
         if (msg.type === 'suggestion_start') {
-          setSuggestions(prev => [...prev, {
-            id: msg.id,
-            category: 'Streaming',
-            question: 'Suggestion en direct',
-            response: ''
-          }]);
+          addSuggestionStart(msg.id);
         }
         if (msg.type === 'suggestion_delta') {
-          setSuggestions(prev => prev.map(s => s.id === msg.id ? { ...s, response: s.response + msg.text } : s));
+          addSuggestionDelta(msg.id, msg.text || '');
         }
       } catch (e) {
         console.warn('WS message error', e);
