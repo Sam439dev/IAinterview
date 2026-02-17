@@ -829,7 +829,6 @@ class CVUrlInput(BaseModel):
 @app.post("/api/cv/upload-from-url")
 async def upload_cv_from_url(data: CVUrlInput):
     """Upload CV from URL - extracts ALL pages without limits."""
- 
     
     try:
         async with httpx.AsyncClient(timeout=30.0) as c:
