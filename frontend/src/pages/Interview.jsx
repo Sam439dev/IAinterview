@@ -77,7 +77,11 @@ export default function Interview() {
                 });
               }
             });
-            setSuggestions(sugs);
+            clearSession();
+            sugs.forEach(s => {
+              addSuggestionStart(s.id);
+              addSuggestionDelta(s.id, s.response || '');
+            });
             setQuestionCount(sugs.length);
           }
         }
