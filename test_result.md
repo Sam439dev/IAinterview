@@ -196,6 +196,9 @@
 ##     working: true
 ##     file: "frontend/src"
 ##     stuck_count: 0
+##     -agent: "main"
+##     -message: "Updated Interview UI layout and Zustand store; request frontend UI testing if user approves." 
+
 ##     priority: "high"
 ##     - "CV parsing robustness (JSON extraction retry)"
 
