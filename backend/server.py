@@ -199,7 +199,7 @@ async def llm_chat_fast(
         top_p=0.9
     )
 
-async def whisper_fast(api_key, audio_bytes, mime_type):
+async def whisper_fast(stt_api_key, audio_bytes, mime_type):
     """Optimized Whisper: auto-detect language, reduced timeout."""
     ext_map = {"audio/webm": "webm", "audio/wav": "wav", "audio/mp3": "mp3",
                "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/m4a": "m4a"}
