@@ -904,7 +904,9 @@ async def create_session(data: SessionCreate):
     count = await sessions_col.count_documents({})
     if count >= MAX_SESSIONS:
         raise HTTPException(403, f"Limite de {MAX_SESSIONS} sessions atteinte")
+    session_id = str(uuid.uuid4())
     doc = {
+        "_id": session_id,
         "title": data.title,
         "target_role": data.target_role,
         "job_description": data.job_description,
@@ -914,8 +916,8 @@ async def create_session(data: SessionCreate):
         "latency_samples": [],
         "created_at": now_utc(), "updated_at": now_utc()
     }
-    result = await sessions_col.insert_one(doc)
-    doc["id"] = str(result.inserted_id)
+    await sessions_col.insert_one(doc)
+    doc["id"] = session_id
     doc.pop("_id", None)
     return doc
 
