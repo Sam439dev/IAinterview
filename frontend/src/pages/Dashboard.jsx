@@ -63,7 +63,7 @@ export default function Dashboard() {
               <AlertCircle className="w-5 h-5 text-amber-500" />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-medium text-amber-400">Clé API OpenAI requise</p>
+              <p className="text-sm font-medium text-amber-400">Clé API LLM requise</p>
               <p className="text-xs text-slate-500">Configurez votre clé pour utiliser l'assistant</p>
             </div>
             <Link to="/settings"><button className="btn btn-outline text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10" data-testid="configure-btn">Configurer</button></Link>
