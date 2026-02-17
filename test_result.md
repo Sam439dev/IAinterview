@@ -168,6 +168,10 @@
 ##         -working: "NA"
 ##         -agent: "main"
 ##         -comment: "Added Profile Builder (JD + company + role) and Clear Cache controls in Settings."
+##         -working: "NA"
+##         -agent: "main"
+##         -comment: "User approved frontend testing for Profile Builder + Cache UI."
+
 
 
 ## metadata:
