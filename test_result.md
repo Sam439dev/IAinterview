@@ -146,6 +146,9 @@
 ##   test_priority: "high_first"
 ## agent_communication:
 ##     -agent: "main"
+##     -message: "User approved frontend testing for Vite migration + LLM settings UI."
+
+##     -agent: "main"
 ##     -message: "Please test backend first. No API keys available; verify endpoints return expected 422/400 when LLM headers are missing, and CRUD/session/CV endpoints behave correctly without keys. Frontend testing pending after backend."
 ##     -agent: "testing"
 ##     -message: "Backend testing completed successfully. All Phase 2 requirements verified: health endpoint working, session lifecycle with UUIDs functional, LLM endpoints properly validate headers (return 422 when missing), no 500 errors. Backend is ready for production. Frontend testing still needed for Vite migration and LLM settings UI."
