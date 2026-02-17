@@ -407,7 +407,7 @@ def main():
     
     # Print final results
     print(f"\n{'='*60}")
-    print(f"🏁 PHASE 2 TEST RESULTS SUMMARY")
+    print(f"🏁 BACKEND TEST RESULTS - INGESTION + FAISS FOCUS")
     print(f"{'='*60}")
     print(f"📊 Tests passed: {tester.tests_passed}/{tester.tests_run}")
     
@@ -426,12 +426,15 @@ def main():
         if tester.critical_failures:
             print("   - CRITICAL: 500 Internal Server Errors detected")
         print("   - Check server logs for detailed error information")
+        print("   - Verify ingestion endpoints are working correctly")
+        print("   - Ensure FAISS persistence is functioning")
         print("   - Verify LLM header validation is working correctly")
-        print("   - Ensure UUID generation is working for sessions")
         return 1
     else:
-        print("✅ All Phase 2 backend tests passed!")
+        print("✅ All backend tests passed!")
         print("✅ Health endpoint working")
+        print("✅ Ingestion endpoints working correctly")
+        print("✅ FAISS persistence functioning")
         print("✅ Session lifecycle with UUIDs working")
         print("✅ LLM endpoints properly reject requests without headers")
         print("✅ No 500 Internal Server Errors detected")
