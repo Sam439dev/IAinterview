@@ -241,6 +241,10 @@ export default function Interview() {
 
 
   const startRecording = useCallback(async () => {
+    if (useStreaming) {
+      await startStreaming();
+      return;
+    }
     if (!hasKey) return;
     activeRef.current = true;
     let sid = sessionId;
