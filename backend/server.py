@@ -147,52 +147,57 @@ def now_utc():
 
 MAX_SESSIONS = 10
 
-async def get_api_key():
-    s = await settings_col.find_one({"user_id": "default"}, {"_id": 0})
-    if not s or not s.get("openai_api_key"):
-        return None
-    return s["openai_api_key"]
-
-# ========== OPTIMIZED OPENAI CALLS ==========
-
-async def openai_chat_fast(api_key, messages, model="gpt-4o-mini", json_mode=False, timeout_s=15.0, max_tokens=600):
-    """Ultra-fast OpenAI call: reduced timeout, tokens, temperature."""
-    payload = {
-        "model": model, 
-        "messages": messages, 
-        "temperature": 0.3,  # Lower = faster, more deterministic
-        "max_tokens": max_tokens,
-        "top_p": 0.9
-    }
-    if json_mode:
-        payload["response_format"] = {"type": "json_object"}
-    
-    async with httpx.AsyncClient(timeout=timeout_s) as c:
-        r = await c.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json=payload
+async def llm_chat(
+    llm: LLMHeaders,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.5,
+    max_tokens: int = 1500,
+    timeout_s: float = 30.0,
+    top_p: float = 0.9
+) -> str:
+    if llm.provider == "deepseek":
+        client = AsyncOpenAI(api_key=llm.api_key, base_url=DEEPSEEK_BASE_URL, timeout=timeout_s)
+        resp = await client.chat.completions.create(
+            model=llm.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            stream=False
         )
-        if r.status_code != 200:
-            print(f"[OPENAI ERROR] {r.status_code}: {r.text[:200]}")
-            raise HTTPException(r.status_code, f"OpenAI: {r.text}")
-        return r.json()["choices"][0]["message"]["content"]
+        return resp.choices[0].message.content
 
-async def openai_chat(api_key, messages, model="gpt-4o-mini", json_mode=False, timeout_s=30.0, max_tokens=1500):
-    """Standard OpenAI call for non-realtime tasks."""
-    payload = {"model": model, "messages": messages, "temperature": 0.5, "max_tokens": max_tokens}
-    if json_mode:
-        payload["response_format"] = {"type": "json_object"}
-    async with httpx.AsyncClient(timeout=timeout_s) as c:
-        r = await c.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json=payload
-        )
-        if r.status_code != 200:
-            print(f"[OPENAI ERROR] {r.status_code}: {r.text[:200]}")
-            raise HTTPException(r.status_code, f"OpenAI: {r.text}")
-        return r.json()["choices"][0]["message"]["content"]
+    chat = LlmChat(
+        api_key=llm.api_key,
+        session_id=str(uuid.uuid4()),
+        system_message=system_prompt
+    ).with_model(llm.provider, llm.model).with_params(
+        temperature=temperature,
+        max_tokens=max_tokens,
+        top_p=top_p
+    )
+    return await chat.send_message(UserMessage(text=user_prompt))
+
+
+async def llm_chat_fast(
+    llm: LLMHeaders,
+    system_prompt: str,
+    user_prompt: str,
+    max_tokens: int = 900
+) -> str:
+    return await llm_chat(
+        llm,
+        system_prompt,
+        user_prompt,
+        temperature=0.3,
+        max_tokens=max_tokens,
+        timeout_s=20.0,
+        top_p=0.9
+    )
 
 async def whisper_fast(api_key, audio_bytes, mime_type):
     """Optimized Whisper: auto-detect language, reduced timeout."""
