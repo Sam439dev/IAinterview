@@ -19,7 +19,7 @@ export default function Interview() {
   const [settings, setSettings] = useState(null);
   const [cvActive, setCvActive] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [copiedId, setCopiedId] = useState(null);
+  // copiedId removed
   const [questionCount, setQuestionCount] = useState(0);
   const [timer, setTimer] = useState(0);
   const [ending, setEnding] = useState(false);
