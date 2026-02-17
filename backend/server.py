@@ -764,17 +764,19 @@ async def upload_cv(
         raise HTTPException(400, "Fichier trop volumineux (max 5MB)")
     mime = file.content_type or "application/pdf"
     raw_text = await extract_cv_text(content, mime)
-    parsed_data = await parse_cv_llm(api_key, raw_text)
+    parsed_data = await parse_cv_llm(llm, raw_text)
     await cv_col.update_many({"is_active": True}, {"$set": {"is_active": False}})
+    cv_id = str(uuid.uuid4())
     doc = {
+        "_id": cv_id,
         "file_name": file.filename, "mime_type": mime,
         "file_data": base64.b64encode(content).decode("utf-8"),
         "parsed_data": parsed_data, "raw_text": raw_text,
         "is_active": True, "created_at": now_utc()
     }
-    result = await cv_col.insert_one(doc)
+    await cv_col.insert_one(doc)
     invalidate_cv_cache()
-    doc["id"] = str(result.inserted_id)
+    doc["id"] = cv_id
     doc.pop("_id", None)
     doc.pop("file_data", None)
     return doc
