@@ -861,7 +861,9 @@ async def upload_cv_from_url(
     await cv_col.update_many({"is_active": True}, {"$set": {"is_active": False}})
     
     # Save new CV
+    cv_id = str(uuid.uuid4())
     doc = {
+        "_id": cv_id,
         "file_name": data.url.split("/")[-1],
         "mime_type": mime,
         "file_data": base64.b64encode(content).decode("utf-8"),
@@ -870,10 +872,10 @@ async def upload_cv_from_url(
         "is_active": True,
         "created_at": now_utc()
     }
-    result = await cv_col.insert_one(doc)
+    await cv_col.insert_one(doc)
     invalidate_cv_cache()
     
-    doc["id"] = str(result.inserted_id)
+    doc["id"] = cv_id
     doc.pop("_id", None)
     doc.pop("file_data", None)
     return doc
