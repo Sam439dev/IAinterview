@@ -188,6 +188,9 @@
 
 ##     needs_retesting: false
 ##     status_history:
+##     -agent: "main"
+##     -message: "Please test backend WebSocket /api/ws/stream (connect + start message + stop), and ensure no 500s on startup." 
+
 ##         -working: "NA"
 ##         -agent: "main"
 ##         -comment: "Migrated CRA to Vite, added localStorage-based LLM settings UI, and injected headers for CV upload/analysis endpoints."
