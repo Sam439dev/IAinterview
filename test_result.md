@@ -150,6 +150,9 @@
 ##     priority: "high"
 ##     needs_retesting: false
 ##     status_history:
+##     - "Ingestion + FAISS persistent index + DuckDuckGo research"
+##     - "Profile builder UI + cache management"
+
 ##         -working: "NA"
 ##         -agent: "main"
 ##         -comment: "Migrated CRA to Vite, added localStorage-based LLM settings UI, and injected headers for CV upload/analysis endpoints."
