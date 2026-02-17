@@ -1056,6 +1056,7 @@ async def process_audio(
         response_lang = analysis.get("response_language", detected_lang)
         
         await messages_col.insert_one({
+            "_id": str(uuid.uuid4()),
             "session_id": data.session_id, "role": "assistant",
             "content": ai_response, "category": category,
             "key_points": key_points, "tone_advice": tone_advice,
