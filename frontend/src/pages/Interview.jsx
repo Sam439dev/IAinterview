@@ -504,6 +504,10 @@ export default function Interview() {
             {useStreaming && wsStatus !== 'disconnected' && (
               <span className="text-[0.65rem] text-slate-400">WS: {wsStatus}</span>
             )}
+            <Link to="/settings" className="btn btn-outline text-[0.65rem] px-2 py-1">Settings</Link>
+            {sessionId && (
+              <Link to={`/session/${sessionId}/summary`} className="btn btn-outline text-[0.65rem] px-2 py-1">Stats</Link>
+            )}
           </div>
           {streamError && (
             <div className="text-xs text-red-400 flex items-center gap-1.5">
