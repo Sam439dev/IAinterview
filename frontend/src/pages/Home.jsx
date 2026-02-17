@@ -124,7 +124,7 @@ export default function Home() {
             Prêt pour votre prochain entretien ?
           </h2>
           <p className="text-sm text-slate-400 max-w-md mx-auto mb-6">
-            {hasKey ? 'Votre clé API est configurée. Lancez une session maintenant.' : 'Configurez votre clé API OpenAI pour commencer.'}
+            {hasKey ? 'Vos clés API sont configurées. Lancez une session maintenant.' : 'Configurez vos clés API pour commencer.'}
           </p>
           <Link to={startHref}>
             <button className="btn btn-primary px-8 py-3" data-testid="cta-btn">
