@@ -204,7 +204,7 @@ async def whisper_fast(stt_api_key, audio_bytes, mime_type):
     ext_map = {"audio/webm": "webm", "audio/wav": "wav", "audio/mp3": "mp3",
                "audio/mpeg": "mp3", "audio/ogg": "ogg", "audio/m4a": "m4a"}
     ext = ext_map.get(mime_type, "webm")
-    headers = {"Authorization": f"Bearer {api_key}"}
+    headers = {"Authorization": f"Bearer {stt_api_key}"}
     files = {"file": (f"audio.{ext}", io.BytesIO(audio_bytes), mime_type)}
     data = {"model": "whisper-1", "response_format": "verbose_json"}
     
