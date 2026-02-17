@@ -182,6 +182,9 @@
 ## test_plan:
 ##   current_focus: 
 ##     - "Profile builder UI + cache management"
+##     -agent: "main"
+##     -message: "User approved frontend testing for Settings profile builder + cache controls."
+
 ##   stuck_tasks: []
 ##   test_all: false
 ##   test_priority: "high_first"
