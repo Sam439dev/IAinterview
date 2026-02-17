@@ -2,6 +2,8 @@ import requests
 import sys
 import json
 import base64
+import asyncio
+import websockets
 from datetime import datetime
 
 class InterviewAIAPITester:
