@@ -354,6 +354,10 @@ class StreamingSession:
     last_speaker: str = "unknown"
     diarization_ts: float = 0.0
     speaker_map: Dict[str, str] = field(default_factory=dict)
+    llm_provider: str = "openai"
+    llm_model: str = "gpt-4o"
+    llm_api_key: str = ""
+
 
     def append_audio(self, samples: np.ndarray):
         self.buffer.append(samples)
