@@ -171,6 +171,10 @@
 ##         -working: "NA"
 ##         -agent: "main"
 ##         -comment: "Fixed Interview.jsx syntax error (extra brace) causing Vite return-outside-function." 
+##         -working: "NA"
+##         -agent: "main"
+##         -comment: "Replaced Interview layout with side-by-side meeting/suggestions, transcript lines, answer cards (copy/show more), coaching tips, and Zustand state." 
+
 
 ##     priority: "high"
 ##     needs_retesting: false
