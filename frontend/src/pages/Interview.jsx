@@ -33,6 +33,13 @@ export default function Interview() {
   const activeRef = useRef(false);
   const sugEndRef = useRef(null);
 
+  const [useStreaming, setUseStreaming] = useState(true);
+  const [devices, setDevices] = useState([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState('');
+  const [wsStatus, setWsStatus] = useState('disconnected');
+  const [streamTranscript, setStreamTranscript] = useState('');
+  const [streamError, setStreamError] = useState('');
+
   useEffect(() => {
     (async () => {
       try {
