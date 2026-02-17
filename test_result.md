@@ -178,6 +178,9 @@
 ##         -working: true
 ##         -agent: "testing"
 ##         -comment: "PASSED comprehensive Profile Builder + Cache testing: 1) Profile Builder card present with all required elements (company input, role select dropdown, JD textarea, build button). 2) Form validation working correctly - shows 'Veuillez renseigner le nom de l'entreprise et la description du poste' error for empty fields. 3) Form accepts valid input data and build button functional. 4) Expected 'Missing LLM credentials' error when no API keys configured. 5) Cache section present with status text 'Aucun index persisté pour le moment.' 6) Clear Cache button functional with no crashes. All UI components working as expected without API keys."
+##         -working: true
+##         -agent: "testing"
+##         -comment: "PASSED re-test after target role field change: 1) CONFIRMED target role field is now a free-text input (not select dropdown) with placeholder 'ex: Staff Software Engineer'. 2) Text input accepts typing correctly - successfully entered 'Senior Full Stack Developer'. 3) Form validation still works - shows 'Veuillez renseigner le nom de l'entreprise et la description du poste' for empty fields. 4) Build button functional - triggers API call and shows expected 'Missing LLM credentials' error when no API keys. 5) No select dropdown found for target role field. 6) All UI components render and interact properly. Change from select to free-text input successfully implemented and working."
 
 
 
