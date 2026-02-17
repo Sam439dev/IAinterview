@@ -481,108 +481,293 @@ function CVSection() {
 }
 
 
+
 function ProfileBuilderSection() {
-  const [companyName, setCompanyName] = useState('');
-  const [jobDescription, setJobDescription] = useState('');
-  const [targetRole, setTargetRole] = useState('');
+  // Persist form data in localStorage
+  const PROFILE_STORAGE_KEY = 'profileBuilderData';
+  
+  const loadSavedData = () => {
+    try {
+      const saved = localStorage.getItem(PROFILE_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return { companyName: '', jobDescription: '', targetRole: '' };
+  };
+  
+  const [companyName, setCompanyName] = useState(() => loadSavedData().companyName);
+  const [jobDescription, setJobDescription] = useState(() => loadSavedData().jobDescription);
+  const [targetRole, setTargetRole] = useState(() => loadSavedData().targetRole);
   const [building, setBuilding] = useState(false);
+  const [buildStep, setBuildStep] = useState('');
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [existingProfile, setExistingProfile] = useState(null);
 
-  const handleBuild = async () => {
-    if (!companyName.trim() || !jobDescription.trim()) {
-      setError('Veuillez renseigner le nom de l’entreprise et la description du poste.');
+  // Load existing profile status on mount
+  useEffect(() => {
+    getIngestionStatus()
+      .then(status => {
+        if (status.available) {
+          setExistingProfile(status);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Auto-save form data
+  useEffect(() => {
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify({
+      companyName, jobDescription, targetRole
+    }));
+  }, [companyName, jobDescription, targetRole]);
+
+  const handleBuild = async (e) => {
+    e.preventDefault(); // Prevent form submission
+    
+    if (!companyName.trim() && !jobDescription.trim()) {
+      setError("Veuillez renseigner au moins le nom de l'entreprise ou la description du poste.");
       return;
     }
+    
+    // Check if API key is configured
+    const settings = loadLlmSettings();
+    const hasKey = settings.keys?.[settings.provider];
+    if (!hasKey) {
+      setError("Veuillez d'abord configurer votre cle API LLM dans la section ci-dessus.");
+      return;
+    }
+    
     setBuilding(true);
     setError('');
+    setResult(null);
+    
     try {
+      setBuildStep("Recherche d'informations sur l'entreprise...");
+      await new Promise(r => setTimeout(r, 500));
+      
+      setBuildStep('Analyse de la description de poste...');
       const res = await buildProfile({
-        company_name: companyName,
-        job_description: jobDescription,
-        target_role: targetRole
+        company_name: companyName.trim() || 'Non specifie',
+        job_description: jobDescription.trim() || 'Non specifie',
+        target_role: targetRole.trim() || 'Non specifie'
       });
+      
+      setBuildStep("Creation de l'index vectoriel...");
+      await new Promise(r => setTimeout(r, 300));
+      
       setResult(res);
+      setExistingProfile({ available: true, doc_count: res.doc_count });
     } catch (e) {
-      const msg = e?.response?.data?.detail || 'Erreur lors de la construction du profil.';
+      const msg = e?.response?.data?.detail || e?.message || 'Erreur lors de la construction du profil.';
       setError(msg);
+      console.error('Profile build error:', e);
     } finally {
       setBuilding(false);
+      setBuildStep('');
     }
   };
 
-  const companySummary = result?.company_summary?.summary || result?.company_summary;
+  const handleClearProfile = async () => {
+    try {
+      await clearProfileCache();
+      setResult(null);
+      setExistingProfile(null);
+    } catch (e) {
+      setError('Erreur lors de la suppression du profil.');
+    }
+  };
+
+  const companySummary = result?.company_summary?.summary || (typeof result?.company_summary === 'string' ? result.company_summary : '');
   const jdSummary = result?.jd_analysis?.summary || '';
+  const jdRequirements = result?.jd_analysis?.requirements || [];
+  const jdKeywords = result?.jd_analysis?.keywords || [];
+  const potentialQuestions = result?.jd_analysis?.potential_questions || [];
 
   return (
-    <div className="card">
-      <div className="px-5 py-4 border-b border-white/[0.04] flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
-          <Star className="w-4 h-4 text-purple-300" />
-        </div>
-        <div>
-          <h2 className="font-display font-semibold text-sm">Profil d’entretien (ingestion)</h2>
-          <p className="text-xs text-slate-500">JD + entreprise + CV → FAISS persisté</p>
-        </div>
-      </div>
-      <div className="p-5 space-y-4">
-        <div className="grid gap-3">
-          <div>
-            <label className="block text-xs text-slate-500 mb-1.5 font-display">Entreprise</label>
-            <input className="input" value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="ex: Stripe" />
+    <div className="card" data-testid="profile-builder-section">
+      <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center">
+            <Star className="w-4 h-4 text-purple-300" />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1.5 font-display">Rôle cible</label>
+            <h2 className="font-display font-semibold text-sm">Profil d'entretien</h2>
+            <p className="text-xs text-slate-500">CV + JD + Entreprise = Suggestions personnalisees</p>
+          </div>
+        </div>
+        {existingProfile?.available && (
+          <span className="chip chip-success text-[0.65rem]" data-testid="profile-status">
+            <CheckCircle2 className="w-3 h-3" /> {existingProfile.doc_count} docs
+          </span>
+        )}
+      </div>
+      
+      <form onSubmit={handleBuild} className="p-5 space-y-4">
+        {/* Status bar */}
+        {existingProfile?.available && !result && (
+          <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/15">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span className="text-sm text-emerald-400 font-medium">Profil actif</span>
+              <span className="text-xs text-slate-500">{existingProfile.doc_count} documents</span>
+            </div>
+            <button 
+              type="button"
+              onClick={handleClearProfile}
+              className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
+              data-testid="clear-profile-btn"
+            >
+              <Trash2 className="w-3 h-3" /> Effacer
+            </button>
+          </div>
+        )}
+        
+        <div className="grid gap-4">
+          <div>
+            <label className="block text-xs text-slate-500 mb-1.5 font-display">
+              Entreprise cible <span className="text-slate-600">(recherche automatique)</span>
+            </label>
+            <input 
+              className="input" 
+              value={companyName} 
+              onChange={e => setCompanyName(e.target.value)} 
+              placeholder="ex: Stripe, Google, BNP Paribas..."
+              data-testid="company-input"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-xs text-slate-500 mb-1.5 font-display">
+              Role cible <span className="text-slate-600">(optionnel)</span>
+            </label>
             <input
               className="input"
               value={targetRole}
               onChange={e => setTargetRole(e.target.value)}
-              placeholder="ex: Staff Software Engineer"
+              placeholder="ex: Staff Software Engineer, Product Manager..."
+              data-testid="role-input"
             />
           </div>
+          
           <div>
-            <label className="block text-xs text-slate-500 mb-1.5 font-display">Description du poste</label>
+            <label className="block text-xs text-slate-500 mb-1.5 font-display">
+              Description du poste (JD)
+            </label>
             <textarea
-              className="input min-h-[140px]"
+              className="input min-h-[160px] resize-y"
               value={jobDescription}
               onChange={e => setJobDescription(e.target.value)}
-              placeholder="Collez la description du poste ici..."
+              placeholder="Collez ici la description complete du poste..."
+              data-testid="jd-input"
             />
+            <p className="text-[0.65rem] text-slate-600 mt-1.5">
+              Conseil : incluez les responsabilites, competences requises et culture d'entreprise.
+            </p>
           </div>
         </div>
 
+        {/* Error display */}
         {error && (
-          <div className="text-xs text-red-400 flex items-center gap-1">
-            <AlertCircle className="w-3 h-3" /> {error}
+          <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 flex items-start gap-2" data-testid="profile-error">
+            <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm text-red-400 font-medium">Erreur</p>
+              <p className="text-xs text-red-300/80">{error}</p>
+            </div>
           </div>
         )}
 
-        <div className="flex items-center gap-2">
-          <button className="btn btn-primary text-xs" onClick={handleBuild} disabled={building}>
-            {building ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Construire le profil
+        {/* Build button */}
+        <div className="flex items-center gap-3">
+          <button 
+            type="submit"
+            className="btn btn-primary text-sm flex-1"
+            disabled={building || (!companyName.trim() && !jobDescription.trim())}
+            data-testid="build-profile-btn"
+          >
+            {building ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>{buildStep || 'Construction...'}</span>
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                {existingProfile?.available ? 'Reconstruire le profil' : 'Construire le profil'}
+              </>
+            )}
           </button>
-          {result && (
-            <span className="text-xs text-emerald-400">Index créé · {result.doc_count} documents</span>
-          )}
         </div>
 
+        {/* Results display */}
         {result && (
-          <div className="card-inner p-3 space-y-2">
-            {jdSummary && (
-              <div>
-                <p className="text-[0.7rem] text-slate-500 font-display mb-1">Synthèse JD</p>
-                <p className="text-xs text-slate-300 leading-relaxed">{jdSummary}</p>
+          <div className="space-y-4 pt-4 border-t border-white/[0.04]" data-testid="profile-result">
+            <div className="flex items-center gap-2 text-emerald-400">
+              <CheckCircle2 className="w-5 h-5" />
+              <span className="font-medium">Profil cree avec succes!</span>
+              <span className="text-sm text-slate-500">{result.doc_count} documents indexes</span>
+            </div>
+
+            {/* Company Summary */}
+            {companySummary && (
+              <div className="card-inner p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Briefcase className="w-4 h-4 text-purple-400" />
+                  <span className="text-xs font-display text-slate-400 uppercase tracking-wider">Entreprise</span>
+                </div>
+                <p className="text-sm text-slate-300 leading-relaxed">{companySummary}</p>
               </div>
             )}
-            {companySummary && (
-              <div>
-                <p className="text-[0.7rem] text-slate-500 font-display mb-1">Résumé entreprise</p>
-                <p className="text-xs text-slate-300 leading-relaxed">{companySummary}</p>
+
+            {/* JD Analysis */}
+            {jdSummary && (
+              <div className="card-inner p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <FileText className="w-4 h-4 text-accent" />
+                  <span className="text-xs font-display text-slate-400 uppercase tracking-wider">Analyse du poste</span>
+                </div>
+                <p className="text-sm text-slate-300 leading-relaxed mb-3">{jdSummary}</p>
+                
+                {jdRequirements.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-[0.65rem] text-slate-500 mb-1.5">Exigences cles:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {jdRequirements.slice(0, 8).map((req, i) => (
+                        <span key={i} className="chip chip-warn text-[0.6rem]">{req}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {jdKeywords.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-[0.65rem] text-slate-500 mb-1.5">Mots-cles techniques:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {jdKeywords.slice(0, 10).map((kw, i) => (
+                        <span key={i} className="chip chip-accent text-[0.6rem]">{kw}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {potentialQuestions.length > 0 && (
+                  <div>
+                    <p className="text-[0.65rem] text-slate-500 mb-1.5">Questions probables:</p>
+                    <ul className="space-y-1">
+                      {potentialQuestions.slice(0, 5).map((q, i) => (
+                        <li key={i} className="text-xs text-slate-400 flex items-start gap-2">
+                          <span className="text-amber-400 mt-0.5">&#8226;</span>
+                          {q}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </div>
         )}
-      </div>
+      </form>
     </div>
   );
 }
