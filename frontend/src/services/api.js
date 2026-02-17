@@ -1,5 +1,5 @@
 import axios from 'axios';
-const API = process.env.REACT_APP_BACKEND_URL;
+const API = import.meta.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
 const ax = axios.create({ baseURL: API, headers: { 'Content-Type': 'application/json' } });
 
 export const getSettings = () => ax.get('/api/settings').then(r => r.data);
