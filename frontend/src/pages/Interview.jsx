@@ -1,13 +1,228 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Mic, Square, Pause, Play, Clock, Loader2, AlertCircle, Copy, Check, Zap, ChevronDown, FileText, Lightbulb, Globe } from 'lucide-react';
+import { ArrowLeft, Mic, Square, Pause, Play, Clock, Loader2, AlertCircle, Copy, Check, Zap, ChevronDown, FileText, Lightbulb, Globe, Monitor, Video, Settings, X, MonitorUp } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { createSession, updateSession, getMessages, processAudio, getActiveCV } from '../services/api';
 import { loadLlmSettings, hasActiveKey, getProviderKey } from '../services/llmSettings';
-
 import { useInterviewStore } from '../store/interviewStore';
 
-const CHUNK_DURATION_MS = 3000; // 3 seconds for ultra-fast detection (target ≤2s latency)
+const CHUNK_DURATION_MS = 3000;
+
+// TypeWriter component for streaming effect
+function TypeWriter({ text, speed = 15 }) {
+  const [displayText, setDisplayText] = useState('');
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    if (currentIndex < text.length) {
+      const timer = setTimeout(() => {
+        setDisplayText(prev => prev + text[currentIndex]);
+        setCurrentIndex(prev => prev + 1);
+      }, speed);
+      return () => clearTimeout(timer);
+    }
+  }, [currentIndex, text, speed]);
+
+  useEffect(() => {
+    // Reset when text changes completely (new suggestion)
+    if (!text.startsWith(displayText.slice(0, -1))) {
+      setDisplayText('');
+      setCurrentIndex(0);
+    }
+  }, [text]);
+
+  return (
+    <span>
+      {displayText}
+      {currentIndex < text.length && (
+        <span className="inline-block w-0.5 h-4 bg-accent animate-pulse ml-0.5" />
+      )}
+    </span>
+  );
+}
+
+// Live Transcript Line with streaming effect
+function LiveTranscriptLine({ line, isLatest }) {
+  return (
+    <div className={`rounded-lg border px-3 py-2 transition-all duration-300 ${
+      line.isQuestion 
+        ? 'border-amber-500/40 bg-amber-500/10 shadow-lg shadow-amber-500/5' 
+        : 'border-white/10 bg-white/5'
+    } ${isLatest ? 'animate-slideIn' : ''}`}>
+      <div className="flex items-center gap-2 text-[0.65rem] text-slate-400 mb-1">
+        <span className={`px-1.5 py-0.5 rounded text-[0.6rem] font-medium uppercase ${
+          line.speaker === 'interviewer' 
+            ? 'bg-purple-500/20 text-purple-300' 
+            : 'bg-cyan-500/20 text-cyan-300'
+        }`}>
+          {line.speaker === 'interviewer' ? 'Interviewer' : 'Vous'}
+        </span>
+        {line.isQuestion && (
+          <span className="text-amber-400 flex items-center gap-1">
+            <Zap className="w-3 h-3" /> Question
+          </span>
+        )}
+      </div>
+      <p className="text-sm text-slate-200 leading-relaxed">
+        {isLatest ? <TypeWriter text={line.text} speed={20} /> : line.text}
+      </p>
+    </div>
+  );
+}
+
+// Streaming Suggestion Card
+function StreamingSuggestionCard({ suggestion, onCopy, onToggle }) {
+  const [copied, setCopied] = useState(false);
+  const isStreaming = suggestion.fullText !== suggestion.preview && suggestion.fullText.length < 500;
+
+  const handleCopy = () => {
+    onCopy(suggestion.fullText || suggestion.preview);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="rounded-xl border border-accent/20 bg-gradient-to-br from-accent/5 to-transparent p-4 space-y-3 animate-fadeIn">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded-lg bg-accent/20 flex items-center justify-center">
+            <Lightbulb className="w-3.5 h-3.5 text-accent" />
+          </div>
+          <span className="text-xs font-medium text-accent">Suggestion IA</span>
+          {isStreaming && (
+            <span className="flex items-center gap-1 text-[0.65rem] text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              En cours...
+            </span>
+          )}
+        </div>
+        <button 
+          className={`text-xs flex items-center gap-1 px-2 py-1 rounded-lg transition-all ${
+            copied 
+              ? 'bg-emerald-500/20 text-emerald-400' 
+              : 'text-slate-400 hover:text-white hover:bg-white/5'
+          }`}
+          onClick={handleCopy}
+        >
+          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+          {copied ? 'Copié!' : 'Copier'}
+        </button>
+      </div>
+      
+      <div className="text-sm text-slate-200 leading-relaxed">
+        {isStreaming ? (
+          <TypeWriter text={suggestion.fullText} speed={10} />
+        ) : (
+          <span>{suggestion.expanded ? suggestion.fullText : suggestion.preview}</span>
+        )}
+      </div>
+
+      {suggestion.fullText && suggestion.fullText.length > 220 && !isStreaming && (
+        <button 
+          className="text-xs text-accent/70 hover:text-accent flex items-center gap-1"
+          onClick={() => onToggle(suggestion.id)}
+        >
+          <ChevronDown className={`w-3 h-3 transition-transform ${suggestion.expanded ? 'rotate-180' : ''}`} />
+          {suggestion.expanded ? 'Réduire' : 'Voir plus'}
+        </button>
+      )}
+    </div>
+  );
+}
+
+// PiP (Picture-in-Picture) Meeting View Component
+function MeetingViewSection({ pipEnabled, onTogglePip, pipStream, pipError }) {
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    if (videoRef.current && pipStream) {
+      videoRef.current.srcObject = pipStream;
+    }
+  }, [pipStream]);
+
+  return (
+    <section className="card flex flex-col overflow-hidden" data-testid="meeting-view">
+      <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Monitor className="w-4 h-4 text-slate-400" />
+          <div>
+            <h2 className="font-display text-sm font-semibold">Meeting View</h2>
+            <p className="text-xs text-slate-500">
+              {pipEnabled ? 'Capture d\'écran active' : 'Positionnez votre réunion ici'}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={onTogglePip}
+          className={`btn text-xs px-3 py-1.5 ${
+            pipEnabled 
+              ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30' 
+              : 'btn-outline'
+          }`}
+          data-testid="pip-toggle-btn"
+        >
+          {pipEnabled ? (
+            <>
+              <X className="w-3.5 h-3.5" /> Arrêter PiP
+            </>
+          ) : (
+            <>
+              <MonitorUp className="w-3.5 h-3.5" /> Activer PiP
+            </>
+          )}
+        </button>
+      </div>
+      
+      <div className="flex-1 flex items-center justify-center relative bg-black/20">
+        {pipEnabled && pipStream ? (
+          <video 
+            ref={videoRef} 
+            autoPlay 
+            muted 
+            className="w-full h-full object-contain"
+            data-testid="pip-video"
+          />
+        ) : (
+          <div className="text-center p-8 space-y-4">
+            {pipError ? (
+              <div className="text-red-400 text-sm flex items-center justify-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                {pipError}
+              </div>
+            ) : (
+              <>
+                <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto">
+                  <Video className="w-8 h-8 text-slate-600" />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-slate-300 font-medium">Mode PiP disponible</p>
+                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                    Cliquez sur "Activer PiP" pour capturer l'écran de votre réunion vidéo. 
+                    Vous pouvez aussi positionner la fenêtre de votre appli de visio à côté.
+                  </p>
+                </div>
+                <div className="flex justify-center gap-3 pt-2">
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <div className="w-3 h-3 rounded bg-purple-500/50" />
+                    <span>Zoom</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <div className="w-3 h-3 rounded bg-blue-500/50" />
+                    <span>Meet</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <div className="w-3 h-3 rounded bg-cyan-500/50" />
+                    <span>Teams</span>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 
 export default function Interview() {
   const { sessionId: paramId } = useParams();
@@ -19,7 +234,6 @@ export default function Interview() {
   const [settings, setSettings] = useState(null);
   const [cvActive, setCvActive] = useState(false);
   const [loading, setLoading] = useState(true);
-  // copiedId removed
   const [questionCount, setQuestionCount] = useState(0);
   const [timer, setTimer] = useState(0);
   const [ending, setEnding] = useState(false);
@@ -27,6 +241,11 @@ export default function Interview() {
   const [lastError, setLastError] = useState(null);
   const [detectedLang, setDetectedLang] = useState('fr');
   const [lastPipelineMs, setLastPipelineMs] = useState(null);
+
+  // PiP state
+  const [pipEnabled, setPipEnabled] = useState(false);
+  const [pipStream, setPipStream] = useState(null);
+  const [pipError, setPipError] = useState('');
 
   const timerRef = useRef(null);
   const recorderRef = useRef(null);
@@ -42,19 +261,31 @@ export default function Interview() {
 
   const streamRef = useRef(null);
   const activeRef = useRef(false);
-  // sugEndRef removed
+  const transcriptEndRef = useRef(null);
+  const suggestionsEndRef = useRef(null);
 
   const [useStreaming, setUseStreaming] = useState(true);
   const [devices, setDevices] = useState([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
   const [wsStatus, setWsStatus] = useState('disconnected');
-  // stream transcript handled by store
   const [streamError, setStreamError] = useState('');
   const wsRef = useRef(null);
   const audioContextRef = useRef(null);
   const processorRef = useRef(null);
   const sourceNodeRef = useRef(null);
 
+  // Auto-scroll to latest content
+  useEffect(() => {
+    if (transcriptEndRef.current) {
+      transcriptEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [transcriptLines]);
+
+  useEffect(() => {
+    if (suggestionsEndRef.current) {
+      suggestionsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [suggestions]);
 
   useEffect(() => {
     (async () => {
@@ -90,7 +321,6 @@ export default function Interview() {
     })();
   }, [paramId]);
 
-
   useEffect(() => {
     const loadDevices = async () => {
       try {
@@ -107,8 +337,6 @@ export default function Interview() {
     loadDevices();
   }, [selectedDeviceId]);
 
- 
-
   useEffect(() => {
     if (['recording', 'processing'].includes(status)) {
       timerRef.current = setInterval(() => setTimer(p => p + 1), 1000);
@@ -117,12 +345,56 @@ export default function Interview() {
   }, [status]);
 
   useEffect(() => {
-    return () => { activeRef.current = false; streamRef.current?.getTracks().forEach(t => t.stop()); };
+    return () => {
+      activeRef.current = false;
+      streamRef.current?.getTracks().forEach(t => t.stop());
+      if (pipStream) {
+        pipStream.getTracks().forEach(t => t.stop());
+      }
+    };
   }, []);
+
+  // PiP handlers
+  const handleTogglePip = useCallback(async () => {
+    if (pipEnabled) {
+      // Stop PiP
+      if (pipStream) {
+        pipStream.getTracks().forEach(t => t.stop());
+      }
+      setPipStream(null);
+      setPipEnabled(false);
+      setPipError('');
+    } else {
+      // Start PiP
+      try {
+        const stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { cursor: 'always' },
+          audio: false
+        });
+        setPipStream(stream);
+        setPipEnabled(true);
+        setPipError('');
+
+        // Handle user stopping share
+        stream.getVideoTracks()[0].onended = () => {
+          setPipStream(null);
+          setPipEnabled(false);
+        };
+      } catch (err) {
+        if (err.name === 'NotAllowedError') {
+          setPipError('Permission refusée. Autorisez le partage d\'écran.');
+        } else {
+          setPipError('Impossible d\'activer la capture d\'écran.');
+        }
+        console.error('PiP error:', err);
+      }
+    }
+  }, [pipEnabled, pipStream]);
 
   const hasKey = hasActiveKey(settings || undefined);
   const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
   const providerKey = getProviderKey(settings || {});
+  
   const getWsUrl = () => {
     const base = import.meta.env.REACT_APP_BACKEND_URL || '';
     const wsBase = base.replace(/^http/, 'ws');
@@ -186,7 +458,6 @@ export default function Interview() {
     sourceNodeRef.current = sourceNode;
     const processor = audioContext.createScriptProcessor(4096, 1, 1);
     processorRef.current = processor;
-
 
     const ws = new WebSocket(getWsUrl());
     wsRef.current = ws;
@@ -299,7 +570,7 @@ export default function Interview() {
       setChunkCount(p => p + 1);
       try {
         const b64 = await blobToBase64(blob);
-        const result = await processAudio({ session_id: sid, audio_data: b64, mime_type: 'audio/webm' });  // No language - auto-detect
+        const result = await processAudio({ session_id: sid, audio_data: b64, mime_type: 'audio/webm' });
         setLastError(null);
         if (result.detected_language) setDetectedLang(result.detected_language);
         if (result.pipeline_ms) setLastPipelineMs(result.pipeline_ms);
@@ -359,9 +630,12 @@ export default function Interview() {
     }
   };
 
-
-
-  if (loading) return <div className="h-screen bg-void flex items-center justify-center"><Loader2 className="w-6 h-6 text-accent animate-spin" /></div>;
+  if (loading) return (
+    <div className="h-screen bg-void flex items-center justify-center">
+      <Loader2 className="w-6 h-6 text-accent animate-spin" />
+    </div>
+  );
+  
   if (ending) return (
     <div className="h-screen bg-void flex flex-col items-center justify-center gap-4">
       <Loader2 className="w-8 h-8 text-accent animate-spin" />
@@ -375,107 +649,136 @@ export default function Interview() {
   return (
     <div className="h-screen bg-void flex flex-col" data-testid="interview-page">
       {/* Top bar */}
-      <header className="h-12 border-b border-white/[0.04] bg-void/80 backdrop-blur-xl flex items-center px-4 gap-2.5 flex-shrink-0 z-50">
-        <Link to="/dashboard" className="btn-ghost p-1.5" data-testid="interview-back"><ArrowLeft className="w-4 h-4" /></Link>
-        <div className="w-px h-5 bg-white/[0.06]" />
-        {isActive && <div className="w-2 h-2 rounded-full bg-red-500 pulse-dot" />}
-        <span className="font-display text-xs text-slate-500 tracking-wider hidden sm:block">{isActive ? 'EN DIRECT' : 'SESSION'}</span>
+      <header className="h-14 border-b border-white/[0.04] bg-void/80 backdrop-blur-xl flex items-center px-4 gap-3 flex-shrink-0 z-50">
+        <Link to="/dashboard" className="btn-ghost p-2" data-testid="interview-back">
+          <ArrowLeft className="w-4 h-4" />
+        </Link>
+        <div className="w-px h-6 bg-white/[0.06]" />
+        
+        {isActive && (
+          <div className="flex items-center gap-2">
+            <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" />
+            <span className="font-display text-xs text-red-400 tracking-wider">EN DIRECT</span>
+          </div>
+        )}
+        
         <div className="flex-1" />
+        
         <div className="flex items-center gap-2">
-          {cvActive && <span className="chip chip-success text-[0.6rem]" data-testid="cv-badge"><FileText className="w-3 h-3" /> CV</span>}
-          <span className={`chip text-[0.6rem] font-display ${detectedLang === 'fr' ? 'chip-accent' : 'chip-purple'}`} data-testid="lang-badge">
-            <Globe className="w-3 h-3" /> {detectedLang === 'fr' ? 'FR' : detectedLang === 'en' ? 'EN' : detectedLang.toUpperCase()}
+          {cvActive && (
+            <span className="chip chip-success text-[0.65rem]" data-testid="cv-badge">
+              <FileText className="w-3 h-3" /> CV actif
+            </span>
+          )}
+          <span className={`chip text-[0.65rem] font-display ${detectedLang === 'fr' ? 'chip-accent' : 'chip-purple'}`} data-testid="lang-badge">
+            <Globe className="w-3 h-3" /> {detectedLang.toUpperCase()}
           </span>
-          <span className="chip chip-accent text-[0.6rem]" data-testid="question-count">
-
-
-            <Zap className="w-3 h-3" /> {questionCount}
+          <span className="chip chip-accent text-[0.65rem]" data-testid="question-count">
+            <Zap className="w-3 h-3" /> {questionCount} questions
           </span>
-          <span className="chip chip-neutral font-mono" data-testid="timer-badge">
-            <Clock className="w-3 h-3" /> {fmt(timer)}
+          <span className="chip chip-neutral font-mono text-sm" data-testid="timer-badge">
+            <Clock className="w-3.5 h-3.5" /> {fmt(timer)}
           </span>
           {lastPipelineMs && isActive && (
-            <span className={`chip text-[0.6rem] font-mono font-semibold ${lastPipelineMs < 1500 ? 'chip-success' : lastPipelineMs < 2500 ? 'chip-warn' : 'chip-danger'}`} data-testid="latency-badge">
-              ⚡ {(lastPipelineMs / 1000).toFixed(1)}s
+            <span className={`chip text-[0.65rem] font-mono font-semibold ${
+              lastPipelineMs < 1500 ? 'chip-success' : lastPipelineMs < 2500 ? 'chip-warn' : 'chip-danger'
+            }`} data-testid="latency-badge">
+              {(lastPipelineMs / 1000).toFixed(1)}s
             </span>
           )}
         </div>
       </header>
 
+      {/* Main Content - Side by Side */}
       <main className="flex-1 overflow-hidden">
-        <div className="h-full grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 p-4">
-          <section className="card flex flex-col overflow-hidden">
-            <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
-              <div>
-                <h2 className="font-display text-sm font-semibold">Meeting View</h2>
-                <p className="text-xs text-slate-500">Placez la fenêtre de réunion ici</p>
-              </div>
-              <span className="text-[0.65rem] text-slate-500">PiP bientôt</span>
-            </div>
-            <div className="flex-1 flex items-center justify-center text-center text-slate-500 text-sm px-6">
-              <div className="space-y-2">
-                <p className="font-display text-slate-300">[ MEETING VIEW ]</p>
-                <p className="text-xs text-slate-500">Positionnez votre appli de visio à côté. Le mode PiP arrivera bientôt.</p>
-              </div>
-            </div>
-          </section>
+        <div className="h-full grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4 p-4">
+          {/* Left Panel - Meeting View */}
+          <MeetingViewSection 
+            pipEnabled={pipEnabled}
+            onTogglePip={handleTogglePip}
+            pipStream={pipStream}
+            pipError={pipError}
+          />
 
-          <aside className="card flex flex-col overflow-hidden">
+          {/* Right Panel - Suggestions */}
+          <aside className="card flex flex-col overflow-hidden" data-testid="suggestions-panel">
             <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between">
-              <h2 className="font-display text-sm font-semibold">🤖 Suggestions</h2>
-              <span className="text-[0.65rem] text-slate-500">{transcriptLines.length} lignes</span>
+              <div className="flex items-center gap-2">
+                <div className="w-6 h-6 rounded-lg bg-accent/20 flex items-center justify-center">
+                  <Lightbulb className="w-3.5 h-3.5 text-accent" />
+                </div>
+                <h2 className="font-display text-sm font-semibold">Assistant IA</h2>
+              </div>
+              <span className="text-[0.65rem] text-slate-500">{transcriptLines.length} segments</span>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              <div className="space-y-2">
-                <p className="text-xs text-slate-500">Transcript en direct</p>
+            
+            <div className="flex-1 overflow-y-auto p-4 space-y-6">
+              {/* Live Transcript */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Transcription</span>
+                  {isActive && (
+                    <span className="flex items-center gap-1 text-[0.65rem] text-emerald-400">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                      Live
+                    </span>
+                  )}
+                </div>
+                
                 {transcriptLines.length ? (
-                  <div className="space-y-2">
-                    {transcriptLines.map(line => (
-                      <div key={line.id} className={`rounded-lg border px-3 py-2 ${line.isQuestion ? 'border-amber-500/30 bg-amber-500/10' : 'border-white/10 bg-white/5'}`}>
-                        <div className="flex items-center gap-2 text-[0.65rem] text-slate-400 mb-1">
-                          <span className="uppercase">{line.speaker === 'interviewer' ? 'Interviewer' : 'Candidate'}</span>
-                          {line.isQuestion && <span className="text-amber-400">Question détectée</span>}
-                        </div>
-                        <p className="text-sm text-slate-200 leading-relaxed">{line.text}</p>
-                      </div>
+                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
+                    {transcriptLines.slice(-5).map((line, idx) => (
+                      <LiveTranscriptLine 
+                        key={line.id} 
+                        line={line} 
+                        isLatest={idx === transcriptLines.slice(-5).length - 1}
+                      />
                     ))}
+                    <div ref={transcriptEndRef} />
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500">Aucune transcription pour le moment.</p>
+                  <div className="text-center py-6 text-slate-500">
+                    <Mic className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p className="text-xs">En attente de transcription...</p>
+                  </div>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <p className="text-xs text-slate-500">⭐ Suggested Answers</p>
+              {/* AI Suggestions */}
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Suggestions</span>
+                  <span className="text-[0.65rem] text-slate-600">({suggestions.length})</span>
+                </div>
+                
                 {suggestions.length ? (
                   <div className="space-y-3">
-                    {suggestions.map(s => (
-                      <div key={s.id} className="rounded-xl border border-white/10 bg-white/5 p-3 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[0.7rem] text-slate-400">Suggested Answer</span>
-                          <button className="text-xs text-slate-300 hover:text-white flex items-center gap-1" onClick={() => handleCopy(s.fullText || s.preview)}>
-                            <Copy className="w-3 h-3" /> Copier
-                          </button>
-                        </div>
-                        <p className="text-sm text-slate-200 leading-relaxed">{s.expanded ? s.fullText : s.preview}</p>
-                        {s.fullText && s.fullText.length > 220 && (
-                          <button className="text-xs text-slate-400 hover:text-slate-200" onClick={() => toggleSuggestion(s.id)}>
-                            {s.expanded ? 'Show less' : 'Show more'}
-                          </button>
-                        )}
-                      </div>
+                    {suggestions.slice(-3).map(s => (
+                      <StreamingSuggestionCard
+                        key={s.id}
+                        suggestion={s}
+                        onCopy={handleCopy}
+                        onToggle={toggleSuggestion}
+                      />
                     ))}
+                    <div ref={suggestionsEndRef} />
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-500">Aucune suggestion pour l'instant.</p>
+                  <div className="text-center py-6 border border-dashed border-white/10 rounded-xl">
+                    <Lightbulb className="w-8 h-8 mx-auto mb-2 text-slate-600" />
+                    <p className="text-xs text-slate-500">Les suggestions apparaîtront ici</p>
+                    <p className="text-[0.65rem] text-slate-600 mt-1">Détection automatique des questions</p>
+                  </div>
                 )}
               </div>
 
+              {/* Coaching Tips */}
               {coachingTips.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs text-slate-500">💡 Coaching</p>
+                  <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Coaching</span>
                   {coachingTips.map(tip => (
-                    <div key={tip.id} className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs text-emerald-200">
+                    <div key={tip.id} className="rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 text-xs text-emerald-300 flex items-start gap-2">
+                      <Lightbulb className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                       {tip.text}
                     </div>
                   ))}
@@ -488,137 +791,188 @@ export default function Interview() {
 
       {/* Controls */}
       <div className="border-t border-white/[0.04] bg-base/90 backdrop-blur-xl flex-shrink-0 z-50" data-testid="controls">
-        <div className="max-w-3xl mx-auto px-4 py-3.5 flex flex-col items-center gap-3">
+        <div className="max-w-4xl mx-auto px-4 py-4 flex flex-col items-center gap-4">
+          {/* Settings Row */}
           <div className="flex flex-wrap items-center gap-3 justify-center text-xs text-slate-500">
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={useStreaming} onChange={e => setUseStreaming(e.target.checked)} />
-              Mode streaming WebSocket
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input 
+                type="checkbox" 
+                checked={useStreaming} 
+                onChange={e => setUseStreaming(e.target.checked)}
+                className="accent-accent"
+              />
+              <span>Mode streaming temps réel</span>
             </label>
+            
             {useStreaming && (
-              <select className="input text-xs py-1.5" value={selectedDeviceId} onChange={e => setSelectedDeviceId(e.target.value)}>
+              <select 
+                className="input text-xs py-1.5 min-w-[180px]" 
+                value={selectedDeviceId} 
+                onChange={e => setSelectedDeviceId(e.target.value)}
+              >
                 {devices.length === 0 && <option value="">Microphone par défaut</option>}
                 {devices.map((d, i) => (
-                  <option key={d.deviceId || i} value={d.deviceId}>{d.label || `Microphone ${i + 1}`}</option>
+                  <option key={d.deviceId || i} value={d.deviceId}>
+                    {d.label || `Microphone ${i + 1}`}
+                  </option>
                 ))}
               </select>
             )}
+            
             {useStreaming && wsStatus !== 'disconnected' && (
-              <span className="text-[0.65rem] text-slate-400">WS: {wsStatus}</span>
+              <span className={`text-[0.65rem] px-2 py-1 rounded ${
+                wsStatus === 'connected' ? 'bg-emerald-500/20 text-emerald-400' : 
+                wsStatus === 'error' ? 'bg-red-500/20 text-red-400' : 'bg-slate-500/20'
+              }`}>
+                WS: {wsStatus}
+              </span>
             )}
-            <Link to="/settings" className="btn btn-outline text-[0.65rem] px-2 py-1">Settings</Link>
-            {sessionId && (
-              <Link to={`/session/${sessionId}/summary`} className="btn btn-outline text-[0.65rem] px-2 py-1">Stats</Link>
-            )}
+            
+            <Link to="/settings" className="btn btn-outline text-xs px-3 py-1.5">
+              <Settings className="w-3.5 h-3.5" /> Settings
+            </Link>
           </div>
+
+          {/* Error Display */}
           {streamError && (
-            <div className="text-xs text-red-400 flex items-center gap-1.5">
-              <AlertCircle className="w-3 h-3" /> {streamError}
+            <div className="text-xs text-red-400 flex items-center gap-1.5 bg-red-500/10 px-3 py-2 rounded-lg">
+              <AlertCircle className="w-3.5 h-3.5" /> {streamError}
             </div>
           )}
-          <div className="flex items-center justify-center gap-3">
+
+          {/* Main Controls */}
+          <div className="flex items-center justify-center gap-4">
             {status === 'idle' && !ending && (
               <>
-                <button className="btn btn-primary text-sm px-10 py-3.5" onClick={startRecording} disabled={!hasKey} data-testid="start-btn">
-                  <Mic className="w-5 h-5" /> Démarrer l'enregistrement
+                <button 
+                  className="btn btn-primary text-sm px-8 py-3 shadow-lg shadow-accent/20" 
+                  onClick={startRecording} 
+                  disabled={!hasKey} 
+                  data-testid="start-btn"
+                >
+                  <Mic className="w-5 h-5" /> Démarrer l'entretien
                 </button>
-                {!hasKey && <Link to="/settings"><button className="btn btn-outline text-xs" data-testid="config-btn"><AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Configurer</button></Link>}
+                {!hasKey && (
+                  <Link to="/settings">
+                    <button className="btn btn-outline text-sm" data-testid="config-btn">
+                      <AlertCircle className="w-4 h-4 text-amber-400" /> Configurer
+                    </button>
+                  </Link>
+                )}
               </>
             )}
+            
             {status === 'recording' && (
               <>
-                <div className="flex items-center gap-[3px] h-7 px-2">{[...Array(5)].map((_, i) => <div key={i} className="wave-bar" />)}</div>
-                <button className="btn btn-outline text-sm px-5 py-2.5 border-amber-500/20 text-amber-400 hover:bg-amber-500/5" onClick={pauseRecording} data-testid="pause-btn">
+                <div className="flex items-center gap-1 h-8 px-3">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="wave-bar" />
+                  ))}
+                </div>
+                <button 
+                  className="btn btn-outline text-sm px-6 py-2.5 border-amber-500/30 text-amber-400 hover:bg-amber-500/10" 
+                  onClick={pauseRecording} 
+                  data-testid="pause-btn"
+                >
                   <Pause className="w-4 h-4" /> Pause
                 </button>
-                <button className="btn btn-danger-outline text-sm px-5 py-2.5" onClick={stopRecording} data-testid="stop-btn">
-                  <Square className="w-4 h-4" /> Arrêter et résumer
+                <button 
+                  className="btn btn-danger-outline text-sm px-6 py-2.5" 
+                  onClick={stopRecording} 
+                  data-testid="stop-btn"
+                >
+                  <Square className="w-4 h-4" /> Terminer
                 </button>
               </>
             )}
+            
             {status === 'processing' && (
               <>
-                <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
-                <button className="btn btn-danger-outline text-sm px-5 py-2.5" onClick={stopRecording} data-testid="stop-proc-btn">
-                  <Square className="w-4 h-4" /> Arrêter et résumer
+                <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
+                <span className="text-sm text-slate-400">Analyse en cours...</span>
+                <button 
+                  className="btn btn-danger-outline text-sm px-5 py-2" 
+                  onClick={stopRecording} 
+                  data-testid="stop-proc-btn"
+                >
+                  <Square className="w-4 h-4" /> Terminer
                 </button>
               </>
             )}
+            
             {status === 'paused' && (
               <>
-                <button className="btn btn-success text-sm px-5 py-2.5" onClick={startRecording} data-testid="resume-btn"><Play className="w-4 h-4" /> Reprendre</button>
-                <button className="btn btn-danger-outline text-sm px-5 py-2.5" onClick={stopRecording} data-testid="stop-paused-btn"><Square className="w-4 h-4" /> Arrêter et résumer</button>
+                <button 
+                  className="btn btn-success text-sm px-6 py-2.5" 
+                  onClick={startRecording} 
+                  data-testid="resume-btn"
+                >
+                  <Play className="w-4 h-4" /> Reprendre
+                </button>
+                <button 
+                  className="btn btn-danger-outline text-sm px-6 py-2.5" 
+                  onClick={stopRecording} 
+                  data-testid="stop-paused-btn"
+                >
+                  <Square className="w-4 h-4" /> Terminer
+                </button>
               </>
             )}
           </div>
         </div>
       </div>
+
+      {/* CSS for animations */}
+      <style>{`
+        @keyframes slideIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .animate-slideIn {
+          animation: slideIn 0.3s ease-out;
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.4s ease-out;
+        }
+        .wave-bar {
+          width: 3px;
+          height: 100%;
+          background: linear-gradient(to top, var(--accent), var(--accent2));
+          animation: wave 1s ease-in-out infinite;
+          border-radius: 2px;
+        }
+        .wave-bar:nth-child(1) { animation-delay: 0s; }
+        .wave-bar:nth-child(2) { animation-delay: 0.1s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.2s; }
+        .wave-bar:nth-child(4) { animation-delay: 0.3s; }
+        .wave-bar:nth-child(5) { animation-delay: 0.4s; }
+        @keyframes wave {
+          0%, 100% { transform: scaleY(0.3); }
+          50% { transform: scaleY(1); }
+        }
+      `}</style>
     </div>
   );
 }
 
-function SuggestionCard({ s, i, onCopy, copiedId, catMap }) {
-  const [open, setOpen] = useState(true);
-  const cat = catMap[s.category] || catMap.general;
-  const langLabel = s.responseLang === 'en' ? 'EN' : 'FR';
-  const isGoodLatency = s.ms && s.ms < 1500;
-  const isOkLatency = s.ms && s.ms >= 1500 && s.ms < 2500;
-  
-  return (
-    <div className="card fade-up overflow-hidden" data-testid={`suggestion-${i}`}>
-      <div className="px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-2 cursor-pointer select-none" onClick={() => setOpen(!open)}>
-        <Zap className="w-3.5 h-3.5 text-accent2" />
-        {cat.label && <span className={`chip text-[0.6rem] ${cat.cls}`}>{cat.label}</span>}
-        <span className={`chip text-[0.55rem] ${s.responseLang === 'en' ? 'chip-purple' : 'chip-accent'}`}>{langLabel}</span>
-        {s.confidence > 0 && <span className="chip chip-neutral text-[0.6rem]">{Math.round(s.confidence * 100)}%</span>}
-        <div className="flex-1" />
-        {s.ms && (
-          <span className={`text-[0.6rem] font-mono font-semibold ${isGoodLatency ? 'text-emerald-400' : isOkLatency ? 'text-amber-400' : 'text-red-400'}`}>
-            ⚡ {(s.ms / 1000).toFixed(1)}s
-          </span>
-        )}
-        <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${open ? '' : '-rotate-90'}`} />
-      </div>
-      {open && (
-        <div className="p-4 space-y-3">
-          {s.questionSummary && (
-            <div className="p-2.5 rounded-lg bg-accent/[0.04] border border-accent/10">
-              <p className="text-[0.6rem] text-accent/70 font-display tracking-wider mb-1">QUESTION DÉTECTÉE</p>
-              <p className="text-sm text-slate-300">{s.questionSummary}</p>
-            </div>
-          )}
-          <div className="relative group">
-            <div className="p-3 rounded-lg bg-accent2/[0.03] border border-accent2/[0.08]">
-              <p className="text-[0.6rem] text-accent2/70 font-display tracking-wider mb-1.5">SUGGESTION</p>
-              <div className="ai-md text-sm text-slate-300 leading-relaxed"><ReactMarkdown>{s.response}</ReactMarkdown></div>
-            </div>
-            <button className="absolute top-2 right-2 btn btn-outline text-[0.6rem] py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={() => onCopy(s.response, s.id)} data-testid={`copy-${i}`}>
-              {copiedId === s.id ? <><Check className="w-3 h-3 text-emerald-400" /> Copié</> : <><Copy className="w-3 h-3" /> Copier</>}
-            </button>
-          </div>
-          {s.keyPoints?.length > 0 && (
-            <div>
-              <p className="text-[0.6rem] text-slate-500 font-display tracking-wider mb-1">POINTS CLÉS</p>
-              <div className="flex flex-wrap gap-1">{s.keyPoints.map((k, j) => <span key={j} className="chip chip-accent text-[0.55rem]">{k}</span>)}</div>
-            </div>
-          )}
-          {s.toneAdvice && (
-            <div className="p-2 rounded-lg bg-amber-500/[0.04] border border-amber-500/10 flex items-start gap-2">
-              <Lightbulb className="w-3 h-3 text-amber-400 flex-shrink-0 mt-0.5" />
-              <p className="text-xs text-amber-400/80">{s.toneAdvice}</p>
-            </div>
-          )}
-          {s.cvUsed && <p className="text-[0.55rem] text-emerald-400/60 flex items-center gap-1"><FileText className="w-3 h-3" /> Personnalisé avec CV</p>}
-        </div>
-      )}
-    </div>
-  );
-}
-
+// Utility functions
 function blobToBase64(blob) {
-  return new Promise((resolve) => { const r = new FileReader(); r.onload = () => resolve(r.result.split(',')[1]); r.readAsDataURL(blob); });
+  return new Promise((resolve) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result.split(',')[1]);
+    r.readAsDataURL(blob);
+  });
 }
-
 
 function downsampleBuffer(buffer, inputSampleRate, outputSampleRate) {
   if (outputSampleRate === inputSampleRate) return buffer;
