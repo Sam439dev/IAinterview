@@ -279,6 +279,9 @@ export default function Interview() {
   const processorRef = useRef(null);
   const sourceNodeRef = useRef(null);
 
+  // Pre-interview checklist state
+  const [profileReady, setProfileReady] = useState(false);
+
   // Auto-scroll to latest content
   useEffect(() => {
     if (transcriptEndRef.current) {
@@ -299,6 +302,14 @@ export default function Interview() {
         const sett = loadLlmSettings();
         setSettings(sett);
         setCvActive(!!cv);
+        
+        // Check if profile is ready
+        try {
+          const profileStatus = await fetch(`${import.meta.env.REACT_APP_BACKEND_URL}/api/ingestion/status`);
+          const status = await profileStatus.json();
+          setProfileReady(status.available);
+        } catch { setProfileReady(false); }
+        
         if (paramId) {
           const msgs = await getMessages(paramId);
           if (msgs?.length) {
