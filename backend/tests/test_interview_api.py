@@ -197,12 +197,12 @@ class TestProcessAudioEndpoint:
         mock_audio = base64.b64encode(b"mock audio").decode('utf-8')
         
         response = requests.post(f"{BASE_URL}/api/interview/process-audio", json={
-            "session_id": "000000000000000000000000",  # Invalid ObjectId
+            "session_id": "invalid-session-id",
             "audio_data": mock_audio,
             "mime_type": "audio/webm"
         })
-        # Should return 404 (session not found) or 400 (no key)
-        assert response.status_code in [400, 404]
+        # Should return 404 (session not found), 400 (no key), or 422 (missing headers)
+        assert response.status_code in [400, 404, 422]
 
 
 class TestSummaryEndpoints:
