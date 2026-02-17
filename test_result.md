@@ -116,6 +116,18 @@
 ##         -comment: "Added ingestion endpoints, DuckDuckGo company research + JD analysis, FAISS persistence on disk, and clear-cache endpoint."
 
 ##   - task: "LLM header auth + UUID-only IDs"
+##   - task: "Profile builder UI + cache management"
+##     implemented: true
+##     working: "NA"
+##     file: "frontend/src/pages/Settings.jsx"
+##     stuck_count: 0
+##     priority: "high"
+##     needs_retesting: true
+##     status_history:
+##         -working: "NA"
+##         -agent: "main"
+##         -comment: "Added Profile Builder (JD + company + role) and Clear Cache controls in Settings."
+
 ##     implemented: true
 ##     working: true
 ##     file: "backend/server.py"
