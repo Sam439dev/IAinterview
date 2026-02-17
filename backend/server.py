@@ -436,15 +436,6 @@ async def parse_cv_llm(llm: LLMHeaders, raw_text: str):
             "projects": [],
             "certifications": [],
             "languages": []
-        }
-        parsed["raw_text"] = raw_text
-        parsed["parse_quality"] = "complete"
-        parsed["pages_parsed"] = page_count
-        
-        exp_count = len(parsed.get("experiences", []))
-        print(f"[CV PARSE] Succès: {exp_count} expériences extraites")
-        
-        return parsed
     except Exception as e:
         print(f"[CV PARSE ERROR] {e}")
         return {"raw_text": raw_text, "parse_quality": "failed"}
