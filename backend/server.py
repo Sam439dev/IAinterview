@@ -998,6 +998,7 @@ async def process_audio(
     if is_filtered:
         # Still save for transcript
         await messages_col.insert_one({
+            "_id": str(uuid.uuid4()),
             "session_id": data.session_id, "role": "user",
             "content": transcript_text, "detected_language": detected_lang,
             "is_small_talk": True, "filter_reason": filter_reason,
