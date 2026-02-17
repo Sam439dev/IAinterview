@@ -562,7 +562,9 @@ async def summarize_company_research(llm: LLMHeaders, company_name: str, search_
             max_tokens=900,
             timeout_s=60.0
         )
-        return json.loads(content)
+        parsed = safe_json_loads(content)
+        if parsed:
+            return parsed
     except Exception as exc:
         print(f"[COMPANY SUMMARY] error: {exc}")
         return {"summary": search_text[:600], "recent_news": [], "competitors": []}
