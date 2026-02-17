@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Key, FileText, Upload, Check, Eye, EyeOff, Trash2, Loader2, AlertCircle, CheckCircle2, Briefcase, GraduationCap, Code2, Star, RefreshCw } from 'lucide-react';
-import { getActiveCV, uploadCV, deleteCV, reparseCV } from '../services/api';
+import { getActiveCV, uploadCV, deleteCV, reparseCV, buildProfile, getIngestionStatus, clearProfileCache } from '../services/api';
 import { loadLlmSettings, saveLlmSettings } from '../services/llmSettings';
 import Navbar from '../components/Navbar';
 
