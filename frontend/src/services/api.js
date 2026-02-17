@@ -1,4 +1,6 @@
 import axios from 'axios';
+import { buildLlmHeaders } from './llmSettings';
+
 const API = import.meta.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
 const ax = axios.create({ baseURL: API, headers: { 'Content-Type': 'application/json' } });
 
