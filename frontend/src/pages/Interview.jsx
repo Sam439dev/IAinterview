@@ -29,6 +29,15 @@ export default function Interview() {
   const timerRef = useRef(null);
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
+  const transcriptLines = useInterviewStore(state => state.transcriptLines);
+  const coachingTips = useInterviewStore(state => state.coachingTips);
+  const addTranscriptLine = useInterviewStore(state => state.addTranscriptLine);
+  const addSuggestionStart = useInterviewStore(state => state.addSuggestionStart);
+  const addSuggestionDelta = useInterviewStore(state => state.addSuggestionDelta);
+  const toggleSuggestion = useInterviewStore(state => state.toggleSuggestion);
+  const updateFillerCounts = useInterviewStore(state => state.updateFillerCounts);
+  const clearSession = useInterviewStore(state => state.clearSession);
+
   const streamRef = useRef(null);
   const activeRef = useRef(false);
   const sugEndRef = useRef(null);
