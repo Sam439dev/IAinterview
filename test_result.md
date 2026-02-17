@@ -129,6 +129,10 @@
 ##         -working: "NA"
 ##         -agent: "main"
 ##         -comment: "Migrated CRA to Vite, added localStorage-based LLM settings UI, and injected headers for CV upload/analysis endpoints."
+##         -working: "NA"
+##         -agent: "main"
+##         -comment: "User approved frontend testing; ready to validate Vite migration and local LLM settings UI."
+
 ## metadata:
 ##   created_by: "main_agent"
 ##   version: "1.0"
