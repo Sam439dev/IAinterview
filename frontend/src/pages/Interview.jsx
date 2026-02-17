@@ -75,6 +75,23 @@ export default function Interview() {
     })();
   }, [paramId]);
 
+
+  useEffect(() => {
+    const loadDevices = async () => {
+      try {
+        const list = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = list.filter(d => d.kind === 'audioinput');
+        setDevices(audioInputs);
+        if (!selectedDeviceId && audioInputs.length) {
+          setSelectedDeviceId(audioInputs[0].deviceId);
+        }
+      } catch (e) {
+        console.warn('Unable to enumerate devices', e);
+      }
+    };
+    loadDevices();
+  }, [selectedDeviceId]);
+
   useEffect(() => { sugEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [suggestions]);
 
   useEffect(() => {
