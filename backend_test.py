@@ -12,7 +12,7 @@ class InterviewAIAPITester:
         self.session_id = None
         self.critical_failures = []
 
-    def run_test(self, name, method, endpoint, expected_status, data=None, headers=None):
+    def run_test(self, name, method, endpoint, expected_status, data=None, headers=None, critical=False):
         """Run a single API test"""
         url = f"{self.base_url}/{endpoint}"
         test_headers = {'Content-Type': 'application/json'}
@@ -35,6 +35,13 @@ class InterviewAIAPITester:
 
             print(f"   Status: {response.status_code}")
             
+            # Check for 500 errors (critical failure)
+            if response.status_code == 500:
+                self.critical_failures.append(f"{name}: 500 Internal Server Error")
+                print(f"❌ CRITICAL - 500 Internal Server Error")
+                print(f"   Response: {response.text[:500]}")
+                return False, {}
+            
             success = response.status_code == expected_status
             if success:
                 self.tests_passed += 1
@@ -47,14 +54,20 @@ class InterviewAIAPITester:
                 except:
                     return True, {}
             else:
+                if critical:
+                    self.critical_failures.append(f"{name}: Expected {expected_status}, got {response.status_code}")
                 print(f"❌ FAILED - Expected {expected_status}, got {response.status_code}")
                 print(f"   Response: {response.text[:200]}")
                 return False, {}
 
         except requests.exceptions.Timeout:
+            if critical:
+                self.critical_failures.append(f"{name}: Request timeout")
             print(f"❌ FAILED - Request timeout (30s)")
             return False, {}
         except Exception as e:
+            if critical:
+                self.critical_failures.append(f"{name}: {str(e)}")
             print(f"❌ FAILED - Error: {str(e)}")
             return False, {}
 
