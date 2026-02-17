@@ -112,6 +112,8 @@ export default function Interview() {
     const base = import.meta.env.REACT_APP_BACKEND_URL || '';
     const wsBase = base.replace(/^http/, 'ws');
     return `${wsBase.replace(/\/$/, '')}/api/ws/stream`;
+  };
+
   const stopStreaming = useCallback(() => {
     activeRef.current = false;
     if (wsRef.current && wsRef.current.readyState === 1) {
