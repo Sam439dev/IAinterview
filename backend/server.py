@@ -740,16 +740,8 @@ async def save_settings(data: SettingsInput):
     return {"success": True, "server_storage": False}
 
 @app.post("/api/settings/validate-key")
-async def validate_key(data: SettingsInput):
-    if not data.openai_api_key:
-        return {"valid": False, "error": "Clé manquante"}
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as c:
-            r = await c.get("https://api.openai.com/v1/models",
-                headers={"Authorization": f"Bearer {data.openai_api_key}"})
-            return {"valid": r.status_code == 200, "error": None if r.status_code == 200 else "Clé invalide"}
-    except Exception:
-        return {"valid": False, "error": "Erreur de connexion"}
+async def validate_key():
+    return {"valid": False, "error": "Validation handled client-side"}
 
 # CV
 @app.get("/api/cv/active")
