@@ -314,12 +314,17 @@ export default function Interview() {
   }, [detectedLang]);
 
   const pauseRecording = useCallback(() => {
+    if (useStreaming) {
+      stopStreaming();
+      setStatus('paused');
+      return;
+    }
     activeRef.current = false;
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
     setStatus('paused');
-  }, []);
+  }, [useStreaming, stopStreaming]);
 
   const stopRecording = useCallback(async () => {
     activeRef.current = false;
