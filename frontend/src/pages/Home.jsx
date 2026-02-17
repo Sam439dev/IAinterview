@@ -98,7 +98,7 @@ export default function Home() {
             { icon: FileText, label: 'CV intelligent', desc: 'Upload PDF, extraction structurée et personnalisation des réponses', chip: 'CV' },
             { icon: Zap, label: 'Pipeline rapide', desc: 'Transcription + analyse + réponse en quelques secondes', chip: 'RAPIDE' },
             { icon: BarChart3, label: 'Analytics', desc: 'Historique des sessions, questions détectées et latences', chip: 'STATS' },
-            { icon: Shield, label: 'Vos données, votre clé', desc: 'Votre clé API OpenAI, rien ne transite par nos serveurs', chip: 'PRIVÉ' },
+            { icon: Shield, label: 'Vos données, vos clés', desc: 'Vos clés API restent locales, rien n’est stocké sur nos serveurs', chip: 'PRIVÉ' },
           ].map((f, i) => (
             <div key={i} className="card-inner p-5 flex gap-4" data-testid={`feature-${i}`}>
               <div className="flex-shrink-0 w-9 h-9 rounded-lg bg-white/[0.03] flex items-center justify-center">
