@@ -252,6 +252,8 @@ export default function Interview() {
   const chunksRef = useRef([]);
   const transcriptLines = useInterviewStore(state => state.transcriptLines);
   const coachingTips = useInterviewStore(state => state.coachingTips);
+  const totalFillers = useInterviewStore(state => state.totalFillers);
+  const getTopFillers = useInterviewStore(state => state.getTopFillers);
   const addTranscriptLine = useInterviewStore(state => state.addTranscriptLine);
   const addSuggestionStart = useInterviewStore(state => state.addSuggestionStart);
   const addSuggestionDelta = useInterviewStore(state => state.addSuggestionDelta);
