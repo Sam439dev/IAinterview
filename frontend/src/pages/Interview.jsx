@@ -453,40 +453,64 @@ export default function Interview() {
 
       {/* Controls */}
       <div className="border-t border-white/[0.04] bg-base/90 backdrop-blur-xl flex-shrink-0 z-50" data-testid="controls">
-        <div className="max-w-3xl mx-auto px-4 py-3.5 flex items-center justify-center gap-3">
-          {status === 'idle' && !ending && (
-            <>
-              <button className="btn btn-primary text-sm px-10 py-3.5" onClick={startRecording} disabled={!hasKey} data-testid="start-btn">
-                <Mic className="w-5 h-5" /> Démarrer l'enregistrement
-              </button>
-              {!hasKey && <Link to="/settings"><button className="btn btn-outline text-xs" data-testid="config-btn"><AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Configurer</button></Link>}
-            </>
+        <div className="max-w-3xl mx-auto px-4 py-3.5 flex flex-col items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3 justify-center text-xs text-slate-500">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={useStreaming} onChange={e => setUseStreaming(e.target.checked)} />
+              Mode streaming WebSocket
+            </label>
+            {useStreaming && (
+              <select className="input text-xs py-1.5" value={selectedDeviceId} onChange={e => setSelectedDeviceId(e.target.value)}>
+                {devices.length === 0 && <option value="">Microphone par défaut</option>}
+                {devices.map((d, i) => (
+                  <option key={d.deviceId || i} value={d.deviceId}>{d.label || `Microphone ${i + 1}`}</option>
+                ))}
+              </select>
+            )}
+            {useStreaming && wsStatus !== 'disconnected' && (
+              <span className="text-[0.65rem] text-slate-400">WS: {wsStatus}</span>
+            )}
+          </div>
+          {streamError && (
+            <div className="text-xs text-red-400 flex items-center gap-1.5">
+              <AlertCircle className="w-3 h-3" /> {streamError}
+            </div>
           )}
-          {status === 'recording' && (
-            <>
-              <div className="flex items-center gap-[3px] h-7 px-2">{[...Array(5)].map((_, i) => <div key={i} className="wave-bar" />)}</div>
-              <button className="btn btn-outline text-sm px-5 py-2.5 border-amber-500/20 text-amber-400 hover:bg-amber-500/5" onClick={pauseRecording} data-testid="pause-btn">
-                <Pause className="w-4 h-4" /> Pause
-              </button>
-              <button className="btn btn-danger-outline text-sm px-5 py-2.5" onClick={stopRecording} data-testid="stop-btn">
-                <Square className="w-4 h-4" /> Arrêter et résumer
-              </button>
-            </>
-          )}
-          {status === 'processing' && (
-            <>
-              <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
-              <button className="btn btn-danger-outline text-sm px-5 py-2.5" onClick={stopRecording} data-testid="stop-proc-btn">
-                <Square className="w-4 h-4" /> Arrêter et résumer
-              </button>
-            </>
-          )}
-          {status === 'paused' && (
-            <>
-              <button className="btn btn-success text-sm px-5 py-2.5" onClick={startRecording} data-testid="resume-btn"><Play className="w-4 h-4" /> Reprendre</button>
-              <button className="btn btn-danger-outline text-sm px-5 py-2.5" onClick={stopRecording} data-testid="stop-paused-btn"><Square className="w-4 h-4" /> Arrêter et résumer</button>
-            </>
-          )}
+          <div className="flex items-center justify-center gap-3">
+            {status === 'idle' && !ending && (
+              <>
+                <button className="btn btn-primary text-sm px-10 py-3.5" onClick={startRecording} disabled={!hasKey} data-testid="start-btn">
+                  <Mic className="w-5 h-5" /> Démarrer l'enregistrement
+                </button>
+                {!hasKey && <Link to="/settings"><button className="btn btn-outline text-xs" data-testid="config-btn"><AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Configurer</button></Link>}
+              </>
+            )}
+            {status === 'recording' && (
+              <>
+                <div className="flex items-center gap-[3px] h-7 px-2">{[...Array(5)].map((_, i) => <div key={i} className="wave-bar" />)}</div>
+                <button className="btn btn-outline text-sm px-5 py-2.5 border-amber-500/20 text-amber-400 hover:bg-amber-500/5" onClick={pauseRecording} data-testid="pause-btn">
+                  <Pause className="w-4 h-4" /> Pause
+                </button>
+                <button className="btn btn-danger-outline text-sm px-5 py-2.5" onClick={stopRecording} data-testid="stop-btn">
+                  <Square className="w-4 h-4" /> Arrêter et résumer
+                </button>
+              </>
+            )}
+            {status === 'processing' && (
+              <>
+                <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
+                <button className="btn btn-danger-outline text-sm px-5 py-2.5" onClick={stopRecording} data-testid="stop-proc-btn">
+                  <Square className="w-4 h-4" /> Arrêter et résumer
+                </button>
+              </>
+            )}
+            {status === 'paused' && (
+              <>
+                <button className="btn btn-success text-sm px-5 py-2.5" onClick={startRecording} data-testid="resume-btn"><Play className="w-4 h-4" /> Reprendre</button>
+                <button className="btn btn-danger-outline text-sm px-5 py-2.5" onClick={stopRecording} data-testid="stop-paused-btn"><Square className="w-4 h-4" /> Arrêter et résumer</button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>
