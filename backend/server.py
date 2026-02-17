@@ -811,7 +811,7 @@ async def reparse_cv(llm: LLMHeaders = Depends(get_llm_headers)):
         raise HTTPException(400, "CV sans contenu texte extractible")
     
     # Parse with FULL text
-    parsed_data = await parse_cv_llm(api_key, raw_text)
+    parsed_data = await parse_cv_llm(llm, raw_text)
     
     # Update both raw_text and parsed_data
     await cv_col.update_one(
@@ -852,7 +852,7 @@ async def upload_cv_from_url(data: CVUrlInput):
     print(f"[CV URL UPLOAD] Extracted {len(raw_text)} chars")
     
     # Parse with GPT
-    parsed_data = await parse_cv_llm(api_key, raw_text)
+    parsed_data = await parse_cv_llm(llm, raw_text)
     
     # Deactivate old CVs
     await cv_col.update_many({"is_active": True}, {"$set": {"is_active": False}})
