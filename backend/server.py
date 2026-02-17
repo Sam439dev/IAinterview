@@ -339,6 +339,76 @@ RÈGLES STRICTES:
 def safe_json_loads(raw_text: str) -> Optional[Dict]:
     cleaned = raw_text.strip()
     if cleaned.startswith("```"):
+
+# ========== STREAMING AUDIO HELPERS ==========
+
+@dataclass
+class StreamingSession:
+    session_id: str
+    sample_rate: int = 16000
+    buffer: deque = field(default_factory=deque)
+    buffer_samples: int = 0
+    last_transcript: str = ""
+    last_transcribe_ts: float = 0.0
+    last_request: str = ""
+    last_speaker: str = "unknown"
+    diarization_ts: float = 0.0
+    speaker_map: Dict[str, str] = field(default_factory=dict)
+
+    def append_audio(self, samples: np.ndarray):
+        self.buffer.append(samples)
+        self.buffer_samples += len(samples)
+        max_samples = self.sample_rate * WHISPER_WINDOW_SECONDS
+        while self.buffer_samples > max_samples and self.buffer:
+            removed = self.buffer.popleft()
+            self.buffer_samples -= len(removed)
+
+    def get_audio_window(self) -> Optional[np.ndarray]:
+        if self.buffer_samples < int(self.sample_rate * WHISPER_MIN_SECONDS):
+            return None
+        return np.concatenate(list(self.buffer))
+
+
+def get_whisper_model() -> WhisperModel:
+    global _whisper_model
+    if _whisper_model is None:
+        _whisper_model = WhisperModel(
+            WHISPER_MODEL_SIZE,
+            device="cpu",
+            compute_type=WHISPER_COMPUTE_TYPE
+        )
+    return _whisper_model
+
+
+def get_diarization_pipeline() -> Optional[Pipeline]:
+    global _diarization_pipeline
+    if not ENABLE_DIARIZATION:
+        return None
+    if _diarization_pipeline is None:
+        token = os.environ.get("HUGGINGFACE_TOKEN")
+        if not token:
+            return None
+        _diarization_pipeline = Pipeline.from_pretrained(
+            os.environ.get("PYANNOTE_MODEL", "pyannote/speaker-diarization-3.1"),
+            use_auth_token=token
+        )
+    return _diarization_pipeline
+
+
+def decode_audio_chunk(chunk_b64: str) -> np.ndarray:
+    audio_bytes = base64.b64decode(chunk_b64)
+    audio = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32)
+    return audio / 32768.0
+
+
+def detect_request(text: str) -> bool:
+    lowered = text.lower().strip()
+    if lowered.endswith("?"):
+        return True
+    triggers = ["tell me", "explain", "walk me through", "how would you", "can you", "why did you", "what is your"]
+    return any(trigger in lowered for trigger in triggers)
+
+
         cleaned = cleaned.replace("```json", "").replace("```", "").strip()
     try:
         return json.loads(cleaned)
