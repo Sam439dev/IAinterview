@@ -728,12 +728,12 @@ async def health():
 # Settings
 @app.get("/api/settings")
 async def get_settings():
-    s = await settings_col.find_one({"user_id": "default"}, {"_id": 0})
-    if not s:
-        return {"openai_api_key": None, "preferred_model": "gpt-4o-mini", "has_key": False}
-    key = s.get("openai_api_key")
-    masked = ("sk-..." + key[-4:]) if key and len(key) > 4 else None
-    return {"openai_api_key": masked, "preferred_model": s.get("preferred_model", "gpt-4o-mini"), "has_key": bool(key)}
+    return {
+        "server_storage": False,
+        "preferred_provider": None,
+        "preferred_model": None,
+        "has_key": False
+    }
 
 @app.post("/api/settings")
 async def save_settings(data: SettingsInput):
