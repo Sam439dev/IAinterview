@@ -15,7 +15,7 @@ export const uploadCV = (file) => {
   return ax.post('/api/cv/upload', fd, { headers: { ...buildLlmHeaders(), 'Content-Type': 'multipart/form-data' } }).then(r => r.data);
 };
 export const deleteCV = (id) => ax.delete(`/api/cv/${id}`).then(r => r.data);
-export const reparseCV = () => ax.post('/api/cv/reparse').then(r => r.data);
+export const reparseCV = () => ax.post('/api/cv/reparse', null, withLlmHeaders()).then(r => r.data);
 export const getSessions = () => ax.get('/api/sessions').then(r => r.data);
 export const getStats = () => ax.get('/api/sessions/stats').then(r => r.data);
 export const createSession = (d) => ax.post('/api/sessions', d).then(r => r.data);
