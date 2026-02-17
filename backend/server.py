@@ -114,8 +114,8 @@ async def get_stt_api_key(
 
 # Pydantic
 class SettingsInput(BaseModel):
-    openai_api_key: Optional[str] = None
-    preferred_model: Optional[str] = "gpt-4o-mini"
+    preferred_provider: Optional[str] = None
+    preferred_model: Optional[str] = None
 
 class SessionCreate(BaseModel):
     title: str
