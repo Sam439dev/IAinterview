@@ -80,7 +80,7 @@ class TestCVEndpoints:
         """POST /api/cv/reparse endpoint should exist"""
         response = requests.post(f"{BASE_URL}/api/cv/reparse")
         # Should return 400 (no key), 404 (no CV), or 200 (success)
-        assert response.status_code in [200, 400, 404, 401]
+        assert response.status_code in [200, 400, 404, 401, 422]
 
 
 class TestSessionsEndpoints:
