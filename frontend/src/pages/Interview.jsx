@@ -107,6 +107,13 @@ export default function Interview() {
 
   const hasKey = hasActiveKey(settings || undefined);
   const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  const providerKey = getProviderKey(settings || {});
+  const getWsUrl = () => {
+    const base = import.meta.env.REACT_APP_BACKEND_URL || '';
+    const wsBase = base.replace(/^http/, 'ws');
+    return `${wsBase.replace(/\/$/, '')}/api/ws/stream`;
+  };
+
 
   const startRecording = useCallback(async () => {
     if (!hasKey) return;
