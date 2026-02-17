@@ -755,36 +755,6 @@ async def transcribe_and_send(websocket: WebSocket, session: StreamingSession, a
         asyncio.create_task(update_speaker_from_diarization(session, audio_window))
 
 
-        parts.append(f"TECHNOLOGIES: {', '.join(cv_data['technologies'][:20])}")
-    if cv_data.get("methodologies"):
-        parts.append(f"MÉTHODOLOGIES: {', '.join(cv_data['methodologies'][:8])}")
-    
-    # Strengths
-    if cv_data.get("strengths"):
-        parts.append(f"POINTS FORTS: {', '.join(cv_data['strengths'][:6])}")
-    
-    # Education & Certifications
-    if cv_data.get("education"):
-        edu = [f"{e.get('degree', '')} - {e.get('institution', '')}" for e in cv_data["education"][:3]]
-        parts.append(f"FORMATION: {'; '.join(edu)}")
-    if cv_data.get("certifications"):
-        parts.append(f"CERTIFICATIONS: {', '.join(cv_data['certifications'][:5])}")
-    
-    # Languages
-    if cv_data.get("languages_spoken"):
-        langs = [f"{l.get('language', '')} ({l.get('level', '')})" for l in cv_data["languages_spoken"]]
-        parts.append(f"LANGUES: {', '.join(langs)}")
-    
-    # Industries
-    if cv_data.get("industries"):
-        parts.append(f"SECTEURS: {', '.join(cv_data['industries'][:5])}")
-    
-    # Fallback to raw text
-    if not parts and cv_data.get("raw_text"):
-        parts.append(f"CV (texte):\n{cv_data['raw_text'][:3000]}")
-    
-    return "\n".join(parts)
-
 # ========== INGESTION HELPERS ==========
 
 async def duckduckgo_search(query: str, max_results: int = 8) -> str:
