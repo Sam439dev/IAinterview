@@ -829,7 +829,10 @@ class CVUrlInput(BaseModel):
     url: str
 
 @app.post("/api/cv/upload-from-url")
-async def upload_cv_from_url(data: CVUrlInput):
+async def upload_cv_from_url(
+    data: CVUrlInput,
+    llm: LLMHeaders = Depends(get_llm_headers)
+):
     """Upload CV from URL - extracts ALL pages without limits."""
     
     try:
