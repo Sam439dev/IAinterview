@@ -343,6 +343,14 @@ export default function Interview() {
     streamRef.current = null;
     setStatus('idle');
     if (!sessionId) return;
+    setEnding(true);
+    try {
+      await updateSession(sessionId, { status: 'completed', duration_seconds: timer });
+      navigate(`/session/${sessionId}/summary`);
+    } catch {
+      setEnding(false);
+    }
+  }, [sessionId, timer, navigate, useStreaming, stopStreaming]);
 
   const handleCopy = (text) => {
     if (!text) return;
@@ -350,13 +358,6 @@ export default function Interview() {
       navigator.clipboard.writeText(text).catch(() => {});
     }
   };
-
-    setEnding(true);
-    try {
-      await updateSession(sessionId, { status: 'completed', duration_seconds: timer });
-      navigate(`/session/${sessionId}/summary`);
-    } catch { setEnding(false); }
-  }, [sessionId, timer, navigate, useStreaming, stopStreaming]);
 
 
 
