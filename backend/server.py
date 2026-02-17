@@ -21,7 +21,9 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage
 load_dotenv()
 
 MONGO_URL = os.environ.get("MONGO_URL")
-DB_NAME = os.environ.get("DB_NAME", "interview_ai")
+DB_NAME = os.environ.get("DB_NAME")
+if not DB_NAME:
+    raise RuntimeError("DB_NAME is required")
 
 app = FastAPI(title="Interview Assistant AI")
 app.add_middleware(
