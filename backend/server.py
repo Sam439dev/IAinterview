@@ -616,7 +616,7 @@ IGNORE (d:0) : "Bonjour", "Merci", "D'accord", "Je note" (politesse pure courte)
 DOUTE → d:1
 """
 
-async def fast_analyze_v3(api_key, transcript, session_id, cv_data, model, detected_lang, prev_lang):
+async def fast_analyze_v3(llm: LLMHeaders, transcript, session_id, cv_data, detected_lang, prev_lang):
     """
     Copilote d'entretien expert - Analyse en flux continu.
     - Détection d'intentions dans la parole naturelle
