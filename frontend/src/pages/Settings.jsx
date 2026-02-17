@@ -1,9 +1,47 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Key, FileText, Upload, Check, Eye, EyeOff, Trash2, Loader2, AlertCircle, CheckCircle2, Briefcase, GraduationCap, Code2, Star, RefreshCw } from 'lucide-react';
+import { Key, FileText, Upload, Check, Eye, EyeOff, Trash2, Loader2, AlertCircle, CheckCircle2, Briefcase, GraduationCap, Code2, Star, RefreshCw, X } from 'lucide-react';
 import { getActiveCV, uploadCV, deleteCV, reparseCV, buildProfile, getIngestionStatus, clearProfileCache } from '../services/api';
 import { loadLlmSettings, saveLlmSettings } from '../services/llmSettings';
 import Navbar from '../components/Navbar';
+
+// Confirmation Modal Component
+function ConfirmModal({ isOpen, title, message, onConfirm, onCancel, confirmLabel = "Confirmer", danger = false }) {
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative bg-base border border-white/10 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl" data-testid="confirm-modal">
+        <button 
+          onClick={onCancel}
+          className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+        <h3 className="font-display font-semibold text-lg mb-2">{title}</h3>
+        <p className="text-sm text-slate-400 mb-6">{message}</p>
+        <div className="flex items-center gap-3 justify-end">
+          <button 
+            onClick={onCancel}
+            className="btn btn-outline text-sm px-4 py-2"
+            data-testid="modal-cancel-btn"
+          >
+            Annuler
+          </button>
+          <button 
+            onClick={onConfirm}
+            className={`btn text-sm px-4 py-2 ${danger ? 'bg-red-500/20 text-red-400 border border-red-500/30 hover:bg-red-500/30' : 'btn-primary'}`}
+            data-testid="modal-confirm-btn"
+          >
+            <Trash2 className="w-4 h-4" />
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Settings() {
   return (
