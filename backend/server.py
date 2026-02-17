@@ -1067,7 +1067,7 @@ async def process_audio(
         
         # Update session stats with latency sample
         await sessions_col.update_one(
-            {"_id": ObjectId(data.session_id)},
+            {"_id": data.session_id},
             {
                 "$inc": {"total_questions": 1, "total_responses": 1},
                 "$push": {"latency_samples": {"$each": [pipeline_ms], "$slice": -20}},
