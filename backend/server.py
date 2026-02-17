@@ -16,6 +16,14 @@ import httpx
 import uuid
 from openai import AsyncOpenAI
 from emergentintegrations.llm.chat import LlmChat, UserMessage
+from vector_store import (
+    save_profile_index,
+    load_profile_meta,
+    profile_index_exists,
+    clear_profile_cache,
+    search_profile_context
+)
+
 
 
 load_dotenv()
