@@ -306,6 +306,22 @@ RÈGLES STRICTES:
 - NE JAMAIS renvoyer un JSON vide ou incomplet
 - LE NOMBRE D'EXPÉRIENCES DOIT CORRESPONDRE AU CONTENU RÉEL DU CV"""
 
+JD_ANALYSIS_PROMPT = """Tu es un recruteur senior. Analyse cette description de poste pour un entretien.
+Retourne STRICTEMENT un JSON avec les champs:
+- summary: résumé concis du poste
+- requirements: liste des exigences clés
+- keywords: mots-clés techniques et métiers
+- potential_questions: questions probables de l'intervieweur
+"""
+
+COMPANY_RESEARCH_PROMPT = """Tu es un analyste marché. En te basant sur les extraits de recherche, fournis un résumé clair.
+Retourne STRICTEMENT un JSON avec les champs:
+- summary: aperçu global (culture, mission, produits)
+- recent_news: liste de faits ou nouvelles récentes si disponibles
+- competitors: liste des concurrents probables
+"""
+
+
 async def extract_cv_text(buf, mime):
     """Extrait le texte de TOUTES les pages du PDF sans limitation."""
     if mime == "application/pdf":
