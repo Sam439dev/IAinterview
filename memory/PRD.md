@@ -43,7 +43,7 @@ Real-time AI Interview Assistant - Production-ready replica of LockedIn AI's Int
 
 ### Completed Features
 1. ✅ **Settings Page**
-   - Multi-provider API key management
+   - Multi-provider API key management (OpenAI, Anthropic, DeepSeek, Gemini)
    - Visible "Effacer" button with confirmation modal
    - Model selection with suggestions
    - Whisper STT key configuration
@@ -51,6 +51,7 @@ Real-time AI Interview Assistant - Production-ready replica of LockedIn AI's Int
 2. ✅ **CV Section**
    - PDF upload and parsing
    - Skills displayed as colored tags (hard skills, soft skills, technologies)
+   - **FIXED: Dashboard shows correct skill count** (was "0 compétences")
    - Experiences list with company/role/duration
    - Re-parse functionality
 
@@ -59,13 +60,20 @@ Real-time AI Interview Assistant - Production-ready replica of LockedIn AI's Int
    - PiP (Picture-in-Picture) mode using Screen Capture API
    - Real-time transcript streaming with TypeWriter effect
    - AI suggestions with streaming animation
-   - Coaching tips for filler word detection
+   - **NEW: Coaching layer with filler word detection**
 
 4. ✅ **Real-Time Streaming**
    - WebSocket connection for live audio
    - faster-whisper transcription
    - Token-by-token suggestion streaming
    - Auto-scroll to latest content
+   - Speaker diarization (interviewer/candidate)
+
+5. ✅ **Coaching Layer (NEW)**
+   - Filler word detection (French: euh, heu, ben, donc, voilà; English: um, uh, like)
+   - Real-time filler counter in UI
+   - Color-coded warnings (green → amber → red)
+   - Coaching tips when thresholds reached
 
 ### UI/UX Improvements
 - French language UI
