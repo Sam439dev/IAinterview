@@ -1,82 +1,107 @@
-# Interview Assistant AI - PRD v3.2
+# Interview Copilot AI - Product Requirements Document
 
-## Problème Racine Résolu ✅
+## Overview
+Real-time AI Interview Assistant - Production-ready replica of LockedIn AI's Interview Copilot.
 
-Le parsing du CV s'arrêtait après ~15000 caractères, ignorant les pages 8-13 du document.
+## Core Features
 
-### Avant (Problème)
-- Extraction limitée à 15000 caractères
-- Parsing limité à 10000 caractères
-- Seulement 4 expériences sur 10 extraites
-- 6 entreprises manquantes (Crédit du Nord, BNP ALMT, Malakoff, Allianz, Euler, TATV)
+### 1. Pre-Interview Setup
+- **CV Upload & Parsing**: PDF/TXT upload with LLM-powered extraction (experiences, skills, technologies)
+- **Profile Building**: Job description analysis, company research via DuckDuckGo
+- **Vector Database**: FAISS index for semantic search on profile data
 
-### Après (Solution)
-- Extraction COMPLÈTE de TOUTES les pages (13 pages, 36259 caractères)
-- Parsing avec 50000 caractères max et 4000 tokens
-- **10 expériences sur 10 extraites** ✅
-- Toutes les entreprises présentes dans le contexte
+### 2. Real-Time Interview Assistance
+- **Live Transcription**: WebSocket streaming with faster-whisper STT
+- **Speaker Diarization**: pyannote.audio for interviewer/candidate detection
+- **AI Suggestions**: Context-aware answers streamed token-by-token
+- **Meeting View**: Side-by-side layout with PiP (Picture-in-Picture) screen capture
 
-## Modifications Techniques
+### 3. Settings & Configuration
+- **Multi-LLM Support**: OpenAI, Anthropic, DeepSeek, Gemini (user-provided API keys)
+- **API Key Management**: Secure local storage, confirmation modal for deletion
+- **Audio Device Selection**: Microphone picker for optimal capture
 
-### 1. `extract_cv_text()` - SANS LIMITE
-```python
-# Avant: return "".join(...)[:15000]
-# Après: return full_text  # PAS DE LIMITE
-```
-- Marque chaque page: `[PAGE 1]`, `[PAGE 2]`, etc.
-- Log du nombre de pages et caractères
+## Technical Architecture
 
-### 2. `parse_cv_llm()` - Limites augmentées
-```python
-# Avant: raw_text[:10000], max_tokens=2500
-# Après: raw_text[:50000], max_tokens=4000, timeout=90s
-```
+### Frontend (React + Vite)
+- `/app/frontend/src/pages/Interview.jsx` - Main interview UI with streaming
+- `/app/frontend/src/pages/Settings.jsx` - API keys and profile management
+- `/app/frontend/src/store/interviewStore.js` - Zustand state management
 
-### 3. `CV_PARSE_PROMPT` - Instructions explicites
-- "PARCOURS TOUTES LES PAGES DU DOCUMENT"
-- "NE T'ARRÊTE PAS après les premières expériences"
-- "LE NOMBRE D'EXPÉRIENCES DOIT CORRESPONDRE AU CONTENU RÉEL"
+### Backend (FastAPI)
+- `/app/backend/server.py` - All API endpoints and WebSocket handlers
+- `/app/backend/vector_store.py` - FAISS vector database operations
 
-### 4. Nouvel endpoint `/api/cv/upload-from-url`
-- Télécharge le CV depuis une URL
-- Extrait TOUTES les pages
-- Parse avec les nouvelles limites
+### Key Endpoints
+- `GET /api/health` - Health check
+- `POST /api/cv/upload` - CV upload with parsing
+- `POST /api/cv/reparse` - Re-parse existing CV
+- `POST /api/ingestion/build-profile` - Build interview profile
+- `WS /api/ws/stream` - Real-time audio streaming
 
-### 5. `reparse_cv()` amélioré
-- Re-extrait le texte depuis le fichier original stocké
-- Ne se fie plus au raw_text tronqué
+## What's Been Implemented (Feb 2026)
 
-## CV Actuel - 10 Expériences
+### Completed Features
+1. ✅ **Settings Page**
+   - Multi-provider API key management
+   - Visible "Effacer" button with confirmation modal
+   - Model selection with suggestions
+   - Whisper STT key configuration
 
-| # | Entreprise | Période | Réalisations |
-|---|------------|---------|--------------|
-| 1 | VOLT Superfoods | 2024-Présent | 3 |
-| 2 | M6 Publicité | 02-11/2024 | 3 |
-| 3 | BFORBANK | 2022-2024 | 3 |
-| 4 | BNP PARIBAS | 2021-2022 | 2 |
-| 5 | Groupe Crédit du Nord | 2020-2021 | 2 |
-| 6 | BNP PARIBAS ALMT IT | 2019-2020 | 2 |
-| 7 | MALAKOFF MEDERIC | 2017-2018 | 2 |
-| 8 | ALLIANZ INFORMATIQUE | 2016-2017 | 2 |
-| 9 | EULER HERMES | 2016 | 2 |
-| 10 | TATV/Touring assurance | 2015-2016 | 2 |
+2. ✅ **CV Section**
+   - PDF upload and parsing
+   - Skills displayed as colored tags (hard skills, soft skills, technologies)
+   - Experiences list with company/role/duration
+   - Re-parse functionality
 
-## Contexte CV pour l'Agent
-- **5769 caractères** de contexte structuré
-- Toutes les 10 entreprises présentes
-- Toutes les réalisations clés incluses
+3. ✅ **Interview Page**
+   - Side-by-side layout (Meeting View | Assistant IA)
+   - PiP (Picture-in-Picture) mode using Screen Capture API
+   - Real-time transcript streaming with TypeWriter effect
+   - AI suggestions with streaming animation
+   - Coaching tips for filler word detection
 
-## Critères de Validation ✅
-- [x] Expérience en dernière page (TATV) mobilisable
-- [x] Projets absents de la première page mentionnables
-- [x] Nombre d'expériences non limité artificiellement
-- [x] Réponses approfondies cohérentes et contextualisées
+4. ✅ **Real-Time Streaming**
+   - WebSocket connection for live audio
+   - faster-whisper transcription
+   - Token-by-token suggestion streaming
+   - Auto-scroll to latest content
 
-## Backlog
-### P1
-- Export session PDF
-- Raccourcis clavier
+### UI/UX Improvements
+- French language UI
+- Dark theme with cyan/purple accent colors
+- Responsive design (mobile/desktop)
+- Smooth animations (slideIn, fadeIn, pulse)
+- Professional chip/badge styling
 
-### P2
-- Multi-langue étendu
-- Upload description de poste
+## Pending/Future Tasks
+
+### P1 - High Priority
+- [ ] End-to-end testing of streaming with real API keys
+- [ ] Speaker diarization integration in UI
+- [ ] Latency optimization (<300ms target)
+
+### P2 - Medium Priority
+- [ ] Coaching layer with filler word counters
+- [ ] Post-interview analysis page
+- [ ] Session summary generation
+
+### P3 - Future Enhancements
+- [ ] Local STT with faster-whisper (no API required)
+- [ ] Intent detection with DistilBERT
+- [ ] Export transcript functionality
+- [ ] Performance metrics dashboard
+
+## Success Metrics
+- Button visibility: 100% of users can find "Effacer"
+- CV skills display: 100% match parsed data
+- Transcript latency: <300ms word appearance
+- Suggestion latency: first token <1s
+- Meeting View: PiP mode functional
+
+## Tech Stack
+- **Frontend**: React 18, Vite, Tailwind CSS, Zustand
+- **Backend**: FastAPI, WebSockets, Motor (MongoDB)
+- **AI/ML**: faster-whisper, pyannote.audio, sentence-transformers
+- **Vector DB**: FAISS (persisted to disk)
+- **LLM Providers**: OpenAI, Anthropic, DeepSeek, Gemini
