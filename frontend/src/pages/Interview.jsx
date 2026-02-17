@@ -343,6 +343,14 @@ export default function Interview() {
     streamRef.current = null;
     setStatus('idle');
     if (!sessionId) return;
+
+  const handleCopy = (text) => {
+    if (!text) return;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+  };
+
     setEnding(true);
     try {
       await updateSession(sessionId, { status: 'completed', duration_seconds: timer });
