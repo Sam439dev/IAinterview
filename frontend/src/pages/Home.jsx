@@ -138,7 +138,7 @@ export default function Home() {
       <footer className="relative z-10 border-t border-white/[0.04] py-6">
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-between">
           <span className="text-xs text-slate-600 font-mono">InterviewAI v2.0</span>
-          <span className="text-xs text-slate-600">OpenAI Whisper + GPT</span>
+          <span className="text-xs text-slate-600">Whisper + LLM multi‑provider</span>
         </div>
       </footer>
     </div>
