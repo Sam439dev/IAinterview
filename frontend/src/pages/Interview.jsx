@@ -793,6 +793,42 @@ export default function Interview() {
                     ))}
                     <div ref={transcriptEndRef} />
                   </div>
+                ) : status === 'idle' ? (
+                  /* Pre-Interview Checklist */
+                  <div className="space-y-3" data-testid="pre-interview-checklist">
+                    <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">Checklist</p>
+                    <div className="space-y-2">
+                      <div className={`flex items-center gap-2 p-2 rounded-lg ${hasKey ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-amber-500/10 border border-amber-500/20'}`}>
+                        <div className={`w-4 h-4 rounded-full flex items-center justify-center ${hasKey ? 'bg-emerald-500/30' : 'bg-amber-500/30'}`}>
+                          {hasKey ? <Check className="w-2.5 h-2.5 text-emerald-400" /> : <AlertCircle className="w-2.5 h-2.5 text-amber-400" />}
+                        </div>
+                        <span className={`text-xs ${hasKey ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          {hasKey ? 'Cle API configuree' : 'Cle API requise'}
+                        </span>
+                      </div>
+                      <div className={`flex items-center gap-2 p-2 rounded-lg ${cvActive ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-slate-500/10 border border-slate-500/20'}`}>
+                        <div className={`w-4 h-4 rounded-full flex items-center justify-center ${cvActive ? 'bg-emerald-500/30' : 'bg-slate-500/30'}`}>
+                          {cvActive ? <Check className="w-2.5 h-2.5 text-emerald-400" /> : <FileText className="w-2.5 h-2.5 text-slate-500" />}
+                        </div>
+                        <span className={`text-xs ${cvActive ? 'text-emerald-400' : 'text-slate-400'}`}>
+                          {cvActive ? 'CV charge' : 'CV optionnel'}
+                        </span>
+                      </div>
+                      <div className={`flex items-center gap-2 p-2 rounded-lg ${profileReady ? 'bg-emerald-500/10 border border-emerald-500/20' : 'bg-slate-500/10 border border-slate-500/20'}`}>
+                        <div className={`w-4 h-4 rounded-full flex items-center justify-center ${profileReady ? 'bg-emerald-500/30' : 'bg-slate-500/30'}`}>
+                          {profileReady ? <Check className="w-2.5 h-2.5 text-emerald-400" /> : <Zap className="w-2.5 h-2.5 text-slate-500" />}
+                        </div>
+                        <span className={`text-xs ${profileReady ? 'text-emerald-400' : 'text-slate-400'}`}>
+                          {profileReady ? 'Profil construit' : 'Profil optionnel'}
+                        </span>
+                      </div>
+                    </div>
+                    {!hasKey && (
+                      <Link to="/settings" className="btn btn-outline text-xs w-full mt-2">
+                        <Settings className="w-3.5 h-3.5" /> Configurer
+                      </Link>
+                    )}
+                  </div>
                 ) : (
                   <div className="text-center py-6 text-slate-500">
                     <Mic className="w-8 h-8 mx-auto mb-2 opacity-30" />
