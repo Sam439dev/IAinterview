@@ -1082,6 +1082,84 @@ async def upload_cv_from_url(
     doc.pop("file_data", None)
     return doc
 
+
+# Ingestion & Vector Profile
+@app.post("/api/ingestion/build-profile")
+async def build_profile(
+    data: ProfileBuildInput,
+    llm: LLMHeaders = Depends(get_llm_headers)
+):
+    if not data.job_description.strip():
+        raise HTTPException(400, "Job description requis")
+    if not data.company_name.strip():
+        raise HTTPException(400, "Nom d'entreprise requis")
+
+    cv_doc = await cv_col.find_one({"is_active": True})
+    if not cv_doc:
+        raise HTTPException(404, "CV actif introuvable")
+
+    role_context = get_role_template(data.target_role)
+    jd_analysis = await analyze_job_description(llm, data.job_description, role_context)
+
+    search_text = await duckduckgo_search(data.company_name)
+    company_summary = await summarize_company_research(llm, data.company_name, search_text)
+
+    documents = build_profile_documents(cv_doc, jd_analysis, company_summary, data.job_description)
+    if not documents:
+        raise HTTPException(400, "Aucun document à indexer")
+
+    meta = {
+        "company_name": data.company_name,
+        "job_description": data.job_description,
+        "target_role": data.target_role,
+        "jd_analysis": jd_analysis,
+        "company_summary": company_summary
+    }
+    profile_meta = save_profile_index(documents, meta)
+
+    profile_id = str(uuid.uuid4())
+    await profiles_col.insert_one({
+        "_id": profile_id,
+        "company_name": data.company_name,
+        "job_description": data.job_description,
+        "target_role": data.target_role,
+        "doc_count": profile_meta.get("doc_count", 0),
+        "created_at": now_utc()
+    })
+
+    return {
+        "profile_id": profile_id,
+        "doc_count": profile_meta.get("doc_count", 0),
+        "jd_analysis": jd_analysis,
+        "company_summary": company_summary
+    }
+
+
+@app.get("/api/ingestion/status")
+async def ingestion_status():
+    meta = load_profile_meta()
+    if not meta:
+        return {"available": False, "doc_count": 0}
+    return {
+        "available": True,
+        "doc_count": meta.get("doc_count", 0),
+        "created_at": meta.get("created_at")
+    }
+
+
+@app.post("/api/ingestion/search")
+async def ingestion_search(data: ProfileSearchInput):
+    matches = search_profile_context(data.query, data.k or 5)
+    return {"matches": matches}
+
+
+@app.post("/api/ingestion/clear-cache")
+async def ingestion_clear_cache():
+    removed = clear_profile_cache()
+    await profiles_col.delete_many({})
+    return {"cleared": True, "removed_files": removed}
+
+
 # Sessions
 @app.get("/api/sessions")
 async def list_sessions():
