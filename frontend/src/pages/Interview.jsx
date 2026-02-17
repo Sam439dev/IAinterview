@@ -12,7 +12,7 @@ export default function Interview() {
   const navigate = useNavigate();
 
   const [status, setStatus] = useState('idle');
-  const [suggestions, setSuggestions] = useState([]);
+  const suggestions = useInterviewStore(state => state.suggestions);
   const [sessionId, setSessionId] = useState(paramId || null);
   const [settings, setSettings] = useState(null);
   const [cvActive, setCvActive] = useState(false);
