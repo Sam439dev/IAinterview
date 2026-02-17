@@ -13,6 +13,10 @@ from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 import httpx
+import uuid
+from openai import AsyncOpenAI
+from emergentintegrations.llm.chat import LlmChat, UserMessage
+
 
 load_dotenv()
 
