@@ -746,13 +746,28 @@ export default function Interview() {
             <div className="flex-1 overflow-y-auto p-4 space-y-6">
               {/* Live Transcript */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Transcription</span>
-                  {isActive && (
-                    <span className="flex items-center gap-1 text-[0.65rem] text-emerald-400">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      Live
-                    </span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Transcription</span>
+                    {isActive && (
+                      <span className="flex items-center gap-1 text-[0.65rem] text-emerald-400">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        Live
+                      </span>
+                    )}
+                  </div>
+                  {/* Speaker legend */}
+                  {transcriptLines.length > 0 && (
+                    <div className="flex items-center gap-2 text-[0.6rem]">
+                      <span className="flex items-center gap-1 text-purple-300">
+                        <span className="w-2 h-2 rounded bg-purple-500/30"></span>
+                        Interviewer
+                      </span>
+                      <span className="flex items-center gap-1 text-cyan-300">
+                        <span className="w-2 h-2 rounded bg-cyan-500/30"></span>
+                        Vous
+                      </span>
+                    </div>
                   )}
                 </div>
                 
