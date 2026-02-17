@@ -783,7 +783,7 @@ async def upload_cv(
 
 @app.delete("/api/cv/{cv_id}")
 async def delete_cv(cv_id: str):
-    await cv_col.delete_one({"_id": ObjectId(cv_id)})
+    await cv_col.delete_one({"_id": cv_id})
     invalidate_cv_cache()
     return {"success": True}
 
