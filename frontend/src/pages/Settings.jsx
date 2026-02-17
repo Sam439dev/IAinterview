@@ -18,50 +18,72 @@ export default function Settings() {
 }
 
 function ApiKeySection() {
-  const [show, setShow] = useState(false);
-  const [key, setKey] = useState('');
-  const [model, setModel] = useState('gpt-4o-mini');
-  const [settings, setSettings] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [validating, setValidating] = useState(false);
-  const [validation, setValidation] = useState(null);
+  const [showKey, setShowKey] = useState(false);
+  const [showStt, setShowStt] = useState(false);
+  const [provider, setProvider] = useState('openai');
+  const [model, setModel] = useState('gpt-4o');
+  const [keys, setKeys] = useState({ openai: '', anthropic: '', gemini: '', deepseek: '' });
+  const [sttKey, setSttKey] = useState('');
+  const [saved, setSaved] = useState(false);
 
-  useEffect(() => { getSettings().then(s => { setSettings(s); setModel(s.preferred_model || 'gpt-4o-mini'); setLoading(false); }).catch(() => setLoading(false)); }, []);
-
-  const hasKey = settings?.has_key;
-
-  const handleValidate = async () => {
-    if (!key) return;
-    setValidating(true);
-    setValidation(null);
-    try {
-      const r = await validateKey(key);
-      setValidation(r);
-    } catch { setValidation({ valid: false, error: 'Erreur réseau' }); }
-    finally { setValidating(false); }
+  const providerLabels = {
+    openai: 'OpenAI',
+    anthropic: 'Anthropic',
+    gemini: 'Gemini',
+    deepseek: 'DeepSeek'
   };
 
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await saveSettings({ openai_api_key: key || undefined, preferred_model: model });
-      const u = await getSettings();
-      setSettings(u);
-      setKey('');
-      setValidation(null);
-    } catch (e) { console.error(e); }
-    finally { setSaving(false); }
+  const modelOptions = {
+    openai: [
+      { id: 'gpt-4o', label: 'GPT-4o (équilibré)' },
+      { id: 'o3-mini', label: 'o3-mini (raisonnement léger)' }
+    ],
+    anthropic: [
+      { id: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5' },
+      { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' }
+    ],
+    gemini: [
+      { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' }
+    ],
+    deepseek: [
+      { id: 'deepseek-chat', label: 'DeepSeek V3 (chat)' },
+      { id: 'deepseek-reasoner', label: 'DeepSeek R1 (reasoner)' }
+    ]
   };
 
-  const handleRemove = async () => {
-    if (!window.confirm('Supprimer votre clé API ?')) return;
-    setSaving(true);
-    try {
-      await saveSettings({ openai_api_key: '', preferred_model: model });
-      setSettings(await getSettings());
-    } catch (e) { console.error(e); }
-    finally { setSaving(false); }
+  useEffect(() => {
+    const stored = loadLlmSettings();
+    setProvider(stored.provider || 'openai');
+    setModel(stored.model || 'gpt-4o');
+    setKeys({ openai: '', anthropic: '', gemini: '', deepseek: '', ...(stored.keys || {}) });
+    setSttKey(stored.sttOpenAIKey || '');
+  }, []);
+
+  useEffect(() => {
+    setSaved(false);
+  }, [provider, model, keys, sttKey]);
+
+  useEffect(() => {
+    const options = modelOptions[provider] || [];
+    if (options.length && !options.some(option => option.id === model)) {
+      setModel(options[0].id);
+    }
+  }, [provider]);
+
+  const hasKey = !!keys[provider];
+
+  const handleSave = () => {
+    saveLlmSettings({ provider, model, keys, sttOpenAIKey: sttKey });
+    setSaved(true);
+  };
+
+  const handleClearProvider = () => {
+    setKeys(prev => ({ ...prev, [provider]: '' }));
+  };
+
+  const handleKeyChange = (value) => {
+    setKeys(prev => ({ ...prev, [provider]: value }));
   };
 
   return (
@@ -71,64 +93,104 @@ function ApiKeySection() {
           <Key className="w-4 h-4 text-accent" />
         </div>
         <div>
-          <h2 className="font-display font-semibold text-sm">Clé API OpenAI</h2>
-          <p className="text-xs text-slate-500">Votre clé est stockée localement</p>
+          <h2 className="font-display font-semibold text-sm">Clés LLM (BYOK)</h2>
+          <p className="text-xs text-slate-500">Stockées localement, jamais sur nos serveurs</p>
         </div>
       </div>
       <div className="p-5 space-y-4">
-        {/* Status */}
         <div className={`flex items-center gap-2.5 p-3 rounded-lg ${hasKey ? 'bg-emerald-500/[0.06] border border-emerald-500/15' : 'bg-amber-500/[0.06] border border-amber-500/15'}`} data-testid="key-status">
-          {hasKey
-            ? <><CheckCircle2 className="w-4 h-4 text-emerald-400" /><span className="text-sm text-emerald-400 font-medium">Clé API configurée</span><span className="text-xs text-slate-500 ml-auto font-mono">{settings?.openai_api_key}</span></>
-            : <><AlertCircle className="w-4 h-4 text-amber-400" /><span className="text-sm text-amber-400 font-medium">Clé API requise</span></>
-          }
-        </div>
-
-        {/* Input */}
-        <div>
-          <label className="block text-xs text-slate-500 mb-1.5 font-display">{hasKey ? 'Nouvelle clé (optionnel)' : 'Clé API OpenAI'}</label>
-          <div className="relative">
-            <input type={show ? 'text' : 'password'} value={key} onChange={e => { setKey(e.target.value); setValidation(null); }}
-              placeholder={hasKey ? 'Laisser vide pour conserver' : 'sk-proj-...'} className="input pr-20" data-testid="api-key-input" />
-            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-1">
-              <button className="btn-ghost p-1.5" onClick={() => setShow(!show)}>{show ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}</button>
-              {key && <button className="btn btn-outline text-[0.6rem] py-1 px-2" onClick={handleValidate} disabled={validating}>
-                {validating ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Tester'}
-              </button>}
-            </div>
-          </div>
-          {validation && (
-            <p className={`text-xs mt-1.5 flex items-center gap-1 ${validation.valid ? 'text-emerald-400' : 'text-red-400'}`}>
-              {validation.valid ? <><CheckCircle2 className="w-3 h-3" /> Clé valide</> : <><AlertCircle className="w-3 h-3" /> {validation.error}</>}
-            </p>
+          {hasKey ? (
+            <>
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              <span className="text-sm text-emerald-400 font-medium">Clé {providerLabels[provider]} configurée</span>
+              <span className="text-xs text-slate-500 ml-auto font-mono">{keys[provider]?.slice(0, 4)}...{keys[provider]?.slice(-4)}</span>
+            </>
+          ) : (
+            <>
+              <AlertCircle className="w-4 h-4 text-amber-400" />
+              <span className="text-sm text-amber-400 font-medium">Clé {providerLabels[provider]} requise</span>
+            </>
           )}
-          <p className="text-xs text-slate-600 mt-1.5">
-            <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-accent hover:underline inline-flex items-center gap-1">
-              Obtenir une clé <ExternalLink className="w-3 h-3" />
-            </a>
-          </p>
         </div>
 
-        {/* Model */}
         <div>
-          <label className="block text-xs text-slate-500 mb-1.5 font-display">Modèle GPT</label>
-          <select value={model} onChange={e => setModel(e.target.value)} className="input" data-testid="model-select">
-            <option value="gpt-4o-mini">GPT-4o Mini - Rapide et économique</option>
-            <option value="gpt-4o">GPT-4o - Équilibré</option>
-            <option value="gpt-4-turbo">GPT-4 Turbo - Puissant</option>
+          <label className="block text-xs text-slate-500 mb-1.5 font-display">Fournisseur</label>
+          <select value={provider} onChange={e => setProvider(e.target.value)} className="input" data-testid="provider-select">
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="gemini">Gemini</option>
+            <option value="deepseek">DeepSeek</option>
           </select>
         </div>
 
-        {/* Actions */}
-        <div className="flex gap-2 pt-1">
-          <button className="btn btn-primary text-xs" onClick={handleSave} disabled={saving} data-testid="save-btn">
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Sauvegarder
+        <div>
+          <label className="block text-xs text-slate-500 mb-1.5 font-display">Clé API {providerLabels[provider]}</label>
+          <div className="relative">
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={keys[provider] || ''}
+              onChange={e => handleKeyChange(e.target.value)}
+              placeholder="sk-..."
+              className="input pr-12"
+              data-testid="api-key-input"
+            />
+            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-1">
+              <button className="btn-ghost p-1.5" onClick={() => setShowKey(!showKey)}>
+                {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-slate-600 mt-1.5">
+            Vous pouvez saisir n'importe quel modèle supporté par votre fournisseur.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-xs text-slate-500 mb-1.5 font-display">Modèle LLM</label>
+          <input
+            list="model-options"
+            value={model}
+            onChange={e => setModel(e.target.value)}
+            className="input"
+            data-testid="model-select"
+          />
+          <datalist id="model-options">
+            {(modelOptions[provider] || []).map(option => (
+              <option key={option.id} value={option.id}>{option.label}</option>
+            ))}
+          </datalist>
+        </div>
+
+        <div>
+          <label className="block text-xs text-slate-500 mb-1.5 font-display">Clé OpenAI Whisper (transcription)</label>
+          <div className="relative">
+            <input
+              type={showStt ? 'text' : 'password'}
+              value={sttKey}
+              onChange={e => setSttKey(e.target.value)}
+              placeholder="sk-..."
+              className="input pr-12"
+              data-testid="stt-key-input"
+            />
+            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex gap-1">
+              <button className="btn-ghost p-1.5" onClick={() => setShowStt(!showStt)}>
+                {showStt ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-slate-600 mt-1.5">
+            Requis si votre fournisseur LLM n'est pas OpenAI (en attendant la transcription locale).
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2 pt-1">
+          <button className="btn btn-primary text-xs" onClick={handleSave} data-testid="save-btn">
+            <Check className="w-4 h-4" /> Sauvegarder localement
           </button>
-          {hasKey && (
-            <button className="btn btn-danger-outline text-xs" onClick={handleRemove} disabled={saving} data-testid="remove-key-btn">
-              <Trash2 className="w-3.5 h-3.5" /> Supprimer
-            </button>
-          )}
+          <button className="btn btn-danger-outline text-xs" onClick={handleClearProvider} data-testid="remove-key-btn">
+            <Trash2 className="w-3.5 h-3.5" /> Effacer la clé
+          </button>
+          {saved && <span className="text-xs text-emerald-400">Sauvegardé ✓</span>}
         </div>
       </div>
     </div>
