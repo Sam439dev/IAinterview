@@ -158,6 +158,9 @@
 ##         -comment: "PASSED ingestion + FAISS testing: 1) /api/ingestion/status correctly returns available=false and doc_count=0 when no index exists. 2) /api/ingestion/clear-cache returns cleared=true successfully. 3) /api/ingestion/search handles empty index correctly with empty matches array. 4) /api/ingestion/build-profile properly returns 422 when LLM headers missing. All ingestion endpoints working as expected."
 
 ##   - task: "LLM header auth + UUID-only IDs"
+##     - "Streaming pipeline (WebSocket + faster-whisper + LLM streaming)"
+##     - "Streaming UI (device selection + live transcript + suggestions)"
+
 ##     implemented: true
 ##     working: true
 ##     file: "backend/server.py"
