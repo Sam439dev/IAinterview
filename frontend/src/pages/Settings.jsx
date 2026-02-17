@@ -10,8 +10,14 @@ export default function Settings() {
     <div className="min-h-screen bg-void">
       <Navbar title="Paramètres" showBack backTo="/dashboard" />
       <main className="max-w-2xl mx-auto px-5 py-8 space-y-6">
-        <ApiKeySection />
-        <CVSection />
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <ApiKeySection />
+          <CVSection />
+        </div>
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <ProfileBuilderSection />
+          <CacheSection />
+        </div>
       </main>
     </div>
   );
