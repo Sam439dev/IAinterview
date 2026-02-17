@@ -1270,10 +1270,7 @@ async def websocket_stream(websocket: WebSocket):
                 session = StreamingSession(
                     session_id=session_id,
                     sample_rate=sample_rate,
-                    llm_provider=llm_provider,
-                if llm_provider not in SUPPORTED_LLM_PROVIDERS:
-                    llm_provider = "openai"
-
+                    llm_provider=llm_provider if llm_provider in SUPPORTED_LLM_PROVIDERS else "openai",
                     llm_model=llm_model,
                     llm_api_key=llm_api_key
                 )
