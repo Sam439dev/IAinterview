@@ -973,6 +973,7 @@ export default function Interview() {
             {status === 'idle' && !ending && (
               <>
                 <button 
+                  type="button"
                   className="btn btn-primary text-sm px-8 py-3 shadow-lg shadow-accent/20" 
                   onClick={startRecording} 
                   disabled={!hasKey} 
@@ -982,7 +983,7 @@ export default function Interview() {
                 </button>
                 {!hasKey && (
                   <Link to="/settings">
-                    <button className="btn btn-outline text-sm" data-testid="config-btn">
+                    <button type="button" className="btn btn-outline text-sm" data-testid="config-btn">
                       <AlertCircle className="w-4 h-4 text-amber-400" /> Configurer
                     </button>
                   </Link>
@@ -998,6 +999,7 @@ export default function Interview() {
                   ))}
                 </div>
                 <button 
+                  type="button"
                   className="btn btn-outline text-sm px-6 py-2.5 border-amber-500/30 text-amber-400 hover:bg-amber-500/10" 
                   onClick={pauseRecording} 
                   data-testid="pause-btn"
