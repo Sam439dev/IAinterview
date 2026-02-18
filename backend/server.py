@@ -806,8 +806,11 @@ async def transcribe_and_send(websocket: WebSocket, session: StreamingSession, a
 
     session.last_transcript = transcript
     speaker = session.last_speaker
+    
+    # Improved speaker detection
+    is_question = detect_request(transcript)
     if speaker == "unknown":
-        speaker = "interviewer" if detect_request(transcript) else "candidate"
+        speaker = "interviewer" if is_question else "candidate"
 
     await websocket.send_json({
         "type": "transcript",
@@ -816,7 +819,9 @@ async def transcribe_and_send(websocket: WebSocket, session: StreamingSession, a
         "speaker": speaker
     })
 
-    if detect_request(transcript) and transcript != session.last_request:
+    # Only trigger suggestions if confidence is above threshold
+    confidence = calculate_confidence(transcript)
+    if is_question and confidence >= CONFIDENCE_THRESHOLD and transcript != session.last_request:
         session.last_request = transcript
         context_docs = search_profile_context(transcript, k=5)
         context_text = "\n".join(doc["text"] for doc in context_docs if doc.get("text"))
