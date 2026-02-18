@@ -678,7 +678,7 @@ async def stream_llm_suggestions(
                 {"role": "user", "content": user_prompt}
             ],
             temperature=0.4,
-            max_tokens=600,
+            max_tokens=300,  # CRITICAL: Limit to 300 tokens to prevent crashes
             stream=True
         )
         async for chunk in stream:
@@ -692,7 +692,7 @@ async def stream_llm_suggestions(
             system_prompt,
             user_prompt,
             temperature=0.4,
-            max_tokens=600,
+            max_tokens=300,  # CRITICAL: Limit to 300 tokens
             timeout_s=30.0
         )
         await websocket.send_json({"type": "suggestion_delta", "id": suggestion_id, "text": content})
