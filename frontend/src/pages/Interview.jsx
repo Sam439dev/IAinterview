@@ -1043,6 +1043,7 @@ export default function Interview() {
                   <Play className="w-4 h-4" /> Reprendre
                 </button>
                 <button 
+                  type="button"
                   className="btn btn-danger-outline text-sm px-6 py-2.5" 
                   onClick={stopRecording} 
                   data-testid="stop-paused-btn"
