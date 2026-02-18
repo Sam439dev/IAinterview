@@ -248,7 +248,7 @@ async def llm_chat_fast(
     llm: LLMHeaders,
     system_prompt: str,
     user_prompt: str,
-    max_tokens: int = 900
+    max_tokens: int = 300  # CRITICAL: Reduced from 900
 ) -> str:
     return await llm_chat(
         llm,
