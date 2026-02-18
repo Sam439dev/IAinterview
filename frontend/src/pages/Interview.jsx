@@ -1007,6 +1007,7 @@ export default function Interview() {
                   <Pause className="w-4 h-4" /> Pause
                 </button>
                 <button 
+                  type="button"
                   className="btn btn-danger-outline text-sm px-6 py-2.5" 
                   onClick={stopRecording} 
                   data-testid="stop-btn"
@@ -1021,6 +1022,7 @@ export default function Interview() {
                 <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
                 <span className="text-sm text-slate-400">Analyse en cours...</span>
                 <button 
+                  type="button"
                   className="btn btn-danger-outline text-sm px-5 py-2" 
                   onClick={stopRecording} 
                   data-testid="stop-proc-btn"
@@ -1033,6 +1035,7 @@ export default function Interview() {
             {status === 'paused' && (
               <>
                 <button 
+                  type="button"
                   className="btn btn-success text-sm px-6 py-2.5" 
                   onClick={startRecording} 
                   data-testid="resume-btn"
