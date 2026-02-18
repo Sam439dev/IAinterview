@@ -213,7 +213,7 @@ async def llm_chat(
     system_prompt: str,
     user_prompt: str,
     temperature: float = 0.5,
-    max_tokens: int = 1500,
+    max_tokens: int = 300,  # CRITICAL: Reduced from 1500 to prevent crashes
     timeout_s: float = 30.0,
     top_p: float = 0.9
 ) -> str:
