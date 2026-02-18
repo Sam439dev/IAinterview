@@ -419,11 +419,94 @@ def decode_audio_chunk(chunk_b64: str) -> np.ndarray:
 
 
 def detect_request(text: str) -> bool:
+    """
+    Detect if the text is a genuine question/request requiring a response.
+    Filters out small talk, background noise, and non-questions.
+    """
     lowered = text.lower().strip()
+    
+    # Filter out very short segments (likely noise)
+    words = lowered.split()
+    if len(words) < 3:
+        return False
+    
+    # Filter out common small talk / fillers (don't trigger suggestions)
+    small_talk_patterns = [
+        "okay", "ok", "alright", "right", "got it", "i see", "mmm", "hmm",
+        "yes", "yeah", "no", "nope", "thank you", "thanks", "bonjour", "hello",
+        "d'accord", "oui", "non", "merci", "bien", "super", "parfait",
+        "let me", "wait", "one second", "excuse me", "sorry",
+        "un instant", "attendez", "pardon", "excusez"
+    ]
+    
+    # Check if the entire text is just small talk
+    for pattern in small_talk_patterns:
+        if lowered == pattern or lowered.rstrip("!.,?") == pattern:
+            return False
+    
+    # Direct questions (ends with ?)
     if lowered.endswith("?"):
         return True
-    triggers = ["tell me", "explain", "walk me through", "how would you", "can you", "why did you", "what is your"]
-    return any(trigger in lowered for trigger in triggers)
+    
+    # Question word triggers (French + English)
+    question_starters = [
+        # English
+        "what", "why", "how", "when", "where", "who", "which", "could you",
+        "can you", "would you", "do you", "tell me", "explain", "describe",
+        "walk me through", "give me", "share", "elaborate",
+        # French
+        "qu'est-ce", "pourquoi", "comment", "quand", "où", "qui", "quel",
+        "pouvez-vous", "pourriez-vous", "dites-moi", "expliquez", "décrivez",
+        "parlez-moi", "racontez", "présentez"
+    ]
+    
+    for starter in question_starters:
+        if lowered.startswith(starter) or f" {starter}" in lowered:
+            return True
+    
+    # Indirect requests / invitations to elaborate (English + French)
+    indirect_triggers = [
+        "i'd like to know", "i'm curious", "interested in", "wondering",
+        "please tell", "please explain", "could you elaborate",
+        "j'aimerais savoir", "je suis curieux", "intéressé par",
+        "parlez-moi de", "dites-moi comment"
+    ]
+    
+    for trigger in indirect_triggers:
+        if trigger in lowered:
+            return True
+    
+    return False
+
+
+def calculate_confidence(text: str) -> float:
+    """Calculate confidence score for a detected question (0.0 to 1.0)"""
+    lowered = text.lower().strip()
+    confidence = 0.0
+    
+    # Explicit question mark = high confidence
+    if lowered.endswith("?"):
+        confidence += 0.6
+    
+    # Question words
+    question_words = ["what", "why", "how", "when", "where", "who", "which",
+                      "qu'est-ce", "pourquoi", "comment", "quand", "où", "qui", "quel"]
+    for word in question_words:
+        if word in lowered:
+            confidence += 0.3
+            break
+    
+    # Length bonus (longer = more likely to be a real question)
+    words = len(lowered.split())
+    if words >= 5:
+        confidence += 0.1
+    if words >= 10:
+        confidence += 0.1
+    
+    return min(confidence, 1.0)
+
+
+CONFIDENCE_THRESHOLD = 0.5  # Only trigger suggestions if confidence >= 0.5
 
 
  
