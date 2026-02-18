@@ -153,6 +153,7 @@ function MeetingViewSection({ pipEnabled, onTogglePip, pipStream, pipError }) {
           </div>
         </div>
         <button
+          type="button"
           onClick={onTogglePip}
           className={`btn text-xs px-3 py-1.5 ${
             pipEnabled 
