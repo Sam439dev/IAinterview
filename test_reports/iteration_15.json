@@ -1,0 +1,101 @@
+{
+  "summary": "Iteration 15 - URGENT FIXES verified. All 10 features from review request tested and passed: Whisper model=tiny, beam_size=1, WHISPER_MIN_SECONDS=0.5, max_tokens=300, small talk filtering strict (min 4 words, confidence 0.6), all buttons have type='button'.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_urgent_fixes_v15.py",
+    "/app/test_reports/pytest/pytest_urgent_v15.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "WHISPER_MODEL_SIZE='tiny' correctly set (line 117)",
+    "beam_size=1, best_of=1, without_timestamps=True in model.transcribe call (lines 791-793)",
+    "WHISPER_MIN_SECONDS=0.5, TRANSCRIBE_INTERVAL=0.5 for ultra-fast response",
+    "CONFIDENCE_THRESHOLD=0.6 (strict filtering)",
+    "max_tokens=300 in llm_chat default and stream_llm_suggestions",
+    "detect_request() requires min 4 words + question mark OR question word",
+    "All interview buttons have type='button' preventing page reloads",
+    "e.preventDefault() in startRecording, pauseRecording, stopRecording handlers"
+  ],
+  "updated_files": [
+    "/app/frontend/src/pages/Interview.jsx - Added type='button' to copy and toggle buttons in StreamingSuggestionCard component (lines 99, 121)"
+  ],
+  "success_rate": {
+    "backend": "100% (40/40 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+  "seed_data_creation": "N/A",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All urgent speed fixes verified. Backend tests in test_urgent_fixes_v15.py cover: Whisper configuration (tiny model, beam_size=1, 0.5s intervals), max_tokens=300, small talk filtering (21 patterns tested), confidence threshold 0.6, and API endpoints. Frontend buttons all have type='button'.",
+  "verified_features": {
+    "backend_health_check": {
+      "status": "PASSED",
+      "endpoint": "GET /api/health",
+      "response": "{\"status\":\"ok\",\"version\":\"2.0\"}"
+    },
+    "whisper_model_tiny": {
+      "status": "PASSED",
+      "config": "WHISPER_MODEL_SIZE = 'tiny'"
+    },
+    "beam_size_1": {
+      "status": "PASSED",
+      "code_location": "server.py line 791",
+      "config": "beam_size=1, best_of=1, without_timestamps=True"
+    },
+    "whisper_min_seconds": {
+      "status": "PASSED",
+      "config": "WHISPER_MIN_SECONDS = 0.5"
+    },
+    "transcribe_interval": {
+      "status": "PASSED",
+      "config": "TRANSCRIBE_INTERVAL = 0.5"
+    },
+    "max_tokens_300": {
+      "status": "PASSED",
+      "locations": "llm_chat default, stream_llm_suggestions"
+    },
+    "small_talk_filtering": {
+      "status": "PASSED",
+      "patterns_tested": ["okay", "ok", "hmm", "uh", "um", "yes", "yeah", "no", "nope", "thanks", "thank you", "bonjour", "hello", "hi", "d'accord", "oui", "non", "merci", "good", "great", "sure"],
+      "min_words_required": 4
+    },
+    "confidence_threshold": {
+      "status": "PASSED",
+      "value": 0.6
+    },
+    "real_questions_detection": {
+      "status": "PASSED",
+      "examples_tested": 6,
+      "all_detected_with_confidence_above_threshold": true
+    },
+    "buttons_type_button": {
+      "status": "PASSED",
+      "buttons_verified": ["Activer PiP", "Démarrer l'entretien", "Configurer"],
+      "prevent_default_in_handlers": true
+    }
+  },
+  "backend_test_results": {
+    "test_file": "/app/backend/tests/test_urgent_fixes_v15.py",
+    "total_tests": 40,
+    "passed": 40,
+    "failed": 0,
+    "test_classes": [
+      "TestHealthCheck - 1 test",
+      "TestWhisperConfiguration - 3 tests",
+      "TestBeamSizeConfiguration - 1 test",
+      "TestMaxTokensConfiguration - 2 tests",
+      "TestSmallTalkFiltering - 21 tests (parametrized)",
+      "TestRealQuestionDetection - 6 tests (parametrized)",
+      "TestConfidenceThreshold - 2 tests",
+      "TestAPIEndpoints - 3 tests"
+    ]
+  }
+}
