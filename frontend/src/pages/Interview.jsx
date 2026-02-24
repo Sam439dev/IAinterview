@@ -552,7 +552,8 @@ export default function Interview() {
     processor.connect(audioContext.destination);
   }, [status, hasKey, providerKey, sessionId, selectedDeviceId, settings, getWsUrl, clearSession, addTranscriptLine, addSuggestionStart, addSuggestionDelta, updateFillerCounts]);
 
-  const startRecording = useCallback(async () => {
+  const startRecording = useCallback(async (e) => {
+    if (e) e.preventDefault();  // URGENT: Prevent page reload
     if (useStreaming) {
       await startStreaming();
       return;
