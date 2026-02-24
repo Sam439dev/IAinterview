@@ -115,6 +115,43 @@ Production-ready replica of LockedIn AI's Interview Copilot with real-time strea
 
 ## Changelog (Dec 2025)
 
+### 2025-12-24: Performance Optimization - Latency & Detection
+**Objectives:** Latency <3s, Request detection >90%, Parallel processing
+
+**Optimizations Applied:**
+
+1. **Audio Pipeline Speed:**
+   - Buffer window: 5s → 2s (`WHISPER_WINDOW_SECONDS`)
+   - Min audio: 0.5s → 0.3s (`WHISPER_MIN_SECONDS`)
+   - Transcription interval: 0.5s → 0.3s (`TRANSCRIBE_INTERVAL`)
+   - Diarization disabled by default for speed
+
+2. **Request Detection Improvements (93% accuracy):**
+   - Added reflexive verb support (`présentez-vous`, `décrivez-vous`)
+   - Comprehensive French/English imperatives
+   - Topic markers (`concernant votre`, `about your`)
+   - Experience patterns (`votre parcours`, `your background`)
+   - Reduced confidence threshold: 0.4 → 0.3
+
+3. **Parallel LLM Processing:**
+   - Max 3 concurrent generations (`MAX_CONCURRENT_SUGGESTIONS`)
+   - Context cache with 30s TTL
+   - Duplicate request filtering
+
+4. **LLM Optimization:**
+   - Reduced max_tokens: 300 → 200
+   - Lower temperature: 0.4 → 0.3
+   - Timeout reduced: 30s → 15s
+   - Truncated context for speed
+
+**Files Modified:**
+- `/app/backend/server.py` - StreamingSession, detect_request, stream_llm_suggestions, transcribe_and_send
+- `/app/frontend/src/pages/Interview.jsx` - WebSocket message handlers
+
+**Verification:** All tests passed (iteration_17.json)
+
+---
+
 ### 2025-12-24: Critical Bug Fixes - Session Stability
 **Issue:** Page reload after 2nd question + Session restart button not working
 
