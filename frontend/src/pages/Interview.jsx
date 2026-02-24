@@ -634,7 +634,8 @@ export default function Interview() {
     setStatus('paused');
   }, [useStreaming, stopStreaming]);
 
-  const stopRecording = useCallback(async () => {
+  const stopRecording = useCallback(async (e) => {
+    if (e) e.preventDefault();  // URGENT: Prevent page reload
     activeRef.current = false;
     if (useStreaming) {
       stopStreaming();
@@ -652,6 +653,9 @@ export default function Interview() {
       setEnding(false);
     }
   }, [sessionId, timer, navigate, useStreaming, stopStreaming]);
+
+  const pauseRecording = useCallback((e) => {
+    if (e) e.preventDefault();  // URGENT: Prevent page reload
 
   const handleCopy = (text) => {
     if (!text) return;
