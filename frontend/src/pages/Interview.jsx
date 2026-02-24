@@ -621,7 +621,8 @@ export default function Interview() {
     setTimeout(() => { if (rec.state === 'recording') rec.stop(); }, CHUNK_DURATION_MS);
   }, [detectedLang, addSuggestionStart, addSuggestionDelta]);
 
-  const pauseRecording = useCallback(() => {
+  const pauseRecording = useCallback((e) => {
+    if (e) e.preventDefault();  // URGENT: Prevent page reload
     if (useStreaming) {
       stopStreaming();
       setStatus('paused');
