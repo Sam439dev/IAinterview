@@ -232,26 +232,29 @@ class TestConfigImport:
     def test_supported_providers_from_config(self):
         """Test SUPPORTED_LLM_PROVIDERS config is used"""
         # Valid providers from config
-        valid = ["openai", "anthropic", "gemini", "deepseek"]
-        invalid = ["azure", "cohere", "unknown"]
+        valid_providers = ["openai", "anthropic", "gemini", "deepseek"]
+        invalid_providers = ["azure", "cohere", "unknown"]
         
-        for provider in valid:
+        # Test valid providers don't get "Unsupported" error
+        for provider in valid_providers:
             response = requests.post(
-                f"{BASE_URL}/api/process-text",
-                json={"session_id": "t", "text": "t"},
+                f"{BASE_URL}/api/cv/follow-up-question",
+                json={"session_id": "t", "candidate_response": "test"},
                 headers={"X-LLM-Provider": provider, "X-LLM-Model": "m", "X-LLM-Api-Key": "k"}
             )
             if response.status_code == 400:
-                assert "Unsupported" not in response.json().get("detail", "")
+                detail = str(response.json().get("detail", ""))
+                assert "Unsupported" not in detail, f"Provider {provider} should be supported"
         
-        for provider in invalid:
+        # Test invalid providers get "Unsupported" error
+        for provider in invalid_providers:
             response = requests.post(
-                f"{BASE_URL}/api/process-text",
-                json={"session_id": "t", "text": "t"},
+                f"{BASE_URL}/api/cv/follow-up-question",
+                json={"session_id": "t", "candidate_response": "test"},
                 headers={"X-LLM-Provider": provider, "X-LLM-Model": "m", "X-LLM-Api-Key": "k"}
             )
             assert response.status_code == 400
-            assert "Unsupported" in response.json().get("detail", "")
+            assert "Unsupported" in str(response.json().get("detail", ""))
         
         print("✓ Config SUPPORTED_LLM_PROVIDERS used correctly")
 
