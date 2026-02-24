@@ -202,40 +202,142 @@ def now_utc():
 
 MAX_SESSIONS = 10
 
+
+# ========== DIRECT LLM API CALLS (No Emergent AI dependency) ==========
+
+async def llm_chat_openai(
+    api_key: str,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.5,
+    max_tokens: int = 300,
+    timeout_s: float = 30.0,
+    base_url: str = None
+) -> str:
+    """Direct OpenAI/DeepSeek API call."""
+    client = AsyncOpenAI(api_key=api_key, base_url=base_url, timeout=timeout_s)
+    resp = await client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ],
+        temperature=temperature,
+        max_tokens=max_tokens,
+        stream=False
+    )
+    return resp.choices[0].message.content
+
+
+async def llm_chat_anthropic(
+    api_key: str,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.5,
+    max_tokens: int = 300,
+    timeout_s: float = 30.0
+) -> str:
+    """Direct Anthropic Claude API call."""
+    client = anthropic.AsyncAnthropic(api_key=api_key, timeout=timeout_s)
+    message = await client.messages.create(
+        model=model,
+        max_tokens=max_tokens,
+        system=system_prompt,
+        messages=[
+            {"role": "user", "content": user_prompt}
+        ],
+        temperature=temperature
+    )
+    return message.content[0].text
+
+
+async def llm_chat_gemini(
+    api_key: str,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    temperature: float = 0.5,
+    max_tokens: int = 300
+) -> str:
+    """Direct Google Gemini API call."""
+    genai.configure(api_key=api_key)
+    gemini_model = genai.GenerativeModel(
+        model_name=model,
+        system_instruction=system_prompt,
+        generation_config=genai.GenerationConfig(
+            temperature=temperature,
+            max_output_tokens=max_tokens
+        )
+    )
+    response = await asyncio.to_thread(
+        gemini_model.generate_content,
+        user_prompt
+    )
+    return response.text
+
+
 async def llm_chat(
     llm: LLMHeaders,
     system_prompt: str,
     user_prompt: str,
     temperature: float = 0.5,
-    max_tokens: int = 300,  # CRITICAL: Reduced from 1500 to prevent crashes
+    max_tokens: int = 300,
     timeout_s: float = 30.0,
     top_p: float = 0.9
 ) -> str:
-    if llm.provider == "deepseek":
-        client = AsyncOpenAI(api_key=llm.api_key, base_url=DEEPSEEK_BASE_URL, timeout=timeout_s)
-        resp = await client.chat.completions.create(
+    """
+    Unified LLM chat function supporting multiple providers.
+    Direct API calls - no external framework dependency.
+    """
+    provider = llm.provider.lower()
+    
+    if provider in {"openai", "deepseek"}:
+        base_url = DEEPSEEK_BASE_URL if provider == "deepseek" else None
+        return await llm_chat_openai(
+            api_key=llm.api_key,
             model=llm.model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
             temperature=temperature,
             max_tokens=max_tokens,
-            top_p=top_p,
-            stream=False
+            timeout_s=timeout_s,
+            base_url=base_url
         )
-        return resp.choices[0].message.content
-
-    chat = LlmChat(
-        api_key=llm.api_key,
-        session_id=str(uuid.uuid4()),
-        system_message=system_prompt
-    ).with_model(llm.provider, llm.model).with_params(
-        temperature=temperature,
-        max_tokens=max_tokens,
-        top_p=top_p
-    )
-    return await chat.send_message(UserMessage(text=user_prompt))
+    
+    elif provider == "anthropic":
+        return await llm_chat_anthropic(
+            api_key=llm.api_key,
+            model=llm.model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout_s=timeout_s
+        )
+    
+    elif provider == "gemini":
+        return await llm_chat_gemini(
+            api_key=llm.api_key,
+            model=llm.model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+    
+    else:
+        # Fallback to OpenAI-compatible API
+        return await llm_chat_openai(
+            api_key=llm.api_key,
+            model=llm.model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            timeout_s=timeout_s
+        )
 
 
 async def llm_chat_fast(
