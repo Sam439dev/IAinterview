@@ -41,35 +41,6 @@ function TypeWriter({ text, speed = 15 }) {
   );
 }
 
-// Live Transcript Line with streaming effect
-function LiveTranscriptLine({ line, isLatest }) {
-  return (
-    <div className={`rounded-lg border px-3 py-2 transition-all duration-300 ${
-      line.isQuestion 
-        ? 'border-amber-500/40 bg-amber-500/10 shadow-lg shadow-amber-500/5' 
-        : 'border-white/10 bg-white/5'
-    } ${isLatest ? 'animate-slideIn' : ''}`}>
-      <div className="flex items-center gap-2 text-[0.65rem] text-slate-400 mb-1">
-        <span className={`px-1.5 py-0.5 rounded text-[0.6rem] font-medium uppercase ${
-          line.speaker === 'interviewer' 
-            ? 'bg-purple-500/20 text-purple-300' 
-            : 'bg-cyan-500/20 text-cyan-300'
-        }`}>
-          {line.speaker === 'interviewer' ? 'Interviewer' : 'Vous'}
-        </span>
-        {line.isQuestion && (
-          <span className="text-amber-400 flex items-center gap-1">
-            <Zap className="w-3 h-3" /> Question
-          </span>
-        )}
-      </div>
-      <p className="text-sm text-slate-200 leading-relaxed">
-        {isLatest ? <TypeWriter text={line.text} speed={20} /> : line.text}
-      </p>
-    </div>
-  );
-}
-
 // Request + Suggestion Card Component
 function RequestSuggestionCard({ suggestion, onCopy, onToggle }) {
   const [copied, setCopied] = useState(false);
