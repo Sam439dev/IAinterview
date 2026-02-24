@@ -22,20 +22,34 @@ const fillerWords = {
 
 const createId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-export const useInterviewStore = create((set, get) => ({
+// Initial state for reset
+const initialState = {
   transcriptLines: [],
   suggestions: [],
   coachingTips: [],
   fillerCounts: {},
   totalFillers: 0,
+};
+
+export const useInterviewStore = create((set, get) => ({
+  ...initialState,
   
-  clearSession: () => set({ 
-    transcriptLines: [], 
-    suggestions: [], 
-    coachingTips: [], 
-    fillerCounts: {},
-    totalFillers: 0 
-  }),
+  // Full reset - returns to initial state
+  resetStore: () => {
+    console.log('[STORE] Full reset');
+    set(initialState);
+  },
+  
+  clearSession: () => {
+    console.log('[STORE] Clear session');
+    set({ 
+      transcriptLines: [], 
+      suggestions: [], 
+      coachingTips: [], 
+      fillerCounts: {},
+      totalFillers: 0 
+    });
+  },
   
   addTranscriptLine: (line) => set(state => ({
     transcriptLines: [...state.transcriptLines, { id: createId(), ...line }]
