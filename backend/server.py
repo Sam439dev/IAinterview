@@ -891,8 +891,8 @@ async def analyze_job_description(llm: LLMHeaders, job_description: str, role_co
             JD_ANALYSIS_PROMPT,
             user_prompt,
             temperature=0.2,
-            max_tokens=1200,
-            timeout_s=60.0
+            max_tokens=600,  # URGENT: Reduced from 1200
+            timeout_s=45.0
         )
         parsed = safe_json_loads(content)
         if parsed:
