@@ -56,8 +56,9 @@ from vector_store import (
 
 load_dotenv()
 
-MONGO_URL = os.environ.get("MONGO_URL")
-DB_NAME = os.environ.get("DB_NAME")
+# Validate required environment variables
+if not MONGO_URL:
+    raise RuntimeError("MONGO_URL is required")
 if not DB_NAME:
     raise RuntimeError("DB_NAME is required")
 
@@ -80,7 +81,7 @@ messages_col = db["conversation_messages"]
 profiles_col = db["profiles"]
 
 
-# ========== IN-MEMORY CACHE FOR CV (avoid DB roundtrip) ==========
+# ========== IN-MEMORY CACHE FOR CV ==========
 _cv_cache: Dict[str, Any] = {"data": None, "loaded_at": 0}
 
 async def get_cached_cv():
