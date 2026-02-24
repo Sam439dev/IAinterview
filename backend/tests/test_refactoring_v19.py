@@ -16,7 +16,7 @@ sys.path.insert(0, '/app/backend')
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://interview-copilot-16.preview.emergentagent.com"
+    BASE_URL = "https://jwt-interview.preview.emergentagent.com"
 
 
 class TestHealthAndBasicEndpoints:

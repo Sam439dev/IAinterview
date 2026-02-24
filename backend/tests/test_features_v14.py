@@ -13,7 +13,7 @@ import os
 import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://interview-copilot-16.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://jwt-interview.preview.emergentagent.com')
 
 # Import backend modules for unit testing
 from server import detect_request, calculate_confidence, CONFIDENCE_THRESHOLD, llm_chat
