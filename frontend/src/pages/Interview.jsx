@@ -118,9 +118,6 @@ function RequestSuggestionCard({ suggestion, onCopy, onToggle }) {
     </div>
   );
 }
-    </div>
-  );
-}
 
 // PiP (Picture-in-Picture) Meeting View Component
 function MeetingViewSection({ pipEnabled, onTogglePip, pipStream, pipError }) {
