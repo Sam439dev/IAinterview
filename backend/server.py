@@ -789,7 +789,10 @@ async def transcribe_and_send(websocket: WebSocket, session: StreamingSession, a
         model.transcribe,
         audio_window,
         language=None,
-        vad_filter=True
+        vad_filter=True,
+        beam_size=1,  # URGENT: Faster transcription
+        best_of=1,    # URGENT: No beam search for speed
+        without_timestamps=True  # URGENT: Skip timestamps for speed
     )
 
     transcript = " ".join(seg.text.strip() for seg in segments).strip()
