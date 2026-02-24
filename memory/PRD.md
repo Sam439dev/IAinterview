@@ -111,4 +111,29 @@ Production-ready replica of LockedIn AI's Interview Copilot with real-time strea
 ## Testing Status
 - Backend: 100% (17/17 tests passed)
 - Frontend: 100% (8/8 features verified)
-- Last test report: /app/test_reports/iteration_14.json
+- Last test report: /app/test_reports/iteration_16.json
+
+## Changelog (Dec 2025)
+
+### 2025-12-24: Critical Bug Fixes - Session Stability
+**Issue:** Page reload after 2nd question + Session restart button not working
+
+**Root Causes Identified:**
+1. Stale closures in WebSocket handlers capturing outdated state
+2. Race conditions during WebSocket cleanup
+3. `sessionId` changing during recording, causing component recreation
+
+**Fixes Applied:**
+1. Added `sessionIdRef` to avoid stale closures in async callbacks
+2. Added `cleanupInProgressRef` to prevent race conditions during cleanup
+3. Implemented comprehensive `handleEmergencyReset` function for state recovery
+4. All handlers now use `preventDefault()` AND `stopPropagation()`
+5. WebSocket handlers properly nullified before cleanup
+6. `resetStore()` function added to Zustand store
+
+**Files Modified:**
+- `/app/frontend/src/pages/Interview.jsx` - Major refactor of startStreaming, stopStreaming, cleanup
+- `/app/frontend/src/store/interviewStore.js` - Added resetStore() function
+
+**Verification:** All 8 test cases passed (iteration_16.json)
+
