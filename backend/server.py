@@ -1044,11 +1044,6 @@ async def transcribe_and_send(websocket: WebSocket, session: StreamingSession, a
             )
         )
 
-    # Diarization (if enabled and interval passed)
-    if ENABLE_DIARIZATION and time.time() - session.diarization_ts > DIARIZATION_INTERVAL:
-        session.diarization_ts = time.time()
-        asyncio.create_task(update_speaker_from_diarization(session, audio_window))
-
 
 # ========== INGESTION HELPERS ==========
 
