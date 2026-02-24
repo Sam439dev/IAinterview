@@ -12,6 +12,7 @@ const CHUNK_DURATION_MS = 3000;
 function TypeWriter({ text, speed = 15 }) {
   const [displayText, setDisplayText] = useState('');
   const [currentIndex, setCurrentIndex] = useState(0);
+  const textRef = useRef(text);
 
   useEffect(() => {
     if (currentIndex < text.length) {
@@ -24,10 +25,14 @@ function TypeWriter({ text, speed = 15 }) {
   }, [currentIndex, text, speed]);
 
   useEffect(() => {
-    // Reset when text changes completely (new suggestion)
-    if (!text.startsWith(displayText.slice(0, -1))) {
+    // Reset only when text reference actually changes (new suggestion)
+    if (text !== textRef.current && !text.startsWith(textRef.current)) {
       setDisplayText('');
       setCurrentIndex(0);
+      textRef.current = text;
+    } else if (text.length > textRef.current.length) {
+      // Text is growing (streaming) - update ref but don't reset
+      textRef.current = text;
     }
   }, [text]);
 
