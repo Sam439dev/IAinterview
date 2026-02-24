@@ -22,6 +22,11 @@ const fillerWords = {
 
 const createId = () => `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
+// Memory limits to prevent crashes
+const MAX_TRANSCRIPT_LINES = 200;
+const MAX_SUGGESTIONS = 50;
+const MAX_SUGGESTION_TEXT_LENGTH = 2000;
+
 // Initial state for reset
 const initialState = {
   transcriptLines: [],
@@ -51,18 +56,33 @@ export const useInterviewStore = create((set, get) => ({
     });
   },
   
-  addTranscriptLine: (line) => set(state => ({
-    transcriptLines: [...state.transcriptLines, { id: createId(), ...line }]
-  })),
+  addTranscriptLine: (line) => set(state => {
+    // Limit transcript lines to prevent memory overflow
+    const newLines = [...state.transcriptLines, { id: createId(), ...line }];
+    if (newLines.length > MAX_TRANSCRIPT_LINES) {
+      // Remove oldest entries
+      return { transcriptLines: newLines.slice(-MAX_TRANSCRIPT_LINES) };
+    }
+    return { transcriptLines: newLines };
+  }),
   
-  addSuggestionStart: (id, request = '') => set(state => ({
-    suggestions: [...state.suggestions, { id, request, preview: '', fullText: '', expanded: false }]
-  })),
+  addSuggestionStart: (id, request = '') => set(state => {
+    const newSuggestions = [...state.suggestions, { id, request, preview: '', fullText: '', expanded: false }];
+    // Limit suggestions to prevent memory overflow
+    if (newSuggestions.length > MAX_SUGGESTIONS) {
+      return { suggestions: newSuggestions.slice(-MAX_SUGGESTIONS) };
+    }
+    return { suggestions: newSuggestions };
+  }),
   
   addSuggestionDelta: (id, delta) => set(state => ({
     suggestions: state.suggestions.map(s => {
       if (s.id !== id) return s;
-      const fullText = s.fullText + delta;
+      // Limit text length to prevent memory issues
+      let fullText = s.fullText + delta;
+      if (fullText.length > MAX_SUGGESTION_TEXT_LENGTH) {
+        fullText = fullText.slice(0, MAX_SUGGESTION_TEXT_LENGTH);
+      }
       const preview = fullText.length > 220 ? `${fullText.slice(0, 220)}...` : fullText;
       return { ...s, fullText, preview };
     })
