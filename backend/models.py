@@ -26,6 +26,8 @@ class SettingsInput(BaseModel):
 class SessionCreate(BaseModel):
     """Session creation request."""
     title: Optional[str] = None
+    target_role: Optional[str] = None
+    job_description: Optional[str] = None
 
 
 class SessionUpdate(BaseModel):
