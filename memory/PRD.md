@@ -129,6 +129,32 @@ Production-ready replica of LockedIn AI's Interview Copilot with real-time strea
 
 ## Changelog (Dec 2025)
 
+### 2025-12-24: Progressive Migration - server.py & google-genai
+**Objective:** Integrate refactored modules into server.py + Migrate Gemini SDK
+
+**Changes Made:**
+
+1. **server.py Updated:**
+   - Imports from `config`, `models`, `services`, `utils` instead of local definitions
+   - Removed ~400 lines of duplicate code
+   - Now uses: `llm_chat`, `detect_request`, `sort_experiences_chronologically`, etc. from modules
+
+2. **google-genai Migration:**
+   - Replaced `google.generativeai` with `google-genai` SDK
+   - Updated `llm_chat_gemini()` to use async `client.aio.models.generate_content()`
+   - No more deprecation warnings
+
+3. **Bug Fixed:**
+   - `SessionCreate` model was missing `target_role` and `job_description` fields
+   - Fixed by testing agent
+
+**Verification:** 20/20 tests passed (iteration_20.json)
+- All imports working correctly
+- google-genai SDK verified
+- Frontend pages load without errors
+
+---
+
 ### 2025-12-24: Backend Refactoring - Modular Architecture
 **Objective:** Improve code maintainability with zero regression
 
