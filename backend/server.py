@@ -772,12 +772,7 @@ def build_cv_context_rich(cv_data):
     return "\n".join(parts)
 
 # ========== STREAMING PIPELINE ==========
-
-def estimate_speaker(text: str, is_request: bool) -> str:
-    """Simple speaker estimation without ML-based diarization."""
-    if is_request:
-        return "interviewer"
-    return "candidate"
+# Note: estimate_speaker is now imported from services.detection_service
 
 
 async def stream_llm_suggestions(
