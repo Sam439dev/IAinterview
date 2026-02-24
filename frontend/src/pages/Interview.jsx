@@ -349,15 +349,16 @@ export default function Interview() {
         const list = await navigator.mediaDevices.enumerateDevices();
         const audioInputs = list.filter(d => d.kind === 'audioinput');
         setDevices(audioInputs);
-        if (!selectedDeviceId && audioInputs.length) {
-          setSelectedDeviceId(audioInputs[0].deviceId);
+        // Only set default device on initial load (when no device selected)
+        if (audioInputs.length > 0) {
+          setSelectedDeviceId(prev => prev || audioInputs[0].deviceId);
         }
       } catch (e) {
         console.warn('Unable to enumerate devices', e);
       }
     };
     loadDevices();
-  }, [selectedDeviceId]);
+  }, []); // Empty dependency - run once on mount
 
   useEffect(() => {
     if (['recording', 'processing'].includes(status)) {
