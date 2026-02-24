@@ -482,6 +482,11 @@ def detect_request(text: str) -> bool:
     words = lowered.split()
     
     # Very short = likely noise (but allow questions)
+    # Very short = likely noise (but allow questions and reflexive verbs)
+    reflexive_commands = {"présentez-vous", "presentez-vous", "décrivez-vous", "expliquez-vous"}
+    if lowered.rstrip("!.,?") in reflexive_commands:
+        return True
+    
     if len(words) < 2 and "?" not in text:
         return False
     
