@@ -361,19 +361,18 @@ class TestModelsModule:
 class TestServerStillFunctional:
     """Integration tests to ensure server.py still works after refactoring"""
     
-    def test_openapi_schema(self):
-        """OpenAPI schema should be accessible (internal endpoint)"""
-        # Note: External URL may not expose openapi.json, test with /docs instead
-        response = requests.get(f"{BASE_URL}/docs")
-        assert response.status_code == 200
-        assert "swagger" in response.text.lower() or "redoc" in response.text.lower() or "fastapi" in response.text.lower()
-        print("✓ API documentation accessible")
-    
-    def test_docs_endpoint(self):
-        """FastAPI docs should be accessible"""
-        response = requests.get(f"{BASE_URL}/docs")
-        assert response.status_code == 200
-        print("✓ API docs accessible")
+    def test_api_responds_correctly(self):
+        """Verify backend API responds correctly via /api routes"""
+        # Test multiple API endpoints to confirm server.py is functional
+        endpoints = [
+            "/api/health",
+            "/api/sessions",
+            "/api/cv/active"
+        ]
+        for endpoint in endpoints:
+            response = requests.get(f"{BASE_URL}{endpoint}")
+            assert response.status_code == 200, f"Endpoint {endpoint} failed"
+        print(f"✓ All {len(endpoints)} API endpoints respond correctly")
     
     def test_create_and_delete_session(self):
         """Session CRUD should still work"""
