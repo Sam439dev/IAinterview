@@ -473,19 +473,34 @@ export default function Interview() {
   }, []);
 
   const startStreaming = useCallback(async () => {
-    if (status === 'recording') return;
+    // Guard against multiple starts
+    if (status === 'recording' || cleanupInProgressRef.current) {
+      console.log('[START] Already recording or cleanup in progress');
+      return;
+    }
+    
     if (!hasKey || !providerKey) {
       alert('Veuillez configurer votre clé API avant de démarrer le streaming.');
       return;
     }
+    
+    console.log('[START] Starting new streaming session');
     setStreamError('');
     clearSession();
 
-    let sid = sessionId;
+    // Use ref for session ID to avoid stale closures
+    let sid = sessionIdRef.current;
     if (!sid) {
-      const s = await createSession({ title: `Session ${new Date().toLocaleString()}` });
-      sid = s.id;
-      setSessionId(sid);
+      try {
+        const s = await createSession({ title: `Session ${new Date().toLocaleString()}` });
+        sid = s.id;
+        setSessionId(sid);
+        sessionIdRef.current = sid;
+      } catch (err) {
+        console.error('[START] Failed to create session:', err);
+        setStreamError('Impossible de créer la session');
+        return;
+      }
     }
 
     activeRef.current = true;
@@ -498,8 +513,16 @@ export default function Interview() {
       }
     };
 
-    const stream = await navigator.mediaDevices.getUserMedia(constraints);
-    streamRef.current = stream;
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+    } catch (err) {
+      console.error('[START] Mic access error:', err);
+      setStreamError("Impossible d'accéder au micro. Vérifiez les permissions.");
+      activeRef.current = false;
+      return;
+    }
 
     const audioContext = new AudioContext();
     audioContextRef.current = audioContext;
@@ -508,23 +531,33 @@ export default function Interview() {
     const processor = audioContext.createScriptProcessor(4096, 1, 1);
     processorRef.current = processor;
 
-    const ws = new WebSocket(getWsUrl());
+    const wsUrl = getWsUrl();
+    console.log('[WS] Connecting to:', wsUrl);
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
+    // Store settings at connection time to avoid stale closures
+    const currentSettings = settings;
+    const currentProviderKey = providerKey;
+
     ws.onopen = () => {
+      console.log('[WS] Connected');
       setWsStatus('connected');
       ws.send(JSON.stringify({
         type: 'start',
         session_id: sid,
-        llm_provider: settings?.provider || 'openai',
-        llm_model: settings?.model || 'gpt-4o',
-        llm_api_key: providerKey,
+        llm_provider: currentSettings?.provider || 'openai',
+        llm_model: currentSettings?.model || 'gpt-4o',
+        llm_api_key: currentProviderKey,
         sample_rate: 16000
       }));
       setStatus('recording');
     };
 
     ws.onmessage = (event) => {
+      // Check if we should still process messages
+      if (!activeRef.current) return;
+      
       try {
         const msg = JSON.parse(event.data);
         if (msg.type === 'transcript') {
@@ -559,32 +592,49 @@ export default function Interview() {
           addSuggestionDelta(msg.id, msg.text || '');
         }
       } catch (e) {
-        console.warn('WS message error', e);
+        console.warn('[WS] Message parse error', e);
       }
     };
 
-    ws.onerror = () => {
+    ws.onerror = (err) => {
+      console.error('[WS] Error:', err);
       setStreamError('Connexion WebSocket échouée.');
       setWsStatus('error');
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      console.log('[WS] Closed:', event.code, event.reason);
       setWsStatus('disconnected');
+      // Only reset status if we're still meant to be recording
+      // This prevents unexpected state changes
+      if (activeRef.current) {
+        console.log('[WS] Unexpected close while active');
+        activeRef.current = false;
+        setStatus('idle');
+      }
     };
 
     processor.onaudioprocess = (event) => {
-      if (!activeRef.current || ws.readyState !== 1) return;
+      if (!activeRef.current) return;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      
       const input = event.inputBuffer.getChannelData(0);
       const downsampled = downsampleBuffer(input, audioContext.sampleRate, 16000);
       if (!downsampled.length) return;
       const int16 = floatTo16BitPCM(downsampled);
       const base64 = arrayBufferToBase64(int16.buffer);
-      ws.send(JSON.stringify({ type: 'audio_chunk', audio: base64, sample_rate: 16000 }));
+      
+      try {
+        ws.send(JSON.stringify({ type: 'audio_chunk', audio: base64, sample_rate: 16000 }));
+      } catch (e) {
+        console.warn('[AUDIO] Send error:', e);
+      }
     };
 
     sourceNode.connect(processor);
     processor.connect(audioContext.destination);
-  }, [status, hasKey, providerKey, sessionId, selectedDeviceId, settings, getWsUrl, clearSession, addTranscriptLine, addSuggestionStart, addSuggestionDelta, updateFillerCounts]);
+    console.log('[START] Streaming started successfully');
+  }, [status, hasKey, providerKey, selectedDeviceId, settings, getWsUrl, clearSession, addTranscriptLine, addSuggestionStart, addSuggestionDelta, updateFillerCounts]);
 
   const startRecording = useCallback(async (e) => {
     if (e) e.preventDefault();  // URGENT: Prevent page reload
