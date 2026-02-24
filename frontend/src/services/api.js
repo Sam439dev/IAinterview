@@ -4,7 +4,8 @@ import { buildLlmHeaders } from './llmSettings';
 
 const withLlmHeaders = () => ({ headers: buildLlmHeaders() });
 
-const API = import.meta.env.REACT_APP_BACKEND_URL || process.env.REACT_APP_BACKEND_URL;
+// Use Vite's import.meta.env for build-time injection
+const API = import.meta.env.REACT_APP_BACKEND_URL;
 const ax = axios.create({ baseURL: API, headers: { 'Content-Type': 'application/json' } });
 
 
