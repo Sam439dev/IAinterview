@@ -79,6 +79,12 @@ cv_col = db["cv_documents"]
 sessions_col = db["interview_sessions"]
 messages_col = db["conversation_messages"]
 profiles_col = db["profiles"]
+users_col = db["users"]  # Users collection for authentication
+
+# ========== AUTHENTICATION ROUTES ==========
+from routes.auth_routes import router as auth_router, set_users_collection
+set_users_collection(users_col)
+app.include_router(auth_router)
 
 
 # ========== IN-MEMORY CACHE FOR CV ==========
