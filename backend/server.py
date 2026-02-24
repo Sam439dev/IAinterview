@@ -114,7 +114,7 @@ def get_role_template(target_role: Optional[str]) -> str:
 
 
 
-WHISPER_MODEL_SIZE = os.environ.get("WHISPER_MODEL_SIZE", "small")
+WHISPER_MODEL_SIZE = os.environ.get("WHISPER_MODEL_SIZE", "tiny")  # URGENT: tiny for speed
 WHISPER_COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE_TYPE", "int8")
 WHISPER_WINDOW_SECONDS = int(os.environ.get("WHISPER_WINDOW_SECONDS", "18"))
 WHISPER_MIN_SECONDS = float(os.environ.get("WHISPER_MIN_SECONDS", "2"))
