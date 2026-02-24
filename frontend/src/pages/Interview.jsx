@@ -655,9 +655,6 @@ export default function Interview() {
     }
   }, [sessionId, timer, navigate, useStreaming, stopStreaming]);
 
-  const pauseRecording = useCallback((e) => {
-    if (e) e.preventDefault();  // URGENT: Prevent page reload
-
   const handleCopy = (text) => {
     if (!text) return;
     if (navigator.clipboard?.writeText) {
