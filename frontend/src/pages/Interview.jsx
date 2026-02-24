@@ -521,7 +521,9 @@ export default function Interview() {
           }
         }
         if (msg.type === 'suggestion_start') {
-          addSuggestionStart(msg.id);
+          // Include the detected request with the suggestion
+          addSuggestionStart(msg.id, msg.request || '');
+          setQuestionCount(prev => prev + 1);
         }
         if (msg.type === 'suggestion_delta') {
           addSuggestionDelta(msg.id, msg.text || '');
