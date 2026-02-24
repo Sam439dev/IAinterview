@@ -129,6 +129,37 @@ Production-ready replica of LockedIn AI's Interview Copilot with real-time strea
 
 ## Changelog (Dec 2025)
 
+### 2025-12-24: Backend Refactoring - Modular Architecture
+**Objective:** Improve code maintainability with zero regression
+
+**New Modular Structure:**
+```
+/app/backend/
+├── server.py          # Main FastAPI app (unchanged for zero regression)
+├── config.py          # Centralized configuration
+├── models.py          # Pydantic models
+├── services/
+│   ├── llm_service.py         # LLM API calls
+│   ├── chronology_service.py  # Date parsing & sorting
+│   └── detection_service.py   # Request detection
+└── utils/
+    └── helpers.py     # Serialization & utilities
+```
+
+**Modules Created:**
+| Module | Purpose | Tests |
+|--------|---------|-------|
+| `config.py` | Centralized constants | 4/4 ✅ |
+| `models.py` | Pydantic validation | 2/2 ✅ |
+| `llm_service.py` | Multi-provider LLM | 3/3 ✅ |
+| `chronology_service.py` | Date parsing | 5/5 ✅ |
+| `detection_service.py` | Request detection | 6/6 ✅ |
+| `helpers.py` | Utilities | 4/4 ✅ |
+
+**Verification:** 32/32 pytest tests passed, zero regression (iteration_19.json)
+
+---
+
 ### 2025-12-24: Critical Bug Fix - Automatic Page Reload
 **Issue:** Page reloads automatically after 3-5 exchanges, destroying session
 
