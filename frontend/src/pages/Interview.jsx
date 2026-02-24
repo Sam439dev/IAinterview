@@ -360,15 +360,52 @@ export default function Interview() {
     return () => clearInterval(timerRef.current);
   }, [status]);
 
+  // Comprehensive cleanup on unmount
   useEffect(() => {
     return () => {
+      console.log('[UNMOUNT] Cleaning up Interview component');
       activeRef.current = false;
-      streamRef.current?.getTracks().forEach(t => t.stop());
+      cleanupInProgressRef.current = false;
+      
+      // Close WebSocket
+      try {
+        if (wsRef.current) {
+          wsRef.current.onclose = null;
+          wsRef.current.onerror = null;
+          wsRef.current.onmessage = null;
+          wsRef.current.close();
+          wsRef.current = null;
+        }
+      } catch (e) { console.warn('[UNMOUNT] WS cleanup error:', e); }
+      
+      // Close AudioContext
+      try {
+        processorRef.current?.disconnect();
+        sourceNodeRef.current?.disconnect();
+        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close();
+        }
+      } catch (e) { console.warn('[UNMOUNT] Audio cleanup error:', e); }
+      processorRef.current = null;
+      sourceNodeRef.current = null;
+      audioContextRef.current = null;
+      
+      // Stop media streams
+      try {
+        streamRef.current?.getTracks().forEach(t => t.stop());
+      } catch (e) { console.warn('[UNMOUNT] Stream cleanup error:', e); }
+      streamRef.current = null;
+    };
+  }, []);
+  
+  // PiP cleanup
+  useEffect(() => {
+    return () => {
       if (pipStream) {
         pipStream.getTracks().forEach(t => t.stop());
       }
     };
-  }, []);
+  }, [pipStream]);
 
   // PiP handlers
   const handleTogglePip = useCallback(async () => {
