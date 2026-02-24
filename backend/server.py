@@ -796,13 +796,14 @@ async def stream_llm_suggestions(
         return
 
     suggestion_id = str(uuid.uuid4())
-    await websocket.send_json({"type": "suggestion_start", "id": suggestion_id})
+    # Send the detected request along with suggestion_start
+    await websocket.send_json({"type": "suggestion_start", "id": suggestion_id, "request": question})
 
     system_prompt = (
-        "Tu es un copilote d'entretien. Fournis 2-3 suggestions de réponse professionnelles, "
-        "structurées et concises, adaptées au contexte fourni."
+        "Tu es un copilote d'entretien. Fournis 2-3 suggestions de reponse professionnelles, "
+        "structurees et concises, adaptees au contexte fourni. Reponds en francais ou anglais selon la question."
     )
-    user_prompt = f"Question: {question}\n\nContexte:\n{context}"
+    user_prompt = f"Demande: {question}\n\nContexte:\n{context}"
 
     if llm_provider in {"openai", "deepseek"}:
         base_url = DEEPSEEK_BASE_URL if llm_provider == "deepseek" else None
