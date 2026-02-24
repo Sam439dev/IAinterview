@@ -638,20 +638,34 @@ export default function Interview() {
 
   const startRecording = useCallback(async (e) => {
     if (e) e.preventDefault();  // URGENT: Prevent page reload
+    if (e) e.stopPropagation();  // Extra safety
+    
+    console.log('[RECORD] startRecording called, useStreaming:', useStreaming);
+    
     if (useStreaming) {
       await startStreaming();
       return;
     }
-    if (!hasKey) return;
+    if (!hasKey) {
+      console.log('[RECORD] No API key configured');
+      return;
+    }
+    
+    // Use ref for session to avoid stale closure
     activeRef.current = true;
-    let sid = sessionId;
+    let sid = sessionIdRef.current;
     if (!sid) {
       try {
         const s = await createSession({ title: `Session ${new Date().toLocaleDateString('fr-FR')}` });
         sid = s.id;
         setSessionId(sid);
+        sessionIdRef.current = sid;
         navigate(`/interview/${sid}`, { replace: true });
-      } catch { return; }
+      } catch (err) {
+        console.error('[RECORD] Session create error:', err);
+        activeRef.current = false;
+        return;
+      }
     }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -660,11 +674,12 @@ export default function Interview() {
       streamRef.current = stream;
       setStatus('recording');
       recordLoop(stream, sid);
-    } catch (e) {
-      console.error('Mic error:', e);
+    } catch (err) {
+      console.error('[RECORD] Mic error:', err);
+      activeRef.current = false;
       alert("Impossible d'accéder au micro. Vérifiez les permissions.");
     }
-  }, [hasKey, sessionId, useStreaming, startStreaming]);
+  }, [hasKey, useStreaming, startStreaming, navigate]);
 
   const recordLoop = useCallback((stream, sid) => {
     if (!stream?.active || !activeRef.current) return;
