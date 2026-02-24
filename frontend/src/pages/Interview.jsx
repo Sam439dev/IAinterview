@@ -268,6 +268,11 @@ export default function Interview() {
   const audioContextRef = useRef(null);
   const processorRef = useRef(null);
   const sourceNodeRef = useRef(null);
+  
+  // Track if cleanup is in progress to prevent race conditions
+  const cleanupInProgressRef = useRef(false);
+  // Store session ID in ref to avoid stale closures
+  const sessionIdRef = useRef(sessionId);
 
   // Pre-interview checklist state
   const [profileReady, setProfileReady] = useState(false);
