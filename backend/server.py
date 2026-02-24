@@ -970,21 +970,32 @@ async def stream_llm_suggestions(
 
 
 async def transcribe_and_send(websocket: WebSocket, session: StreamingSession, audio_window: np.ndarray):
+    """
+    OPTIMIZED: Fast transcription with cached context and parallel suggestion generation.
+    Target: <500ms for transcription, <2s for first LLM token
+    """
+    transcribe_start = time.time()
     model = get_whisper_model()
+    
+    # Run transcription in thread pool
     segments, info = await asyncio.to_thread(
         model.transcribe,
         audio_window,
         language=None,
         vad_filter=True,
-        beam_size=1,  # URGENT: Faster transcription
-        best_of=1,    # URGENT: No beam search for speed
-        without_timestamps=True  # URGENT: Skip timestamps for speed
+        beam_size=1,
+        best_of=1,
+        without_timestamps=True,
+        condition_on_previous_text=False  # Speed optimization
     )
 
     transcript = " ".join(seg.text.strip() for seg in segments).strip()
+    transcribe_time = time.time() - transcribe_start
+    
     if not transcript:
         return
 
+    # Calculate delta (new content only)
     if transcript.startswith(session.last_transcript):
         delta = transcript[len(session.last_transcript):].strip()
     else:
@@ -996,37 +1007,58 @@ async def transcribe_and_send(websocket: WebSocket, session: StreamingSession, a
     session.last_transcript = transcript
     speaker = session.last_speaker
     
-    # Improved speaker detection
-    is_question = detect_request(transcript)
+    # Detect if this is a request
+    is_request = detect_request(transcript)
+    confidence = calculate_confidence(transcript) if is_request else 0.0
+    
+    # Simple speaker heuristic
     if speaker == "unknown":
-        speaker = "interviewer" if is_question else "candidate"
+        speaker = "interviewer" if is_request else "candidate"
 
+    # Send transcript immediately
     await websocket.send_json({
         "type": "transcript",
         "text": transcript,
         "delta": delta,
-        "speaker": speaker
+        "speaker": speaker,
+        "is_request": is_request,
+        "confidence": round(confidence, 2),
+        "transcribe_ms": int(transcribe_time * 1000)
     })
 
-    # Only trigger suggestions if confidence is above threshold
-    confidence = calculate_confidence(transcript)
-    if is_question and confidence >= CONFIDENCE_THRESHOLD and transcript != session.last_request:
-        session.last_request = transcript
-        context_docs = search_profile_context(transcript, k=5)
-        context_text = "\n".join(doc["text"] for doc in context_docs if doc.get("text"))
-        if context_text:
-            context_text = "Contexte CV/JD:\n" + context_text
+    # Trigger LLM suggestion if request detected
+    if is_request and confidence >= CONFIDENCE_THRESHOLD:
+        # Check for duplicates
+        if session.is_duplicate_request(transcript):
+            print(f"[DETECT] Skipping duplicate request: {transcript[:50]}...")
+            return
+        
+        # Add to recent requests
+        session.add_request(transcript)
+        
+        # Get context (use cache if available)
+        context_text = session.get_cached_context()
+        if not context_text:
+            # Fetch context in background-friendly way
+            context_docs = search_profile_context(transcript, k=3)  # Reduced k for speed
+            context_text = "\n".join(doc["text"][:500] for doc in context_docs if doc.get("text"))
+            if context_text:
+                context_text = "Contexte:\n" + context_text
+                session.set_context_cache(context_text)
+        
+        print(f"[DETECT] Request detected (conf={confidence:.2f}): {transcript[:60]}...")
+        
+        # Launch LLM generation (non-blocking)
         asyncio.create_task(
             stream_llm_suggestions(
                 websocket,
-                session.llm_provider,
-                session.llm_model,
-                session.llm_api_key,
+                session,
                 transcript,
                 context_text
             )
         )
 
+    # Diarization (if enabled and interval passed)
     if ENABLE_DIARIZATION and time.time() - session.diarization_ts > DIARIZATION_INTERVAL:
         session.diarization_ts = time.time()
         asyncio.create_task(update_speaker_from_diarization(session, audio_window))
