@@ -868,9 +868,9 @@ export default function Interview() {
                 )}
                 
                 {suggestions.length ? (
-                  <div className="space-y-3">
-                    {suggestions.slice(-3).map(s => (
-                      <StreamingSuggestionCard
+                  <div className="space-y-4">
+                    {suggestions.slice(-5).map(s => (
+                      <RequestSuggestionCard
                         key={s.id}
                         suggestion={s}
                         onCopy={handleCopy}
@@ -879,11 +879,11 @@ export default function Interview() {
                     ))}
                     <div ref={suggestionsEndRef} />
                   </div>
-                ) : (
+                ) : status !== 'idle' ? null : (
                   <div className="text-center py-6 border border-dashed border-white/10 rounded-xl">
                     <Lightbulb className="w-8 h-8 mx-auto mb-2 text-slate-600" />
-                    <p className="text-xs text-slate-500">Les suggestions apparaîtront ici</p>
-                    <p className="text-[0.65rem] text-slate-600 mt-1">Détection automatique des questions</p>
+                    <p className="text-xs text-slate-500">Les suggestions apparaitront ici</p>
+                    <p className="text-[0.65rem] text-slate-600 mt-1">Detection automatique des demandes</p>
                   </div>
                 )}
               </div>
