@@ -97,6 +97,7 @@ function StreamingSuggestionCard({ suggestion, onCopy, onToggle }) {
           )}
         </div>
         <button 
+          type="button"
           className={`text-xs flex items-center gap-1 px-2 py-1 rounded-lg transition-all ${
             copied 
               ? 'bg-emerald-500/20 text-emerald-400' 
@@ -119,6 +120,7 @@ function StreamingSuggestionCard({ suggestion, onCopy, onToggle }) {
 
       {suggestion.fullText && suggestion.fullText.length > 220 && !isStreaming && (
         <button 
+          type="button"
           className="text-xs text-accent/70 hover:text-accent flex items-center gap-1"
           onClick={() => onToggle(suggestion.id)}
         >
