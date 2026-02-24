@@ -70,8 +70,8 @@ function LiveTranscriptLine({ line, isLatest }) {
   );
 }
 
-// Streaming Suggestion Card
-function StreamingSuggestionCard({ suggestion, onCopy, onToggle }) {
+// Request + Suggestion Card Component
+function RequestSuggestionCard({ suggestion, onCopy, onToggle }) {
   const [copied, setCopied] = useState(false);
   const isStreaming = suggestion.fullText !== suggestion.preview && suggestion.fullText.length < 500;
 
@@ -82,52 +82,71 @@ function StreamingSuggestionCard({ suggestion, onCopy, onToggle }) {
   };
 
   return (
-    <div className="rounded-xl border border-accent/20 bg-gradient-to-br from-accent/5 to-transparent p-4 space-y-3 animate-fadeIn">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-lg bg-accent/20 flex items-center justify-center">
-            <Lightbulb className="w-3.5 h-3.5 text-accent" />
+    <div className="rounded-xl border border-white/10 bg-gradient-to-br from-white/[0.02] to-transparent overflow-hidden animate-fadeIn" data-testid="request-suggestion-card">
+      {/* Detected Request Header */}
+      {suggestion.request && (
+        <div className="px-4 py-3 bg-amber-500/10 border-b border-amber-500/20">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-5 h-5 rounded-md bg-amber-500/20 flex items-center justify-center">
+              <Zap className="w-3 h-3 text-amber-400" />
+            </div>
+            <span className="text-[0.65rem] text-amber-400 font-medium uppercase tracking-wider">Demande detectee</span>
           </div>
-          <span className="text-xs font-medium text-accent">Suggestion IA</span>
-          {isStreaming && (
-            <span className="flex items-center gap-1 text-[0.65rem] text-emerald-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              En cours...
-            </span>
+          <p className="text-sm text-slate-200 leading-relaxed">{suggestion.request}</p>
+        </div>
+      )}
+      
+      {/* Suggestion Content */}
+      <div className="p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded-md bg-accent/20 flex items-center justify-center">
+              <Lightbulb className="w-3 h-3 text-accent" />
+            </div>
+            <span className="text-[0.65rem] text-accent font-medium uppercase tracking-wider">Suggestion de reponse</span>
+            {isStreaming && (
+              <span className="flex items-center gap-1 text-[0.6rem] text-emerald-400 ml-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Generation...
+              </span>
+            )}
+          </div>
+          <button 
+            type="button"
+            className={`text-xs flex items-center gap-1 px-2 py-1 rounded-lg transition-all ${
+              copied 
+                ? 'bg-emerald-500/20 text-emerald-400' 
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+            onClick={handleCopy}
+          >
+            {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+            {copied ? 'Copie!' : 'Copier'}
+          </button>
+        </div>
+        
+        <div className="text-sm text-slate-300 leading-relaxed pl-7">
+          {isStreaming ? (
+            <TypeWriter text={suggestion.fullText} speed={8} />
+          ) : (
+            <span>{suggestion.expanded ? suggestion.fullText : suggestion.preview}</span>
           )}
         </div>
-        <button 
-          type="button"
-          className={`text-xs flex items-center gap-1 px-2 py-1 rounded-lg transition-all ${
-            copied 
-              ? 'bg-emerald-500/20 text-emerald-400' 
-              : 'text-slate-400 hover:text-white hover:bg-white/5'
-          }`}
-          onClick={handleCopy}
-        >
-          {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-          {copied ? 'Copié!' : 'Copier'}
-        </button>
-      </div>
-      
-      <div className="text-sm text-slate-200 leading-relaxed">
-        {isStreaming ? (
-          <TypeWriter text={suggestion.fullText} speed={10} />
-        ) : (
-          <span>{suggestion.expanded ? suggestion.fullText : suggestion.preview}</span>
+
+        {suggestion.fullText && suggestion.fullText.length > 220 && !isStreaming && (
+          <button 
+            type="button"
+            className="text-xs text-accent/70 hover:text-accent flex items-center gap-1 ml-7"
+            onClick={() => onToggle(suggestion.id)}
+          >
+            <ChevronDown className={`w-3 h-3 transition-transform ${suggestion.expanded ? 'rotate-180' : ''}`} />
+            {suggestion.expanded ? 'Reduire' : 'Voir plus'}
+          </button>
         )}
       </div>
-
-      {suggestion.fullText && suggestion.fullText.length > 220 && !isStreaming && (
-        <button 
-          type="button"
-          className="text-xs text-accent/70 hover:text-accent flex items-center gap-1"
-          onClick={() => onToggle(suggestion.id)}
-        >
-          <ChevronDown className={`w-3 h-3 transition-transform ${suggestion.expanded ? 'rotate-180' : ''}`} />
-          {suggestion.expanded ? 'Réduire' : 'Voir plus'}
-        </button>
-      )}
+    </div>
+  );
+}
     </div>
   );
 }
