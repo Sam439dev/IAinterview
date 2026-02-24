@@ -277,6 +277,11 @@ export default function Interview() {
   // Pre-interview checklist state
   const [profileReady, setProfileReady] = useState(false);
 
+  // Keep sessionIdRef in sync with sessionId state
+  useEffect(() => {
+    sessionIdRef.current = sessionId;
+  }, [sessionId]);
+
   // Auto-scroll to latest content
   useEffect(() => {
     if (transcriptEndRef.current) {
