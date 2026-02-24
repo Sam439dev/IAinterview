@@ -111,20 +111,12 @@ def get_role_template(target_role: Optional[str]) -> str:
 
 
 
-# ========== PERFORMANCE-OPTIMIZED CONFIGURATION ==========
-# Target: <3s end-to-end latency
-WHISPER_MODEL_SIZE = os.environ.get("WHISPER_MODEL_SIZE", "tiny")
-WHISPER_COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE_TYPE", "int8")
-WHISPER_WINDOW_SECONDS = int(os.environ.get("WHISPER_WINDOW_SECONDS", "2"))  # OPTIMIZED: 2s window for faster response
-WHISPER_MIN_SECONDS = float(os.environ.get("WHISPER_MIN_SECONDS", "0.3"))  # OPTIMIZED: 300ms minimum
-TRANSCRIBE_INTERVAL = float(os.environ.get("TRANSCRIBE_INTERVAL", "0.3"))  # OPTIMIZED: 300ms intervals
-DIARIZATION_INTERVAL = float(os.environ.get("DIARIZATION_INTERVAL", "10"))  # Reduced frequency
-ENABLE_DIARIZATION = os.environ.get("ENABLE_DIARIZATION", "false").lower() == "true"  # Disabled by default for speed
+# ========== API-BASED CONFIGURATION (Emergent Deployment Compatible) ==========
+# Uses OpenAI APIs instead of local ML models
+AUDIO_BUFFER_SECONDS = int(os.environ.get("AUDIO_BUFFER_SECONDS", "3"))  # Buffer before transcription
+TRANSCRIBE_INTERVAL = float(os.environ.get("TRANSCRIBE_INTERVAL", "1.0"))  # Transcription interval
 MAX_CONCURRENT_SUGGESTIONS = 3  # Allow parallel LLM generations
 REQUEST_SIMILARITY_THRESHOLD = 0.85  # Allow similar but not identical requests
-
-_whisper_model: Optional[WhisperModel] = None
-_diarization_pipeline: Optional[Pipeline] = None
 
 SUPPORTED_LLM_PROVIDERS = {"openai", "anthropic", "gemini", "deepseek"}
 DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
