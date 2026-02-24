@@ -17,7 +17,7 @@ import sys
 # Add backend to path for direct imports
 sys.path.insert(0, '/app/backend')
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://real-time-assist.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://interview-copilot-16.preview.emergentagent.com')
 
 class TestHealthCheck:
     """Verify backend health endpoint"""
