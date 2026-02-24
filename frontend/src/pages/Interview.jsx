@@ -722,37 +722,75 @@ export default function Interview() {
 
   const pauseRecording = useCallback((e) => {
     if (e) e.preventDefault();  // URGENT: Prevent page reload
+    if (e) e.stopPropagation();
+    
+    console.log('[PAUSE] Pausing recording');
+    
     if (useStreaming) {
       stopStreaming();
       setStatus('paused');
       return;
     }
     activeRef.current = false;
-    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
-    streamRef.current?.getTracks().forEach(t => t.stop());
+    if (recorderRef.current?.state === 'recording') {
+      try {
+        recorderRef.current.stop();
+      } catch (err) {
+        console.warn('[PAUSE] Recorder stop error:', err);
+      }
+    }
+    try {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+    } catch (err) {
+      console.warn('[PAUSE] Stream stop error:', err);
+    }
     streamRef.current = null;
     setStatus('paused');
   }, [useStreaming, stopStreaming]);
 
   const stopRecording = useCallback(async (e) => {
     if (e) e.preventDefault();  // URGENT: Prevent page reload
+    if (e) e.stopPropagation();
+    
+    console.log('[STOP] Stopping recording');
+    
     activeRef.current = false;
     if (useStreaming) {
       stopStreaming();
     }
-    if (recorderRef.current?.state === 'recording') recorderRef.current.stop();
-    streamRef.current?.getTracks().forEach(t => t.stop());
+    
+    try {
+      if (recorderRef.current?.state === 'recording') {
+        recorderRef.current.stop();
+      }
+    } catch (err) {
+      console.warn('[STOP] Recorder stop error:', err);
+    }
+    
+    try {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+    } catch (err) {
+      console.warn('[STOP] Stream stop error:', err);
+    }
     streamRef.current = null;
     setStatus('idle');
-    if (!sessionId) return;
+    
+    // Use ref to avoid stale closure
+    const currentSessionId = sessionIdRef.current;
+    if (!currentSessionId) {
+      console.log('[STOP] No session ID, skipping update');
+      return;
+    }
+    
     setEnding(true);
     try {
-      await updateSession(sessionId, { status: 'completed', duration_seconds: timer });
-      navigate(`/analysis/${sessionId}`);
-    } catch {
+      await updateSession(currentSessionId, { status: 'completed', duration_seconds: timer });
+      navigate(`/analysis/${currentSessionId}`);
+    } catch (err) {
+      console.error('[STOP] Update session error:', err);
       setEnding(false);
     }
-  }, [sessionId, timer, navigate, useStreaming, stopStreaming]);
+  }, [timer, navigate, useStreaming, stopStreaming]);
 
   const handleCopy = (text) => {
     if (!text) return;
