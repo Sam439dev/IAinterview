@@ -253,6 +253,7 @@ export default function Interview() {
   const toggleSuggestion = useInterviewStore(state => state.toggleSuggestion);
   const updateFillerCounts = useInterviewStore(state => state.updateFillerCounts);
   const clearSession = useInterviewStore(state => state.clearSession);
+  const resetStore = useInterviewStore(state => state.resetStore);
 
   const streamRef = useRef(null);
   const activeRef = useRef(false);
