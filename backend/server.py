@@ -432,6 +432,366 @@ RÈGLES STRICTES:
 - LE NOMBRE D'EXPÉRIENCES DOIT CORRESPONDRE AU CONTENU RÉEL DU CV"""
 
 
+# ========== DIALOGUE CONTEXTUEL & GESTION CHRONOLOGIQUE ==========
+
+import re
+from typing import Tuple
+from collections import OrderedDict
+
+# Mémoire de session pour le dialogue contextuel
+_conversation_memory: Dict[str, List[Dict]] = {}
+
+def get_conversation_history(session_id: str, max_turns: int = 5) -> List[Dict]:
+    """Récupère l'historique de conversation pour une session."""
+    if session_id not in _conversation_memory:
+        _conversation_memory[session_id] = []
+    return _conversation_memory[session_id][-max_turns:]
+
+def add_to_conversation(session_id: str, role: str, content: str, metadata: Dict = None):
+    """Ajoute un échange à l'historique de conversation."""
+    if session_id not in _conversation_memory:
+        _conversation_memory[session_id] = []
+    
+    entry = {
+        "role": role,  # "interviewer" ou "candidate"
+        "content": content,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "metadata": metadata or {}
+    }
+    _conversation_memory[session_id].append(entry)
+    
+    # Limite la mémoire à 50 échanges
+    if len(_conversation_memory[session_id]) > 50:
+        _conversation_memory[session_id] = _conversation_memory[session_id][-50:]
+
+def clear_conversation(session_id: str):
+    """Efface l'historique de conversation pour une session."""
+    if session_id in _conversation_memory:
+        del _conversation_memory[session_id]
+
+
+# ========== EXTRACTION ET NORMALISATION DES DATES ==========
+
+DATE_PATTERNS = [
+    # Format: "janvier 2020 - décembre 2023" ou "jan 2020 - dec 2023"
+    (r'(\w+)\s*(\d{4})\s*[-–]\s*(\w+)\s*(\d{4})', 'month_year_range'),
+    # Format: "2020-2023" ou "2020 - 2023"
+    (r'(\d{4})\s*[-–]\s*(\d{4})', 'year_range'),
+    # Format: "depuis 2020" ou "depuis janvier 2020"
+    (r'depuis\s+(?:(\w+)\s+)?(\d{4})', 'since'),
+    # Format: "01/2020 - 12/2023" ou "01/2020 - présent"
+    (r'(\d{1,2})/(\d{4})\s*[-–]\s*(?:(\d{1,2})/(\d{4})|présent|actuel|aujourd\'?hui|current)', 'mm_yyyy_range'),
+    # Format: "2020 à aujourd'hui" ou "2020 - présent"
+    (r'(\d{4})\s*[-–à]\s*(?:présent|actuel|aujourd\'?hui|current)', 'year_to_present'),
+    # Format simple: "2020"
+    (r'\b(\d{4})\b', 'single_year'),
+]
+
+MONTH_MAP = {
+    'janvier': 1, 'jan': 1, 'january': 1,
+    'février': 2, 'fev': 2, 'feb': 2, 'february': 2,
+    'mars': 3, 'mar': 3, 'march': 3,
+    'avril': 4, 'avr': 4, 'apr': 4, 'april': 4,
+    'mai': 5, 'may': 5,
+    'juin': 6, 'jun': 6, 'june': 6,
+    'juillet': 7, 'jul': 7, 'july': 7,
+    'août': 8, 'aou': 8, 'aug': 8, 'august': 8,
+    'septembre': 9, 'sep': 9, 'sept': 9, 'september': 9,
+    'octobre': 10, 'oct': 10, 'october': 10,
+    'novembre': 11, 'nov': 11, 'november': 11,
+    'décembre': 12, 'dec': 12, 'december': 12,
+}
+
+def parse_date_string(date_str: str) -> Tuple[Optional[datetime], Optional[datetime], bool]:
+    """
+    Parse une chaîne de date et retourne (date_debut, date_fin, est_en_cours).
+    Retourne (None, None, False) si non parseable.
+    """
+    if not date_str:
+        return None, None, False
+    
+    date_str_lower = date_str.lower().strip()
+    current_year = datetime.now().year
+    current_month = datetime.now().month
+    
+    # Détection "en cours"
+    is_current = any(word in date_str_lower for word in ['présent', 'actuel', "aujourd'hui", 'current', 'ongoing'])
+    
+    for pattern, pattern_type in DATE_PATTERNS:
+        match = re.search(pattern, date_str_lower)
+        if not match:
+            continue
+            
+        try:
+            if pattern_type == 'month_year_range':
+                start_month = MONTH_MAP.get(match.group(1), 1)
+                start_year = int(match.group(2))
+                end_month = MONTH_MAP.get(match.group(3), 12)
+                end_year = int(match.group(4))
+                return (
+                    datetime(start_year, start_month, 1),
+                    datetime(end_year, end_month, 28),
+                    False
+                )
+            
+            elif pattern_type == 'year_range':
+                start_year = int(match.group(1))
+                end_year = int(match.group(2))
+                return (
+                    datetime(start_year, 1, 1),
+                    datetime(end_year, 12, 31),
+                    False
+                )
+            
+            elif pattern_type == 'since':
+                month = MONTH_MAP.get(match.group(1), 1) if match.group(1) else 1
+                year = int(match.group(2))
+                return (
+                    datetime(year, month, 1),
+                    datetime(current_year, current_month, 28),
+                    True
+                )
+            
+            elif pattern_type == 'mm_yyyy_range':
+                start_month = int(match.group(1))
+                start_year = int(match.group(2))
+                if match.group(3) and match.group(4):
+                    end_month = int(match.group(3))
+                    end_year = int(match.group(4))
+                    is_current = False
+                else:
+                    end_month = current_month
+                    end_year = current_year
+                    is_current = True
+                return (
+                    datetime(start_year, start_month, 1),
+                    datetime(end_year, end_month, 28),
+                    is_current
+                )
+            
+            elif pattern_type == 'year_to_present':
+                start_year = int(match.group(1))
+                return (
+                    datetime(start_year, 1, 1),
+                    datetime(current_year, current_month, 28),
+                    True
+                )
+            
+            elif pattern_type == 'single_year':
+                year = int(match.group(1))
+                return (
+                    datetime(year, 1, 1),
+                    datetime(year, 12, 31),
+                    False
+                )
+        except (ValueError, IndexError):
+            continue
+    
+    return None, None, is_current
+
+
+def sort_experiences_chronologically(experiences: List[Dict], reverse: bool = True) -> List[Dict]:
+    """
+    Trie les expériences par date (du plus récent au plus ancien par défaut).
+    Ajoute des métadonnées de parsing de date.
+    """
+    if not experiences:
+        return []
+    
+    parsed_experiences = []
+    
+    for exp in experiences:
+        duration = exp.get('duration', '') or exp.get('period', '') or ''
+        start_date, end_date, is_current = parse_date_string(duration)
+        
+        # Enrichir l'expérience avec les dates parsées
+        exp_copy = exp.copy()
+        exp_copy['_parsed_start_date'] = start_date.isoformat() if start_date else None
+        exp_copy['_parsed_end_date'] = end_date.isoformat() if end_date else None
+        exp_copy['_is_current'] = is_current
+        exp_copy['_has_complete_dates'] = start_date is not None
+        
+        # Clé de tri: date de fin (ou date actuelle si en cours, ou 1900 si inconnu)
+        if is_current:
+            sort_key = datetime.now()
+        elif end_date:
+            sort_key = end_date
+        elif start_date:
+            sort_key = start_date
+        else:
+            sort_key = datetime(1900, 1, 1)  # Expériences sans date à la fin
+        
+        exp_copy['_sort_key'] = sort_key
+        parsed_experiences.append(exp_copy)
+    
+    # Tri chronologique
+    sorted_exps = sorted(parsed_experiences, key=lambda x: x['_sort_key'], reverse=reverse)
+    
+    return sorted_exps
+
+
+def calculate_experience_freshness(experience: Dict) -> float:
+    """
+    Calcule un score de "fraîcheur" pour une expérience (0.0 à 1.0).
+    Plus récent = score plus élevé.
+    """
+    duration = experience.get('duration', '')
+    start_date, end_date, is_current = parse_date_string(duration)
+    
+    if is_current:
+        return 1.0
+    
+    if end_date:
+        years_ago = (datetime.now() - end_date).days / 365.25
+        # Score décroissant: 1.0 pour cette année, diminue de 0.1 par an
+        freshness = max(0.0, 1.0 - (years_ago * 0.1))
+        return round(freshness, 2)
+    
+    return 0.5  # Score moyen pour les expériences sans date
+
+
+def get_missing_date_experiences(experiences: List[Dict]) -> List[Dict]:
+    """Identifie les expériences avec des dates manquantes ou incomplètes."""
+    missing = []
+    for exp in experiences:
+        duration = exp.get('duration', '')
+        start_date, end_date, _ = parse_date_string(duration)
+        
+        if not start_date or not end_date:
+            missing.append({
+                'title': exp.get('title', 'Poste non spécifié'),
+                'company': exp.get('company', 'Entreprise non spécifiée'),
+                'duration': duration,
+                'issue': 'date_incomplete' if start_date or end_date else 'date_missing'
+            })
+    
+    return missing
+
+
+# ========== GÉNÉRATION DE QUESTIONS DE SUIVI CONTEXTUELLES ==========
+
+FOLLOW_UP_SYSTEM_PROMPT = """Tu es un recruteur expert. Analyse la dernière réponse du candidat et génère UNE question de suivi pertinente.
+
+RÈGLES:
+1. La question doit approfondir ou clarifier un point de la réponse
+2. Identifie les lacunes, ambiguïtés ou opportunités d'approfondissement
+3. Sois spécifique et contextuel (mentionne des éléments de sa réponse)
+4. Favorise les questions qui révèlent des compétences concrètes
+
+TYPES DE QUESTIONS DE SUIVI:
+- Clarification de compétence vague → "Vous mentionnez [X]. Quelle méthodologie/outil avez-vous utilisé?"
+- Approfondissement quantitatif → "Pouvez-vous quantifier l'impact de [X]? (%, €, équipe)"
+- Expérience courte → "Vous êtes resté X mois chez [Y]. Quelles ont été vos réalisations principales?"
+- Transition de carrière → "Comment avez-vous abordé le passage de [X] à [Y]?"
+- Détail technique → "Pouvez-vous détailler votre rôle dans le projet [Z]?"
+- Date manquante → "Pour [expérience], pouvez-vous préciser les dates (début et fin)?"
+
+Réponds avec UN JSON:
+{
+  "follow_up_question": "La question de suivi",
+  "question_type": "clarification|quantification|approfondissement|transition|technique|date",
+  "context_element": "L'élément de la réponse qui a déclenché cette question"
+}"""
+
+
+async def generate_follow_up_question(
+    session_id: str,
+    candidate_response: str,
+    cv_context: str,
+    llm: LLMHeaders
+) -> Optional[Dict]:
+    """
+    Génère une question de suivi contextuelle basée sur la réponse du candidat.
+    """
+    # Récupérer l'historique de conversation
+    history = get_conversation_history(session_id, max_turns=5)
+    
+    # Construire le contexte de conversation
+    conversation_context = ""
+    for turn in history:
+        role_label = "Recruteur" if turn['role'] == 'interviewer' else "Candidat"
+        conversation_context += f"{role_label}: {turn['content']}\n"
+    
+    user_prompt = f"""HISTORIQUE DE CONVERSATION:
+{conversation_context}
+
+DERNIÈRE RÉPONSE DU CANDIDAT:
+{candidate_response}
+
+CONTEXTE CV DU CANDIDAT:
+{cv_context[:2000]}
+
+Génère une question de suivi pertinente."""
+
+    try:
+        content = await llm_chat(
+            llm,
+            FOLLOW_UP_SYSTEM_PROMPT,
+            user_prompt,
+            temperature=0.7,
+            max_tokens=200,
+            timeout_s=15.0
+        )
+        
+        result = safe_json_loads(content)
+        if result and result.get('follow_up_question'):
+            # Ajouter à l'historique
+            add_to_conversation(session_id, 'interviewer', result['follow_up_question'], 
+                              {'type': result.get('question_type', 'follow_up')})
+            return result
+        
+    except Exception as e:
+        print(f"[FOLLOW-UP] Error generating question: {e}")
+    
+    return None
+
+
+async def analyze_response_for_gaps(
+    candidate_response: str,
+    cv_data: Dict,
+    llm: LLMHeaders
+) -> Dict:
+    """
+    Analyse la réponse du candidat pour identifier des lacunes ou incohérences.
+    """
+    analysis_prompt = """Analyse la réponse du candidat par rapport à son CV.
+
+Identifie:
+1. Compétences mentionnées mais non détaillées
+2. Incohérences avec le CV
+3. Opportunités d'approfondissement
+4. Informations manquantes (dates, chiffres, contexte)
+
+Réponds en JSON:
+{
+  "gaps_identified": ["gap1", "gap2"],
+  "inconsistencies": ["inconsistance1"],
+  "opportunities": ["opportunité1", "opportunité2"],
+  "priority_gap": "Le gap le plus important à adresser"
+}"""
+    
+    user_prompt = f"""RÉPONSE DU CANDIDAT:
+{candidate_response}
+
+CV DU CANDIDAT (résumé):
+Expériences: {json.dumps(cv_data.get('experiences', [])[:3], ensure_ascii=False)}
+Compétences: {cv_data.get('skills_hard', [])}"""
+
+    try:
+        content = await llm_chat(
+            llm,
+            analysis_prompt,
+            user_prompt,
+            temperature=0.3,
+            max_tokens=300,
+            timeout_s=15.0
+        )
+        return safe_json_loads(content) or {}
+    except Exception as e:
+        print(f"[ANALYSIS] Error: {e}")
+        return {}
+
+
 def safe_json_loads(raw_text: str) -> Optional[Dict]:
     cleaned = raw_text.strip()
     if cleaned.startswith("```"):
