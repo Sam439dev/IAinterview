@@ -1193,11 +1193,33 @@ export default function Interview() {
             </Link>
           </div>
 
-          {/* Error Display */}
+          {/* Error Display with Reset Button */}
           {streamError && (
-            <div className="text-xs text-red-400 flex items-center gap-1.5 bg-red-500/10 px-3 py-2 rounded-lg">
-              <AlertCircle className="w-3.5 h-3.5" /> {streamError}
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-red-400 flex items-center gap-1.5 bg-red-500/10 px-3 py-2 rounded-lg">
+                <AlertCircle className="w-3.5 h-3.5" /> {streamError}
+              </div>
+              <button
+                type="button"
+                className="text-xs text-amber-400 hover:text-amber-300 px-2 py-1 rounded border border-amber-500/30 hover:bg-amber-500/10"
+                onClick={handleEmergencyReset}
+                data-testid="reset-error-btn"
+              >
+                Réinitialiser
+              </button>
             </div>
+          )}
+          
+          {/* Emergency Reset - Show when WS error or stuck state */}
+          {(wsStatus === 'error' || (status !== 'idle' && wsStatus === 'disconnected')) && !streamError && (
+            <button
+              type="button"
+              className="text-xs text-amber-400 hover:text-amber-300 px-3 py-1.5 rounded border border-amber-500/30 hover:bg-amber-500/10 flex items-center gap-1.5"
+              onClick={handleEmergencyReset}
+              data-testid="emergency-reset-btn"
+            >
+              <AlertCircle className="w-3.5 h-3.5" /> Session bloquée - Réinitialiser
+            </button>
           )}
 
           {/* Main Controls */}
