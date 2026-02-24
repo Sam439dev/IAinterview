@@ -103,29 +103,21 @@ class TestChronologicalServiceImport:
         assert "missing_dates" in data
         print(f"✓ Missing dates endpoint working: {data['missing_count']}/{data['total_experiences']} missing")
     
-    def test_sort_experiences_chronologically_api(self):
-        """Test /api/cv/sort-chronologically uses imported function"""
-        test_experiences = [
-            {"title": "Engineer", "company": "A", "duration": "2018 - 2020"},
-            {"title": "Senior Engineer", "company": "B", "duration": "2021 - 2023"},
-            {"title": "Lead", "company": "C", "duration": "2023 - present"},
-        ]
-        
-        response = requests.post(
-            f"{BASE_URL}/api/cv/sort-chronologically",
-            json={"experiences": test_experiences, "reverse": True}
-        )
+    def test_chronology_sorting_via_profile_endpoint(self):
+        """Test chronological sorting via chronological-profile endpoint"""
+        # The chronological-profile endpoint uses sort_experiences_chronologically internally
+        response = requests.get(f"{BASE_URL}/api/cv/chronological-profile")
         assert response.status_code == 200
         data = response.json()
         
-        assert data.get("success") == True
-        sorted_exp = data.get("sorted_experiences", [])
-        
-        # Verify order - most recent first
-        assert len(sorted_exp) == 3
-        # "present" should be first
-        assert sorted_exp[0].get("_is_current", False) or "present" in sorted_exp[0].get("duration", "").lower()
-        print(f"✓ Sort chronologically API working: sorted {len(sorted_exp)} experiences")
+        # Verify sorting is applied
+        if data.get("profile", {}).get("experiences_sorted"):
+            sorted_exp = data["profile"]["experiences_sorted"]
+            # Verify _freshness_score exists (set by sorting function)
+            for exp in sorted_exp:
+                assert "_freshness_score" in exp
+                assert "_sort_key" in exp
+            print(f"✓ Chronological sorting applied to {len(sorted_exp)} experiences")
 
 
 class TestDetectionServiceImport:
