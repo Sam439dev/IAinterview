@@ -84,7 +84,7 @@ async def register(data: UserCreate):
     Register a new user.
     Returns JWT tokens on successful registration.
     """
-    if not users_col:
+    if users_col is None:
         raise HTTPException(500, "Database not configured")
     
     # Check if email already exists
