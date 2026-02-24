@@ -855,55 +855,118 @@ async def update_speaker_from_diarization(session: StreamingSession, audio_windo
 
 async def stream_llm_suggestions(
     websocket: WebSocket,
-    llm_provider: str,
-    llm_model: str,
-    llm_api_key: str,
+    session: StreamingSession,
     question: str,
     context: str
 ):
-    if not llm_api_key or not llm_model:
+    """
+    OPTIMIZED: Stream LLM suggestions with parallel execution support.
+    Target: First token in <1.5s
+    """
+    if not session.llm_api_key or not session.llm_model:
         return
-
+    
+    # Check if we can start a new generation
+    if not session.can_start_generation():
+        print(f"[LLM] Skipping - max concurrent generations reached ({MAX_CONCURRENT_SUGGESTIONS})")
+        return
+    
+    # Mark generation as active
+    session.active_generations += 1
     suggestion_id = str(uuid.uuid4())
-    # Send the detected request along with suggestion_start
-    await websocket.send_json({"type": "suggestion_start", "id": suggestion_id, "request": question})
+    start_time = time.time()
+    
+    try:
+        # Send start signal immediately
+        await websocket.send_json({
+            "type": "suggestion_start", 
+            "id": suggestion_id, 
+            "request": question,
+            "timestamp": start_time
+        })
 
-    system_prompt = (
-        "Tu es un copilote d'entretien. Fournis 2-3 suggestions de reponse professionnelles, "
-        "structurees et concises, adaptees au contexte fourni. Reponds en francais ou anglais selon la question."
-    )
-    user_prompt = f"Demande: {question}\n\nContexte:\n{context}"
+        # Optimized system prompt - shorter for faster processing
+        system_prompt = """Tu es un copilote d'entretien expert. Fournis une suggestion de réponse:
+- Concise et structurée (max 150 mots)
+- Basée sur le contexte CV/JD fourni
+- En français ou anglais selon la question
+- Format: 1-2 points clés actionnables"""
 
-    if llm_provider in {"openai", "deepseek"}:
-        base_url = DEEPSEEK_BASE_URL if llm_provider == "deepseek" else None
-        client = AsyncOpenAI(api_key=llm_api_key, base_url=base_url)
-        stream = await client.chat.completions.create(
-            model=llm_model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.4,
-            max_tokens=300,  # CRITICAL: Limit to 300 tokens to prevent crashes
-            stream=True
-        )
-        async for chunk in stream:
-            delta = chunk.choices[0].delta.content or ""
-            if delta:
-                await websocket.send_json({"type": "suggestion_delta", "id": suggestion_id, "text": delta})
-    else:
-        llm_headers = LLMHeaders(provider=llm_provider, model=llm_model, api_key=llm_api_key)
-        content = await llm_chat(
-            llm_headers,
-            system_prompt,
-            user_prompt,
-            temperature=0.4,
-            max_tokens=300,  # CRITICAL: Limit to 300 tokens
-            timeout_s=30.0
-        )
-        await websocket.send_json({"type": "suggestion_delta", "id": suggestion_id, "text": content})
+        # Truncate context for speed
+        context_truncated = context[:1500] if context else ""
+        user_prompt = f"Question: {question}\n\nContexte:\n{context_truncated}"
 
-    await websocket.send_json({"type": "suggestion_end", "id": suggestion_id})
+        if session.llm_provider in {"openai", "deepseek"}:
+            base_url = DEEPSEEK_BASE_URL if session.llm_provider == "deepseek" else None
+            client = AsyncOpenAI(
+                api_key=session.llm_api_key, 
+                base_url=base_url,
+                timeout=15.0  # Reduced timeout
+            )
+            
+            stream = await client.chat.completions.create(
+                model=session.llm_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.3,  # Lower for faster, more deterministic responses
+                max_tokens=200,   # Reduced for speed
+                stream=True
+            )
+            
+            first_token_sent = False
+            async for chunk in stream:
+                delta = chunk.choices[0].delta.content or ""
+                if delta:
+                    if not first_token_sent:
+                        first_token_time = time.time() - start_time
+                        print(f"[LLM] First token in {first_token_time:.2f}s")
+                        first_token_sent = True
+                    await websocket.send_json({
+                        "type": "suggestion_delta", 
+                        "id": suggestion_id, 
+                        "text": delta
+                    })
+        else:
+            # Non-streaming fallback (Anthropic, Gemini via emergentintegrations)
+            llm_headers = LLMHeaders(
+                provider=session.llm_provider, 
+                model=session.llm_model, 
+                api_key=session.llm_api_key
+            )
+            content = await llm_chat(
+                llm_headers,
+                system_prompt,
+                user_prompt,
+                temperature=0.3,
+                max_tokens=200,
+                timeout_s=15.0
+            )
+            await websocket.send_json({
+                "type": "suggestion_delta", 
+                "id": suggestion_id, 
+                "text": content
+            })
+
+        total_time = time.time() - start_time
+        await websocket.send_json({
+            "type": "suggestion_end", 
+            "id": suggestion_id,
+            "latency_ms": int(total_time * 1000)
+        })
+        print(f"[LLM] Suggestion complete in {total_time:.2f}s")
+        
+    except Exception as e:
+        print(f"[LLM] Error: {e}")
+        await websocket.send_json({
+            "type": "suggestion_error", 
+            "id": suggestion_id, 
+            "error": str(e)[:100]
+        })
+    finally:
+        # Always decrement counter
+        session.active_generations -= 1
 
 
 async def transcribe_and_send(websocket: WebSocket, session: StreamingSession, audio_window: np.ndarray):
