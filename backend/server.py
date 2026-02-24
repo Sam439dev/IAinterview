@@ -805,7 +805,7 @@ def build_cv_context_rich(cv_data):
     
     # Languages
     if cv_data.get("languages_spoken"):
-        langs = [f"{l.get('language', '')} ({l.get('level', '')})" for l in cv_data["languages_spoken"]]
+        langs = [f"{lang.get('language', '')} ({lang.get('level', '')})" for lang in cv_data["languages_spoken"]]
         parts.append(f"LANGUES: {', '.join(langs)}")
     
     # Industries
@@ -1522,7 +1522,7 @@ Génère une suggestion structurée (Accroche + Cœur + Ouverture) avec ancrage 
                         "response_language": detected_lang,
                         "confidence": 0.7
                     }
-        except:
+        except Exception:
             pass
         return {"detected": False}
     except Exception as e:
