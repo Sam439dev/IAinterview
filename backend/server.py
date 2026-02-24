@@ -1725,14 +1725,7 @@ async def ingestion_clear_cache():
 
 
 # ========== CV DIALOGUE & CHRONOLOGY ENDPOINTS ==========
-
-class FollowUpRequest(BaseModel):
-    session_id: str
-    candidate_response: str
-
-class ChronologyRequest(BaseModel):
-    experiences: List[Dict]
-    reverse: bool = True  # True = plus récent en premier
+# Note: FollowUpRequest, ChronologyRequest are imported from models.py
 
 @app.post("/api/cv/follow-up-question")
 async def generate_cv_follow_up(
