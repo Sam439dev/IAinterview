@@ -21,7 +21,8 @@ import numpy as np
 import httpx
 import uuid
 from openai import AsyncOpenAI
-from emergentintegrations.llm.chat import LlmChat, UserMessage
+import anthropic
+import google.generativeai as genai
 from vector_store import (
     save_profile_index,
     load_profile_meta,
