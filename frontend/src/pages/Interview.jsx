@@ -598,14 +598,23 @@ export default function Interview() {
       
       try {
         const msg = JSON.parse(event.data);
+        
+        // Handle transcript
         if (msg.type === 'transcript') {
           const deltaText = msg.delta || msg.text || '';
           const speaker = msg.speaker || 'interviewer';
+          
+          // Update latency display if available
+          if (msg.transcribe_ms) {
+            setLastPipelineMs(msg.transcribe_ms);
+          }
+          
           if (deltaText) {
             addTranscriptLine({
               speaker,
               text: deltaText,
-              isQuestion: deltaText.trim().endsWith('?')
+              isQuestion: msg.is_request || deltaText.trim().endsWith('?'),
+              confidence: msg.confidence
             });
             updateFillerCounts(deltaText);
             
@@ -616,19 +625,37 @@ export default function Interview() {
             }));
             
             // Count questions from interviewer
-            if (deltaText.trim().endsWith('?') && speaker === 'interviewer') {
+            if ((msg.is_request || deltaText.trim().endsWith('?')) && speaker === 'interviewer') {
               setQuestionCount(prev => prev + 1);
             }
           }
         }
+        
+        // Handle suggestion start
         if (msg.type === 'suggestion_start') {
-          // Include the detected request with the suggestion
+          console.log('[SUGGESTION] Start:', msg.request?.slice(0, 50));
           addSuggestionStart(msg.id, msg.request || '');
-          setQuestionCount(prev => prev + 1);
         }
+        
+        // Handle suggestion tokens
         if (msg.type === 'suggestion_delta') {
           addSuggestionDelta(msg.id, msg.text || '');
         }
+        
+        // Handle suggestion end with latency
+        if (msg.type === 'suggestion_end') {
+          if (msg.latency_ms) {
+            console.log(`[SUGGESTION] Complete in ${msg.latency_ms}ms`);
+            setLastPipelineMs(msg.latency_ms);
+          }
+        }
+        
+        // Handle suggestion error
+        if (msg.type === 'suggestion_error') {
+          console.error('[SUGGESTION] Error:', msg.error);
+          setStreamError(`Erreur LLM: ${msg.error}`);
+        }
+        
       } catch (e) {
         console.warn('[WS] Message parse error', e);
       }
