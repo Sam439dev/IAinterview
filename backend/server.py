@@ -1211,7 +1211,7 @@ async def parse_cv_llm(llm: LLMHeaders, raw_text: str):
         return {"raw_text": raw_text, "parse_quality": "failed"}
 
 def build_cv_context_rich(cv_data):
-    """Build rich CV context for suggestions - uses ALL parsed data."""
+    """Build rich CV context for suggestions - uses ALL parsed data with chronological sorting."""
     if not cv_data:
         return ""
     
@@ -1233,24 +1233,30 @@ def build_cv_context_rich(cv_data):
     if cv_data.get("unique_value"):
         parts.append(f"VALEUR UNIQUE: {cv_data['unique_value']}")
     
-    # TOUTES LES EXPÉRIENCES (sans limite) - EXPLORATION EXHAUSTIVE
+    # EXPÉRIENCES TRIÉES CHRONOLOGIQUEMENT (du plus récent au plus ancien)
     if cv_data.get("experiences"):
-        parts.append("\n=== PARCOURS PROFESSIONNEL COMPLET (à explorer intégralement) ===")
-        for i, e in enumerate(cv_data["experiences"], 1):
+        # Trier les expériences chronologiquement
+        sorted_experiences = sort_experiences_chronologically(cv_data["experiences"], reverse=True)
+        
+        parts.append("\n=== PARCOURS PROFESSIONNEL (ordre chronologique inverse) ===")
+        for i, e in enumerate(sorted_experiences, 1):
+            freshness = calculate_experience_freshness(e)
+            freshness_label = "RÉCENT" if freshness >= 0.8 else "INTERMÉDIAIRE" if freshness >= 0.5 else "ANCIEN"
+            
             exp_block = []
-            exp_block.append(f"\n[EXPÉRIENCE {i}] {e.get('title', '')} @ {e.get('company', '')} ({e.get('duration', '')})")
+            exp_block.append(f"\n[EXPÉRIENCE {i}] [{freshness_label}] {e.get('title', '')} @ {e.get('company', '')} ({e.get('duration', '')})")
             if e.get('location'):
                 exp_block.append(f"  Lieu: {e.get('location')}")
             if e.get('description'):
                 exp_block.append(f"  Contexte: {e.get('description')}")
             if e.get("key_achievements"):
                 exp_block.append("  RÉALISATIONS CLÉS:")
-                for ach in e["key_achievements"]:  # TOUTES les réalisations, pas de limite
+                for ach in e["key_achievements"]:
                     exp_block.append(f"    • {ach}")
             if e.get("technologies_used"):
                 exp_block.append(f"  Technologies utilisées: {', '.join(e['technologies_used'])}")
             parts.append("\n".join(exp_block))
-        parts.append("=== FIN DU PARCOURS - SÉLECTIONNER L'EXPÉRIENCE LA PLUS PERTINENTE ===\n")
+        parts.append("=== FIN DU PARCOURS ===\n")
     
     # Skills
     if cv_data.get("skills_hard"):
