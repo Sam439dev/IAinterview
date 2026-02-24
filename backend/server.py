@@ -421,60 +421,58 @@ def decode_audio_chunk(chunk_b64: str) -> np.ndarray:
 def detect_request(text: str) -> bool:
     """
     Detect if the text is a genuine question/request requiring a response.
-    Filters out small talk, background noise, and non-questions.
+    STRICT filtering - only trigger on clear questions.
     """
     lowered = text.lower().strip()
     
-    # Filter out very short segments (likely noise)
+    # STRICT: Filter out very short segments (< 4 words = likely noise)
     words = lowered.split()
-    if len(words) < 3:
+    if len(words) < 4:
         return False
     
-    # Filter out common small talk / fillers (don't trigger suggestions)
+    # STRICT: Filter out common small talk / fillers (never trigger)
     small_talk_patterns = [
-        "okay", "ok", "alright", "right", "got it", "i see", "mmm", "hmm",
-        "yes", "yeah", "no", "nope", "thank you", "thanks", "bonjour", "hello",
-        "d'accord", "oui", "non", "merci", "bien", "super", "parfait",
-        "let me", "wait", "one second", "excuse me", "sorry",
-        "un instant", "attendez", "pardon", "excusez"
+        "okay", "ok", "alright", "right", "got it", "i see", "mmm", "hmm", "uh", "um",
+        "yes", "yeah", "no", "nope", "thank you", "thanks", "bonjour", "hello", "hi",
+        "d'accord", "oui", "non", "merci", "bien", "super", "parfait", "voila",
+        "let me", "wait", "one second", "excuse me", "sorry", "interesting",
+        "un instant", "attendez", "pardon", "excusez", "c'est bien", "tres bien",
+        "good", "great", "nice", "cool", "sure", "absolutely", "exactly"
     ]
     
-    # Check if the entire text is just small talk
+    # Check if text is mostly small talk
     for pattern in small_talk_patterns:
         if lowered == pattern or lowered.rstrip("!.,?") == pattern:
             return False
+        # Also check if starts with small talk only
+        if lowered.startswith(pattern + " ") and len(words) < 6:
+            return False
     
-    # Direct questions (ends with ?)
-    if lowered.endswith("?"):
-        return True
+    # STRICT: Must have question mark OR question word
+    has_question_mark = lowered.endswith("?")
     
-    # Question word triggers (French + English)
+    # Question word triggers (French + English) - REQUIRED for non-? sentences
     question_starters = [
-        # English
         "what", "why", "how", "when", "where", "who", "which", "could you",
         "can you", "would you", "do you", "tell me", "explain", "describe",
-        "walk me through", "give me", "share", "elaborate",
-        # French
-        "qu'est-ce", "pourquoi", "comment", "quand", "où", "qui", "quel",
+        "walk me through", "give me", "share", "elaborate", "what's", "what is",
+        "qu'est-ce", "pourquoi", "comment", "quand", "où", "qui", "quel", "quelle",
         "pouvez-vous", "pourriez-vous", "dites-moi", "expliquez", "décrivez",
         "parlez-moi", "racontez", "présentez"
     ]
     
+    has_question_word = False
     for starter in question_starters:
-        if lowered.startswith(starter) or f" {starter}" in lowered:
-            return True
+        if lowered.startswith(starter) or f" {starter}" in lowered[:50]:
+            has_question_word = True
+            break
     
-    # Indirect requests / invitations to elaborate (English + French)
-    indirect_triggers = [
-        "i'd like to know", "i'm curious", "interested in", "wondering",
-        "please tell", "please explain", "could you elaborate",
-        "j'aimerais savoir", "je suis curieux", "intéressé par",
-        "parlez-moi de", "dites-moi comment"
-    ]
+    # STRICT: Only trigger if has ? OR has question word (with enough length)
+    if has_question_mark:
+        return True
     
-    for trigger in indirect_triggers:
-        if trigger in lowered:
-            return True
+    if has_question_word and len(words) >= 5:
+        return True
     
     return False
 
@@ -486,19 +484,19 @@ def calculate_confidence(text: str) -> float:
     
     # Explicit question mark = high confidence
     if lowered.endswith("?"):
-        confidence += 0.6
+        confidence += 0.7
     
     # Question words
     question_words = ["what", "why", "how", "when", "where", "who", "which",
                       "qu'est-ce", "pourquoi", "comment", "quand", "où", "qui", "quel"]
     for word in question_words:
         if word in lowered:
-            confidence += 0.3
+            confidence += 0.25
             break
     
-    # Length bonus (longer = more likely to be a real question)
+    # Length bonus (longer = more likely real question)
     words = len(lowered.split())
-    if words >= 5:
+    if words >= 6:
         confidence += 0.1
     if words >= 10:
         confidence += 0.1
@@ -506,7 +504,7 @@ def calculate_confidence(text: str) -> float:
     return min(confidence, 1.0)
 
 
-CONFIDENCE_THRESHOLD = 0.5  # Only trigger suggestions if confidence >= 0.5
+CONFIDENCE_THRESHOLD = 0.6  # STRICT: Increased from 0.5 to 0.6
 
 
  
