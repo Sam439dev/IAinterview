@@ -542,25 +542,33 @@ def calculate_confidence(text: str) -> float:
             confidence += 0.3
             break
     
-    # Imperative verbs (high confidence)
-    imperatives = ["parlez", "dites", "décrivez", "présentez", "expliquez",
-                   "tell me", "describe", "explain", "share"]
-    for imp in imperatives:
+    # Imperative verbs (high confidence) - French
+    french_imperatives = ["parlez", "dites", "décrivez", "présentez", "expliquez", 
+                          "racontez", "donnez", "montrez"]
+    for imp in french_imperatives:
         if imp in lowered:
-            confidence += 0.5
+            confidence += 0.6
+            break
+    
+    # Imperative verbs (high confidence) - English
+    english_imperatives = ["tell me", "describe", "explain", "share", "walk me", 
+                           "give me", "show me"]
+    for imp in english_imperatives:
+        if imp in lowered:
+            confidence += 0.6
             break
     
     # Length bonus
     words = len(lowered.split())
-    if words >= 4:
+    if words >= 3:
         confidence += 0.1
-    if words >= 8:
+    if words >= 6:
         confidence += 0.1
     
     return min(confidence, 1.0)
 
 
-CONFIDENCE_THRESHOLD = 0.4  # Lowered to catch more imperatives
+CONFIDENCE_THRESHOLD = 0.4  # Low threshold to catch imperatives
 
 
  
