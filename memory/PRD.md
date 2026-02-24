@@ -129,6 +129,35 @@ Production-ready replica of LockedIn AI's Interview Copilot with real-time strea
 
 ## Changelog (Dec 2025)
 
+### 2025-12-24: Critical Bug Fix - Automatic Page Reload
+**Issue:** Page reloads automatically after 3-5 exchanges, destroying session
+
+**Root Causes Identified:**
+1. **TypeWriter useEffect** - Missing `displayText` dependency causing infinite re-renders
+2. **selectedDeviceId useEffect** - Self-referential dependency causing loop
+3. **No memory limits** - Unbounded accumulation of transcripts and suggestions
+
+**Fixes Applied:**
+1. **TypeWriter**: Added `textRef` to track text changes without causing re-renders
+2. **Device useEffect**: Changed to empty dependency `[]`, runs once on mount
+3. **Memory limits in Zustand store**:
+   - `MAX_TRANSCRIPT_LINES = 200`
+   - `MAX_SUGGESTIONS = 50`
+   - `MAX_SUGGESTION_TEXT_LENGTH = 2000`
+4. **beforeunload protection**: Warns user during active recording session
+5. **Render loop detection**: Logs error if >100 renders in <10ms
+
+**Files Modified:**
+- `/app/frontend/src/pages/Interview.jsx` - TypeWriter, useEffects, protections
+- `/app/frontend/src/store/interviewStore.js` - Memory limits
+
+**Verification:** All 7 stability tests passed (iteration_18.json)
+- Page stable for 10+ seconds
+- 0 console errors
+- No render loops detected
+
+---
+
 ### 2025-12-24: Removed Emergent AI Dependency
 **Objective:** Make application 100% autonomous without Emergent AI framework
 
