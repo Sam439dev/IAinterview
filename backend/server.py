@@ -437,21 +437,7 @@ Compétences: {cv_data.get('skills_hard', [])}"""
         return {}
 
 
-def safe_json_loads(raw_text: str) -> Optional[Dict]:
-    cleaned = raw_text.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.replace("```json", "").replace("```", "").strip()
-    try:
-        return json.loads(cleaned)
-    except Exception:
-        start = cleaned.find("{")
-        end = cleaned.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            try:
-                return json.loads(cleaned[start:end + 1])
-            except Exception:
-                return None
-    return None
+# Note: safe_json_loads is now imported from utils.helpers via the utils package.
 
 
 # ========== STREAMING AUDIO HELPERS ==========
