@@ -2260,6 +2260,195 @@ async def ingestion_clear_cache():
     return {"cleared": True, "removed_files": removed}
 
 
+# ========== CV DIALOGUE & CHRONOLOGY ENDPOINTS ==========
+
+class FollowUpRequest(BaseModel):
+    session_id: str
+    candidate_response: str
+
+class ChronologyRequest(BaseModel):
+    experiences: List[Dict]
+    reverse: bool = True  # True = plus récent en premier
+
+@app.post("/api/cv/follow-up-question")
+async def generate_cv_follow_up(
+    data: FollowUpRequest,
+    llm: LLMHeaders = Depends(get_llm_headers)
+):
+    """
+    Génère une question de suivi contextuelle basée sur la réponse du candidat.
+    Utilise l'historique de conversation et le contexte CV.
+    """
+    # Récupérer le CV actif
+    cv_data = await get_cached_cv()
+    cv_context = build_cv_context_rich(cv_data) if cv_data else ""
+    
+    # Ajouter la réponse du candidat à l'historique
+    add_to_conversation(data.session_id, 'candidate', data.candidate_response)
+    
+    # Générer la question de suivi
+    result = await generate_follow_up_question(
+        data.session_id,
+        data.candidate_response,
+        cv_context,
+        llm
+    )
+    
+    if not result:
+        return {"success": False, "message": "Impossible de générer une question de suivi"}
+    
+    return {
+        "success": True,
+        "follow_up_question": result.get('follow_up_question'),
+        "question_type": result.get('question_type'),
+        "context_element": result.get('context_element')
+    }
+
+
+@app.post("/api/cv/analyze-response")
+async def analyze_cv_response(
+    data: FollowUpRequest,
+    llm: LLMHeaders = Depends(get_llm_headers)
+):
+    """
+    Analyse la réponse du candidat pour identifier lacunes et incohérences.
+    """
+    cv_data = await get_cached_cv()
+    if not cv_data:
+        return {"success": False, "message": "Aucun CV actif trouvé"}
+    
+    analysis = await analyze_response_for_gaps(data.candidate_response, cv_data, llm)
+    
+    return {
+        "success": True,
+        "analysis": analysis
+    }
+
+
+@app.get("/api/cv/conversation-history/{session_id}")
+async def get_cv_conversation_history(session_id: str):
+    """Récupère l'historique de conversation pour une session."""
+    history = get_conversation_history(session_id, max_turns=20)
+    return {
+        "session_id": session_id,
+        "turn_count": len(history),
+        "history": history
+    }
+
+
+@app.delete("/api/cv/conversation-history/{session_id}")
+async def clear_cv_conversation_history(session_id: str):
+    """Efface l'historique de conversation pour une session."""
+    clear_conversation(session_id)
+    return {"success": True, "message": f"Historique effacé pour la session {session_id}"}
+
+
+@app.post("/api/cv/sort-experiences")
+async def sort_cv_experiences(data: ChronologyRequest):
+    """
+    Trie les expériences par ordre chronologique.
+    Par défaut: du plus récent au plus ancien.
+    """
+    sorted_experiences = sort_experiences_chronologically(data.experiences, reverse=data.reverse)
+    
+    # Calculer la fraîcheur pour chaque expérience
+    for exp in sorted_experiences:
+        exp['_freshness_score'] = calculate_experience_freshness(exp)
+    
+    return {
+        "success": True,
+        "sorted_experiences": sorted_experiences,
+        "order": "recent_first" if data.reverse else "oldest_first"
+    }
+
+
+@app.get("/api/cv/missing-dates")
+async def get_cv_missing_dates():
+    """
+    Identifie les expériences avec des dates manquantes dans le CV actif.
+    Permet de générer des questions de suivi pour compléter la chronologie.
+    """
+    cv_data = await get_cached_cv()
+    if not cv_data:
+        return {"success": False, "message": "Aucun CV actif trouvé"}
+    
+    experiences = cv_data.get('experiences', [])
+    missing_dates = get_missing_date_experiences(experiences)
+    
+    # Générer des questions suggérées pour chaque date manquante
+    questions = []
+    for missing in missing_dates:
+        if missing['issue'] == 'date_missing':
+            question = f"Pour votre poste de {missing['title']} chez {missing['company']}, pourriez-vous préciser les dates de début et de fin?"
+        else:
+            question = f"Pour votre expérience chez {missing['company']}, la période '{missing['duration']}' semble incomplète. Pourriez-vous préciser les dates exactes?"
+        
+        questions.append({
+            "experience": missing,
+            "suggested_question": question
+        })
+    
+    return {
+        "success": True,
+        "total_experiences": len(experiences),
+        "missing_count": len(missing_dates),
+        "missing_dates": missing_dates,
+        "suggested_questions": questions
+    }
+
+
+@app.get("/api/cv/chronological-profile")
+async def get_chronological_profile():
+    """
+    Retourne le profil CV avec les expériences triées chronologiquement
+    et enrichies des scores de fraîcheur.
+    """
+    cv_data = await get_cached_cv()
+    if not cv_data:
+        return {"success": False, "message": "Aucun CV actif trouvé"}
+    
+    # Trier les expériences
+    experiences = cv_data.get('experiences', [])
+    sorted_experiences = sort_experiences_chronologically(experiences, reverse=True)
+    
+    # Enrichir avec les scores de fraîcheur
+    for exp in sorted_experiences:
+        exp['_freshness_score'] = calculate_experience_freshness(exp)
+    
+    # Identifier les dates manquantes
+    missing_dates = get_missing_date_experiences(experiences)
+    
+    # Calculer les compétences pondérées par fraîcheur
+    weighted_skills = {}
+    for exp in sorted_experiences:
+        freshness = exp.get('_freshness_score', 0.5)
+        for skill in exp.get('technologies_used', []):
+            if skill not in weighted_skills:
+                weighted_skills[skill] = 0
+            weighted_skills[skill] = max(weighted_skills[skill], freshness)
+    
+    # Trier les compétences par fraîcheur
+    sorted_skills = sorted(weighted_skills.items(), key=lambda x: x[1], reverse=True)
+    
+    return {
+        "success": True,
+        "profile": {
+            "full_name": cv_data.get('full_name'),
+            "current_role": cv_data.get('current_role'),
+            "years_experience": cv_data.get('years_experience'),
+            "summary": cv_data.get('summary'),
+            "experiences_sorted": sorted_experiences,
+            "skills_by_freshness": [{"skill": s[0], "freshness": s[1]} for s in sorted_skills[:20]],
+            "education": cv_data.get('education', []),
+            "certifications": cv_data.get('certifications', [])
+        },
+        "chronology_issues": {
+            "missing_dates_count": len(missing_dates),
+            "missing_dates": missing_dates
+        }
+    }
+
+
 # Sessions
 @app.get("/api/sessions")
 async def list_sessions():
