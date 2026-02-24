@@ -244,6 +244,45 @@ export default function Interview() {
   
   // Speaker tracking
   const [speakerCounts, setSpeakerCounts] = useState({ interviewer: 0, candidate: 0 });
+  
+  // Render count tracking for debugging
+  const renderCountRef = useRef(0);
+  const lastRenderTimeRef = useRef(Date.now());
+  
+  // Detect excessive re-renders (potential infinite loop)
+  useEffect(() => {
+    renderCountRef.current += 1;
+    const now = Date.now();
+    const timeSinceLastRender = now - lastRenderTimeRef.current;
+    lastRenderTimeRef.current = now;
+    
+    // Warning: More than 100 renders in 1 second = potential infinite loop
+    if (timeSinceLastRender < 10 && renderCountRef.current > 100) {
+      console.error('[RENDER] Potential infinite loop detected! Renders:', renderCountRef.current);
+    }
+    
+    // Reset counter every 5 seconds
+    const resetTimer = setTimeout(() => {
+      renderCountRef.current = 0;
+    }, 5000);
+    
+    return () => clearTimeout(resetTimer);
+  });
+
+  // Prevent accidental page unload during active session
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (status === 'recording' || status === 'processing') {
+        e.preventDefault();
+        e.returnValue = 'Une session d\'entretien est en cours. Êtes-vous sûr de vouloir quitter?';
+        console.warn('[UNLOAD] Attempted page unload during active session');
+        return e.returnValue;
+      }
+    };
+    
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [status]);
 
   const timerRef = useRef(null);
   const recorderRef = useRef(null);
