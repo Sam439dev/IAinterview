@@ -41,8 +41,8 @@ export const useInterviewStore = create((set, get) => ({
     transcriptLines: [...state.transcriptLines, { id: createId(), ...line }]
   })),
   
-  addSuggestionStart: (id) => set(state => ({
-    suggestions: [...state.suggestions, { id, preview: '', fullText: '', expanded: false }]
+  addSuggestionStart: (id, request = '') => set(state => ({
+    suggestions: [...state.suggestions, { id, request, preview: '', fullText: '', expanded: false }]
   })),
   
   addSuggestionDelta: (id, delta) => set(state => ({
