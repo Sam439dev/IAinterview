@@ -143,18 +143,21 @@ class TestDetectionServiceImport:
 class TestLLMServiceImport:
     """Test LLM service imports and headers validation"""
     
-    def test_llm_headers_validation_missing(self):
-        """Test that missing LLM headers return 422"""
-        response = requests.post(f"{BASE_URL}/api/process-text", json={"text": "test"})
-        # Should require LLM headers
+    def test_llm_headers_via_cv_upload(self):
+        """Test LLM headers are required for CV operations"""
+        # CV upload requires LLM headers for parsing
+        response = requests.post(
+            f"{BASE_URL}/api/cv/reparse"
+        )
+        # Should require LLM headers - returns 422
         assert response.status_code == 422
-        print("✓ LLM headers validation working: rejects missing headers")
+        print("✓ LLM headers validation working: CV endpoints require headers")
     
-    def test_llm_headers_validation_invalid_provider(self):
+    def test_llm_headers_validation_with_invalid_provider(self):
         """Test that invalid provider returns 400"""
         response = requests.post(
-            f"{BASE_URL}/api/process-text",
-            json={"session_id": "test", "text": "test"},
+            f"{BASE_URL}/api/cv/follow-up-question",
+            json={"session_id": "test", "candidate_response": "test"},
             headers={
                 "X-LLM-Provider": "invalid-provider-xyz",
                 "X-LLM-Model": "test-model",
