@@ -17,9 +17,6 @@ from dotenv import load_dotenv
 from collections import deque
 from dataclasses import dataclass, field
 import numpy as np
-import torch
-from faster_whisper import WhisperModel
-from pyannote.audio import Pipeline
 
 import httpx
 import uuid
