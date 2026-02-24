@@ -835,37 +835,11 @@ def build_cv_context_rich(cv_data):
 
 # ========== STREAMING PIPELINE ==========
 
-async def update_speaker_from_diarization(session: StreamingSession, audio_window: np.ndarray):
-    pipeline = get_diarization_pipeline()
-    if not pipeline:
-        return
-
-    try:
-        waveform = torch.from_numpy(audio_window).unsqueeze(0)
-        diarization = await asyncio.to_thread(
-            pipeline,
-            {"waveform": waveform, "sample_rate": session.sample_rate}
-        )
-    except Exception as exc:
-        print(f"[DIARIZATION] error: {exc}")
-        return
-
-    speaker_durations: Dict[str, float] = {}
-    for segment, _, speaker in diarization.itertracks(yield_label=True):
-        speaker_durations[speaker] = speaker_durations.get(speaker, 0.0) + segment.duration
-
-    if not speaker_durations:
-        return
-
-    for speaker, _ in sorted(speaker_durations.items(), key=lambda item: item[1], reverse=True):
-        if speaker not in session.speaker_map:
-            if "interviewer" not in session.speaker_map.values():
-                session.speaker_map[speaker] = "interviewer"
-            else:
-                session.speaker_map[speaker] = "candidate"
-
-    main_speaker = max(speaker_durations.items(), key=lambda item: item[1])[0]
-    session.last_speaker = session.speaker_map.get(main_speaker, session.last_speaker)
+def estimate_speaker(text: str, is_request: bool) -> str:
+    """Simple speaker estimation without ML-based diarization."""
+    if is_request:
+        return "interviewer"
+    return "candidate"
 
 
 async def stream_llm_suggestions(
