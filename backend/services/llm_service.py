@@ -6,7 +6,8 @@ import asyncio
 from typing import Optional
 from openai import AsyncOpenAI
 import anthropic
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from config import (
     DEEPSEEK_BASE_URL,
@@ -73,19 +74,17 @@ async def llm_chat_gemini(
     temperature: float = DEFAULT_TEMPERATURE,
     max_tokens: int = DEFAULT_MAX_TOKENS
 ) -> str:
-    """Direct Google Gemini API call."""
-    genai.configure(api_key=api_key)
-    gemini_model = genai.GenerativeModel(
-        model_name=model,
-        system_instruction=system_prompt,
-        generation_config=genai.GenerationConfig(
+    """Direct Google Gemini API call using google-genai SDK."""
+    client = genai.Client(api_key=api_key)
+    
+    response = await client.aio.models.generate_content(
+        model=model,
+        contents=user_prompt,
+        config=types.GenerateContentConfig(
+            max_output_tokens=max_tokens,
             temperature=temperature,
-            max_output_tokens=max_tokens
+            system_instruction=system_prompt
         )
-    )
-    response = await asyncio.to_thread(
-        gemini_model.generate_content,
-        user_prompt
     )
     return response.text
 
