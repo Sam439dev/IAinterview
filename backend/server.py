@@ -1013,7 +1013,7 @@ async def stream_llm_suggestions(
                         "text": delta
                     })
         else:
-            # Non-streaming fallback (Anthropic, Gemini via emergentintegrations)
+            # Non-streaming fallback for Anthropic, Gemini (direct API calls)
             llm_headers = LLMHeaders(
                 provider=session.llm_provider, 
                 model=session.llm_model, 
