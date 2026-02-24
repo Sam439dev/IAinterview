@@ -109,11 +109,41 @@ Production-ready replica of LockedIn AI's Interview Copilot with real-time strea
 - `POST /api/sessions/{id}/generate-summary` - Summary generation
 
 ## Testing Status
-- Backend: 100% (17/17 tests passed)
-- Frontend: 100% (8/8 features verified)
-- Last test report: /app/test_reports/iteration_16.json
+- Backend: 100% (all tests passed)
+- Frontend: 100% (all features verified)
+- Last test report: /app/test_reports/iteration_17.json
+- **Deployment Status: READY** ✅
 
 ## Changelog (Dec 2025)
+
+### 2025-12-24: Migration to API-based Architecture (Deployment Ready)
+**Objective:** Remove local ML dependencies for Emergent deployment compatibility
+
+**Dependencies Removed:**
+- `torch` (2.3.1) - 2GB+ package
+- `torchaudio` (2.3.1)
+- `faster-whisper` (1.0.3)
+- `pyannote.audio` (3.3.1)
+- `faiss-cpu` (1.7.4)
+- `sentence-transformers` (5.1.2)
+
+**API Replacements:**
+| Component | Before (Local) | After (API) |
+|-----------|----------------|-------------|
+| Transcription | faster-whisper | OpenAI Whisper API |
+| Embeddings | sentence-transformers | OpenAI Embeddings API |
+| Vector Search | FAISS | Cosine similarity in-memory |
+| Diarization | pyannote.audio | Removed (heuristic speaker detection) |
+
+**Files Modified:**
+- `/app/backend/server.py` - Removed ML imports, added `transcribe_audio_openai()`
+- `/app/backend/vector_store.py` - Complete rewrite with OpenAI Embeddings API
+- `/app/backend/requirements.txt` - Removed 6 ML packages
+- `/app/frontend/src/services/api.js` - Fixed `import.meta.env` usage
+
+**Deployment Agent Verification:** PASS ✅
+
+---
 
 ### 2025-12-24: Performance Optimization - Latency & Detection
 **Objectives:** Latency <3s, Request detection >90%, Parallel processing
