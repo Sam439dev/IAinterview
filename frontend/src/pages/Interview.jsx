@@ -830,6 +830,63 @@ export default function Interview() {
     }
   }, [timer, navigate, useStreaming, stopStreaming]);
 
+  // Emergency reset function - clears ALL state and resources
+  const handleEmergencyReset = useCallback((e) => {
+    if (e) e.preventDefault();
+    if (e) e.stopPropagation();
+    
+    console.log('[EMERGENCY RESET] Resetting all state');
+    
+    // Force cleanup all resources
+    activeRef.current = false;
+    cleanupInProgressRef.current = false;
+    
+    // Close WebSocket
+    try {
+      if (wsRef.current) {
+        wsRef.current.onclose = null;
+        wsRef.current.onerror = null;
+        wsRef.current.onmessage = null;
+        wsRef.current.close();
+      }
+    } catch (e) { console.warn('[RESET] WS error:', e); }
+    wsRef.current = null;
+    
+    // Close AudioContext
+    try {
+      processorRef.current?.disconnect();
+      sourceNodeRef.current?.disconnect();
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close();
+      }
+    } catch (e) { console.warn('[RESET] Audio error:', e); }
+    processorRef.current = null;
+    sourceNodeRef.current = null;
+    audioContextRef.current = null;
+    
+    // Stop streams
+    try {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+    } catch (e) { console.warn('[RESET] Stream error:', e); }
+    streamRef.current = null;
+    
+    // Reset all state
+    setStatus('idle');
+    setWsStatus('disconnected');
+    setStreamError('');
+    setEnding(false);
+    setTimer(0);
+    setQuestionCount(0);
+    setSpeakerCounts({ interviewer: 0, candidate: 0 });
+    setSessionId(null);
+    sessionIdRef.current = null;
+    
+    // Reset store
+    resetStore();
+    
+    console.log('[EMERGENCY RESET] Complete - ready for fresh start');
+  }, [resetStore]);
+
   const handleCopy = (text) => {
     if (!text) return;
     if (navigator.clipboard?.writeText) {
