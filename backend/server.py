@@ -350,52 +350,48 @@ def safe_json_loads(raw_text: str) -> Optional[Dict]:
 
 @dataclass
 class StreamingSession:
-    """Optimized streaming session with parallel request handling."""
+    """API-based streaming session for Emergent deployment."""
     session_id: str
     sample_rate: int = 16000
     buffer: deque = field(default_factory=deque)
     buffer_samples: int = 0
     last_transcript: str = ""
     last_transcribe_ts: float = 0.0
-    last_speaker: str = "unknown"
-    diarization_ts: float = 0.0
-    speaker_map: Dict[str, str] = field(default_factory=dict)
     llm_provider: str = "openai"
     llm_model: str = "gpt-4o"
     llm_api_key: str = ""
     
     # Performance optimization fields
-    recent_requests: deque = field(default_factory=lambda: deque(maxlen=10))  # Track recent requests
-    active_generations: int = 0  # Count of concurrent LLM generations
-    context_cache: str = ""  # Cached CV/JD context
-    context_cache_ts: float = 0.0  # Cache timestamp
+    recent_requests: deque = field(default_factory=lambda: deque(maxlen=10))
+    active_generations: int = 0
+    context_cache: str = ""
+    context_cache_ts: float = 0.0
     generation_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     
     def __post_init__(self):
-        # Ensure lock is created properly
         if not isinstance(self.generation_lock, asyncio.Lock):
             object.__setattr__(self, 'generation_lock', asyncio.Lock())
 
     def append_audio(self, samples: np.ndarray):
         self.buffer.append(samples)
         self.buffer_samples += len(samples)
-        max_samples = self.sample_rate * WHISPER_WINDOW_SECONDS
+        max_samples = self.sample_rate * AUDIO_BUFFER_SECONDS
         while self.buffer_samples > max_samples and self.buffer:
             removed = self.buffer.popleft()
             self.buffer_samples -= len(removed)
 
     def get_audio_window(self) -> Optional[np.ndarray]:
-        if self.buffer_samples < int(self.sample_rate * WHISPER_MIN_SECONDS):
+        # Minimum 1 second of audio for API transcription
+        min_samples = int(self.sample_rate * 1.0)
+        if self.buffer_samples < min_samples:
             return None
         return np.concatenate(list(self.buffer))
     
     def is_duplicate_request(self, text: str) -> bool:
-        """Check if request is too similar to recent ones."""
         text_lower = text.lower().strip()
         for recent in self.recent_requests:
             if text_lower == recent.lower().strip():
                 return True
-            # Simple similarity check
             if len(text_lower) > 10 and len(recent) > 10:
                 common = sum(1 for a, b in zip(text_lower, recent.lower()) if a == b)
                 similarity = common / max(len(text_lower), len(recent))
@@ -404,21 +400,17 @@ class StreamingSession:
         return False
     
     def add_request(self, text: str):
-        """Add request to recent history."""
         self.recent_requests.append(text)
     
     def can_start_generation(self) -> bool:
-        """Check if we can start a new LLM generation."""
         return self.active_generations < MAX_CONCURRENT_SUGGESTIONS
     
     def get_cached_context(self) -> str:
-        """Get cached context if still valid (30s TTL)."""
         if self.context_cache and (time.time() - self.context_cache_ts) < 30:
             return self.context_cache
         return ""
     
     def set_context_cache(self, context: str):
-        """Cache the context for reuse."""
         self.context_cache = context
         self.context_cache_ts = time.time()
 
