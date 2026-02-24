@@ -420,69 +420,116 @@ def decode_audio_chunk(chunk_b64: str) -> np.ndarray:
 
 def detect_request(text: str) -> bool:
     """
-    Detect if the text is a genuine question/request requiring a response.
-    STRICT filtering - only trigger on clear questions.
+    Detect if the text is a request requiring a response.
+    Detects ALL types: questions, imperatives, invitations to elaborate.
+    
+    Examples that MUST trigger:
+    - "Parlez-moi de vous"
+    - "Décrivez votre expérience"  
+    - "Présentez-vous"
+    - "Tell me about yourself"
+    - "What is your experience?"
     """
     lowered = text.lower().strip()
     
-    # STRICT: Filter out very short segments (< 4 words = likely noise)
+    # Filter out very short segments (< 3 words = likely noise)
     words = lowered.split()
-    if len(words) < 4:
+    if len(words) < 3:
         return False
     
-    # STRICT: Filter out common small talk / fillers (never trigger)
-    small_talk_patterns = [
+    # Filter out pure small talk / acknowledgments
+    pure_small_talk = [
         "okay", "ok", "alright", "right", "got it", "i see", "mmm", "hmm", "uh", "um",
         "yes", "yeah", "no", "nope", "thank you", "thanks", "bonjour", "hello", "hi",
         "d'accord", "oui", "non", "merci", "bien", "super", "parfait", "voila",
-        "let me", "wait", "one second", "excuse me", "sorry", "interesting",
-        "un instant", "attendez", "pardon", "excusez", "c'est bien", "tres bien",
-        "good", "great", "nice", "cool", "sure", "absolutely", "exactly"
+        "good", "great", "nice", "cool", "sure", "absolutely", "exactly",
+        "interesting", "I understand", "je comprends"
     ]
     
-    # Check if text is mostly small talk
-    for pattern in small_talk_patterns:
+    for pattern in pure_small_talk:
         if lowered == pattern or lowered.rstrip("!.,?") == pattern:
             return False
-        # Also check if starts with small talk only
-        if lowered.startswith(pattern + " ") and len(words) < 6:
-            return False
     
-    # STRICT: Must have question mark OR question word
-    has_question_mark = lowered.endswith("?")
+    # === DETECTION RULES ===
     
-    # Question word triggers (French + English) - REQUIRED for non-? sentences
+    # 1. Direct questions (ends with ?)
+    if lowered.endswith("?"):
+        return True
+    
+    # 2. Question words (French + English)
     question_starters = [
-        "what", "why", "how", "when", "where", "who", "which", "could you",
-        "can you", "would you", "do you", "tell me", "explain", "describe",
-        "walk me through", "give me", "share", "elaborate", "what's", "what is",
-        "qu'est-ce", "pourquoi", "comment", "quand", "où", "qui", "quel", "quelle",
-        "pouvez-vous", "pourriez-vous", "dites-moi", "expliquez", "décrivez",
-        "parlez-moi", "racontez", "présentez"
+        "what", "why", "how", "when", "where", "who", "which", "what's", "what is",
+        "qu'est-ce", "pourquoi", "comment", "quand", "où", "qui", "quel", "quelle"
     ]
     
-    has_question_word = False
     for starter in question_starters:
-        if lowered.startswith(starter) or f" {starter}" in lowered[:50]:
-            has_question_word = True
-            break
+        if lowered.startswith(starter) or f" {starter} " in lowered:
+            return True
     
-    # STRICT: Only trigger if has ? OR has question word (with enough length)
-    if has_question_mark:
-        return True
+    # 3. IMPERATIVE requests (French) - "Parlez-moi", "Décrivez", "Présentez", etc.
+    french_imperatives = [
+        "parlez-moi", "parlez moi", "dites-moi", "dites moi", 
+        "décrivez", "presentez", "présentez", "expliquez", "racontez",
+        "donnez-moi", "donnez moi", "montrez-moi", "montrez moi",
+        "faites-moi", "faites moi", "citez-moi", "citez moi"
+    ]
     
-    if has_question_word and len(words) >= 5:
-        return True
+    for imp in french_imperatives:
+        if imp in lowered:
+            return True
+    
+    # 4. IMPERATIVE requests (English) - "Tell me", "Describe", "Explain", etc.
+    english_imperatives = [
+        "tell me", "describe", "explain", "share", "give me", "show me",
+        "walk me through", "take me through", "let me know",
+        "elaborate", "discuss", "outline", "summarize", "present"
+    ]
+    
+    for imp in english_imperatives:
+        if lowered.startswith(imp) or f" {imp}" in lowered:
+            return True
+    
+    # 5. Polite requests (French)
+    french_polite = [
+        "pouvez-vous", "pourriez-vous", "pourriez vous", "pouvez vous",
+        "est-ce que vous pouvez", "est ce que vous pouvez",
+        "j'aimerais savoir", "j'aimerais que vous", "je voudrais savoir"
+    ]
+    
+    for pol in french_polite:
+        if pol in lowered:
+            return True
+    
+    # 6. Polite requests (English)
+    english_polite = [
+        "could you", "can you", "would you", "will you",
+        "i'd like to know", "i would like to know", "i want to know",
+        "please tell", "please explain", "please describe"
+    ]
+    
+    for pol in english_polite:
+        if pol in lowered:
+            return True
+    
+    # 7. Invitations to elaborate
+    invitations = [
+        "go ahead", "continue", "go on", "please continue",
+        "allez-y", "continuez", "développez", "approfondissez"
+    ]
+    
+    for inv in invitations:
+        if inv in lowered:
+            return True
     
     return False
 
 
 def calculate_confidence(text: str) -> float:
-    """Calculate confidence score for a detected question (0.0 to 1.0)"""
+    """Calculate confidence score for a detected request (0.0 to 1.0)"""
     lowered = text.lower().strip()
     confidence = 0.0
     
-    # Explicit question mark = high confidence
+    # Question mark = high confidence
     if lowered.endswith("?"):
         confidence += 0.7
     
@@ -491,20 +538,28 @@ def calculate_confidence(text: str) -> float:
                       "qu'est-ce", "pourquoi", "comment", "quand", "où", "qui", "quel"]
     for word in question_words:
         if word in lowered:
-            confidence += 0.25
+            confidence += 0.3
             break
     
-    # Length bonus (longer = more likely real question)
+    # Imperative verbs (high confidence)
+    imperatives = ["parlez", "dites", "décrivez", "présentez", "expliquez",
+                   "tell me", "describe", "explain", "share"]
+    for imp in imperatives:
+        if imp in lowered:
+            confidence += 0.5
+            break
+    
+    # Length bonus
     words = len(lowered.split())
-    if words >= 6:
+    if words >= 4:
         confidence += 0.1
-    if words >= 10:
+    if words >= 8:
         confidence += 0.1
     
     return min(confidence, 1.0)
 
 
-CONFIDENCE_THRESHOLD = 0.6  # STRICT: Increased from 0.5 to 0.6
+CONFIDENCE_THRESHOLD = 0.4  # Lowered to catch more imperatives
 
 
  
