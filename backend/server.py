@@ -134,25 +134,7 @@ def get_role_template(target_role: Optional[str]) -> str:
 
 
 
-# ========== API-BASED CONFIGURATION (Emergent Deployment Compatible) ==========
-# Uses OpenAI APIs instead of local ML models
-AUDIO_BUFFER_SECONDS = int(os.environ.get("AUDIO_BUFFER_SECONDS", "3"))  # Buffer before transcription
-TRANSCRIBE_INTERVAL = float(os.environ.get("TRANSCRIBE_INTERVAL", "1.0"))  # Transcription interval
-MAX_CONCURRENT_SUGGESTIONS = 3  # Allow parallel LLM generations
-REQUEST_SIMILARITY_THRESHOLD = 0.85  # Allow similar but not identical requests
-
-SUPPORTED_LLM_PROVIDERS = {"openai", "anthropic", "gemini", "deepseek"}
-DEEPSEEK_BASE_URL = "https://api.deepseek.com/v1"
-
-class LLMHeaders(BaseModel):
-    provider: str
-    model: str
-    api_key: str
-
-
-def normalize_provider(provider: str) -> str:
-    return provider.strip().lower()
-
+# ========== LLM HEADER EXTRACTION ==========
 
 async def get_llm_headers(
     x_llm_provider: str = Header(..., alias="X-LLM-Provider"),
@@ -178,19 +160,9 @@ async def get_stt_api_key(
         return x_llm_api_key
     raise HTTPException(400, "OpenAI STT key required until local STT is enabled")
 
-# Pydantic
-class SettingsInput(BaseModel):
-    preferred_provider: Optional[str] = None
-    preferred_model: Optional[str] = None
 
-class SessionCreate(BaseModel):
-    title: str
-    target_role: Optional[str] = None
-    job_description: Optional[str] = None
-
-class SessionUpdate(BaseModel):
-    status: Optional[str] = None
-    duration_seconds: Optional[int] = None
+# Additional Pydantic models (not in models.py for backward compatibility)
+from pydantic import BaseModel
 
 class ProcessAudioInput(BaseModel):
     session_id: str
