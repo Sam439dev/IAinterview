@@ -1,6 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Header, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import os
 import json
@@ -11,18 +10,40 @@ import asyncio
 from datetime import datetime, timezone
 from pathlib import Path
 
-
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from collections import deque
 from dataclasses import dataclass, field
 import numpy as np
-
 import httpx
 import uuid
 from openai import AsyncOpenAI
-import anthropic
-import google.generativeai as genai
+
+# Import refactored modules
+from config import (
+    MONGO_URL, DB_NAME, DEEPSEEK_BASE_URL, SUPPORTED_LLM_PROVIDERS,
+    AUDIO_BUFFER_SECONDS, TRANSCRIBE_INTERVAL,
+    MAX_CONCURRENT_SUGGESTIONS, REQUEST_SIMILARITY_THRESHOLD,
+    DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE, DEFAULT_TIMEOUT,
+    MAX_SESSIONS, CONVERSATION_MEMORY_LIMIT, CV_CACHE_TTL_SECONDS,
+    CONTEXT_CACHE_TTL_SECONDS, CONFIDENCE_THRESHOLD,
+    MONTH_MAP, DATE_PATTERNS
+)
+from models import (
+    LLMHeaders, SettingsInput, SessionCreate, SessionUpdate,
+    FollowUpRequest, ChronologyRequest, ProfileBuildRequest, SummaryRequest
+)
+from services import (
+    llm_chat, llm_chat_fast,
+    detect_request, calculate_confidence, estimate_speaker,
+    sort_experiences_chronologically, calculate_experience_freshness,
+    get_missing_date_experiences, parse_date_string
+)
+from utils import (
+    serialize_mongo_doc, serialize_mongo_list, now_utc,
+    safe_json_loads, truncate_text, clean_text,
+    get_mime_extension, normalize_provider
+)
 from vector_store import (
     save_profile_index,
     load_profile_meta,
