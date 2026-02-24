@@ -136,7 +136,7 @@ async def login(data: UserLogin):
     Login with email and password.
     Returns JWT tokens on successful authentication.
     """
-    if not users_col:
+    if users_col is None:
         raise HTTPException(500, "Database not configured")
     
     # Find user by email
@@ -181,7 +181,7 @@ async def refresh_token(refresh_token: str):
     """
     Get new access token using refresh token.
     """
-    if not users_col:
+    if users_col is None:
         raise HTTPException(500, "Database not configured")
     
     user_id = verify_refresh_token(refresh_token)
@@ -229,7 +229,7 @@ async def request_password_reset(data: PasswordResetRequest):
     Request a password reset email.
     Always returns success to prevent email enumeration.
     """
-    if not users_col:
+    if users_col is None:
         raise HTTPException(500, "Database not configured")
     
     user = await users_col.find_one({"email": data.email.lower()})
@@ -259,7 +259,7 @@ async def reset_password(data: PasswordReset):
     """
     Reset password using reset token.
     """
-    if not users_col:
+    if users_col is None:
         raise HTTPException(500, "Database not configured")
     
     email = verify_password_reset_token(data.token)
