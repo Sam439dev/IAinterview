@@ -471,7 +471,8 @@ def detect_request(text: str) -> bool:
         "parlez-moi", "parlez moi", "dites-moi", "dites moi", 
         "décrivez", "presentez", "présentez", "expliquez", "racontez",
         "donnez-moi", "donnez moi", "montrez-moi", "montrez moi",
-        "faites-moi", "faites moi", "citez-moi", "citez moi"
+        "faites-moi", "faites moi", "citez-moi", "citez moi",
+        "présentez-vous", "presentez-vous"  # Added standalone forms
     ]
     
     for imp in french_imperatives:
@@ -486,7 +487,7 @@ def detect_request(text: str) -> bool:
     ]
     
     for imp in english_imperatives:
-        if lowered.startswith(imp) or f" {imp}" in lowered:
+        if lowered.startswith(imp) or f" {imp}" in lowered or imp in lowered:
             return True
     
     # 5. Polite requests (French)
