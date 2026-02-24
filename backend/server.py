@@ -423,30 +423,51 @@ class StreamingSession:
         self.context_cache_ts = time.time()
 
 
-def get_whisper_model() -> WhisperModel:
-    global _whisper_model
-    if _whisper_model is None:
-        _whisper_model = WhisperModel(
-            WHISPER_MODEL_SIZE,
-            device="cpu",
-            compute_type=WHISPER_COMPUTE_TYPE
+async def transcribe_audio_openai(audio_data: np.ndarray, sample_rate: int, api_key: str) -> str:
+    """
+    Transcribe audio using OpenAI Whisper API.
+    Converts numpy array to WAV bytes and sends to API.
+    """
+    import struct
+    import wave
+    
+    # Convert float32 to int16
+    audio_int16 = (audio_data * 32767).astype(np.int16)
+    
+    # Create WAV file in memory
+    wav_buffer = io.BytesIO()
+    with wave.open(wav_buffer, 'wb') as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)  # 16-bit
+        wav_file.setframerate(sample_rate)
+        wav_file.writeframes(audio_int16.tobytes())
+    
+    wav_buffer.seek(0)
+    wav_bytes = wav_buffer.read()
+    
+    # Send to OpenAI Whisper API
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        response = await client.post(
+            "https://api.openai.com/v1/audio/transcriptions",
+            headers={
+                "Authorization": f"Bearer {api_key}"
+            },
+            files={
+                "file": ("audio.wav", wav_bytes, "audio/wav")
+            },
+            data={
+                "model": "whisper-1",
+                "language": "fr",  # Optimize for French
+                "response_format": "json"
+            }
         )
-    return _whisper_model
-
-
-def get_diarization_pipeline() -> Optional[Pipeline]:
-    global _diarization_pipeline
-    if not ENABLE_DIARIZATION:
-        return None
-    if _diarization_pipeline is None:
-        token = os.environ.get("HUGGINGFACE_TOKEN")
-        if not token:
-            return None
-        _diarization_pipeline = Pipeline.from_pretrained(
-            os.environ.get("PYANNOTE_MODEL", "pyannote/speaker-diarization-3.1"),
-            use_auth_token=token
-        )
-    return _diarization_pipeline
+        
+        if response.status_code != 200:
+            print(f"[WHISPER API] Error: {response.status_code}")
+            return ""
+        
+        result = response.json()
+        return result.get("text", "")
 
 
 def decode_audio_chunk(chunk_b64: str) -> np.ndarray:
