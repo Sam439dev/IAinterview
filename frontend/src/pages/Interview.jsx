@@ -418,25 +418,58 @@ export default function Interview() {
   };
 
   const stopStreaming = useCallback(() => {
-    activeRef.current = false;
-    if (wsRef.current && wsRef.current.readyState === 1) {
-      wsRef.current.send(JSON.stringify({ type: 'stop' }));
+    // Prevent multiple concurrent cleanup attempts
+    if (cleanupInProgressRef.current) {
+      console.log('[CLEANUP] Already in progress, skipping');
+      return;
     }
-    wsRef.current?.close();
+    cleanupInProgressRef.current = true;
+    console.log('[CLEANUP] Stopping streaming session');
+    
+    activeRef.current = false;
+    
+    // Close WebSocket safely
+    try {
+      if (wsRef.current) {
+        if (wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'stop' }));
+        }
+        wsRef.current.onclose = null; // Remove handler to prevent loops
+        wsRef.current.onerror = null;
+        wsRef.current.onmessage = null;
+        wsRef.current.close();
+      }
+    } catch (e) {
+      console.warn('[WS] Close error:', e);
+    }
     wsRef.current = null;
 
-    processorRef.current?.disconnect();
-    sourceNodeRef.current?.disconnect();
-    audioContextRef.current?.close();
+    // Close AudioContext safely
+    try {
+      processorRef.current?.disconnect();
+      sourceNodeRef.current?.disconnect();
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close();
+      }
+    } catch (e) {
+      console.warn('[AUDIO] Close error:', e);
+    }
     processorRef.current = null;
     sourceNodeRef.current = null;
     audioContextRef.current = null;
 
-    streamRef.current?.getTracks().forEach(t => t.stop());
+    // Stop media stream
+    try {
+      streamRef.current?.getTracks().forEach(t => t.stop());
+    } catch (e) {
+      console.warn('[STREAM] Stop error:', e);
+    }
     streamRef.current = null;
 
     setWsStatus('disconnected');
     setStatus('idle');
+    cleanupInProgressRef.current = false;
+    console.log('[CLEANUP] Complete - ready for new session');
   }, []);
 
   const startStreaming = useCallback(async () => {
