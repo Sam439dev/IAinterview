@@ -960,32 +960,31 @@ async def stream_llm_suggestions(
 
 async def transcribe_and_send(websocket: WebSocket, session: StreamingSession, audio_window: np.ndarray):
     """
-    OPTIMIZED: Fast transcription with cached context and parallel suggestion generation.
-    Target: <500ms for transcription, <2s for first LLM token
+    API-based transcription using OpenAI Whisper API.
+    Compatible with Emergent deployment.
     """
-    transcribe_start = time.time()
-    model = get_whisper_model()
+    if not session.llm_api_key:
+        print("[TRANSCRIBE] No API key available")
+        return
     
-    # Run transcription in thread pool
-    segments, info = await asyncio.to_thread(
-        model.transcribe,
-        audio_window,
-        language=None,
-        vad_filter=True,
-        beam_size=1,
-        best_of=1,
-        without_timestamps=True,
-        condition_on_previous_text=False  # Speed optimization
+    transcribe_start = time.time()
+    
+    # Use OpenAI Whisper API
+    transcript = await transcribe_audio_openai(
+        audio_window, 
+        session.sample_rate, 
+        session.llm_api_key
     )
-
-    transcript = " ".join(seg.text.strip() for seg in segments).strip()
+    
     transcribe_time = time.time() - transcribe_start
     
-    if not transcript:
+    if not transcript or not transcript.strip():
         return
 
+    transcript = transcript.strip()
+    
     # Calculate delta (new content only)
-    if transcript.startswith(session.last_transcript):
+    if session.last_transcript and transcript.startswith(session.last_transcript):
         delta = transcript[len(session.last_transcript):].strip()
     else:
         delta = transcript
@@ -994,15 +993,13 @@ async def transcribe_and_send(websocket: WebSocket, session: StreamingSession, a
         return
 
     session.last_transcript = transcript
-    speaker = session.last_speaker
     
     # Detect if this is a request
     is_request = detect_request(transcript)
     confidence = calculate_confidence(transcript) if is_request else 0.0
     
-    # Simple speaker heuristic
-    if speaker == "unknown":
-        speaker = "interviewer" if is_request else "candidate"
+    # Simple speaker estimation
+    speaker = estimate_speaker(transcript, is_request)
 
     # Send transcript immediately
     await websocket.send_json({
