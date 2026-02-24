@@ -788,18 +788,8 @@ export default function Interview() {
                   )}
                 </div>
                 
-                {transcriptLines.length ? (
-                  <div className="space-y-2 max-h-[200px] overflow-y-auto">
-                    {transcriptLines.slice(-5).map((line, idx) => (
-                      <LiveTranscriptLine 
-                        key={line.id} 
-                        line={line} 
-                        isLatest={idx === transcriptLines.slice(-5).length - 1}
-                      />
-                    ))}
-                    <div ref={transcriptEndRef} />
-                  </div>
-                ) : status === 'idle' ? (
+                {/* Show checklist when idle, or requests+suggestions when active */}
+                {status === 'idle' ? (
                   /* Pre-Interview Checklist */
                   <div className="space-y-3" data-testid="pre-interview-checklist">
                     <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-2">Checklist</p>
@@ -835,20 +825,26 @@ export default function Interview() {
                       </Link>
                     )}
                   </div>
-                ) : (
-                  <div className="text-center py-6 text-slate-500">
-                    <Mic className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                    <p className="text-xs">En attente de transcription...</p>
+                ) : suggestions.length === 0 ? (
+                  /* Waiting for requests when recording */
+                  <div className="text-center py-8 text-slate-500" data-testid="waiting-for-request">
+                    <div className="w-12 h-12 rounded-xl bg-accent/10 border border-accent/20 flex items-center justify-center mx-auto mb-3">
+                      <Mic className="w-6 h-6 text-accent animate-pulse" />
+                    </div>
+                    <p className="text-sm font-medium text-slate-300">En ecoute...</p>
+                    <p className="text-xs text-slate-500 mt-1">Les suggestions apparaitront des qu'une demande sera detectee</p>
                   </div>
-                )}
+                ) : null}
               </div>
 
-              {/* AI Suggestions */}
+              {/* AI Suggestions - Show request + answers */}
               <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Suggestions</span>
-                  <span className="text-[0.65rem] text-slate-600">({suggestions.length})</span>
-                </div>
+                {suggestions.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-slate-500 font-medium uppercase tracking-wider">Requetes detectees</span>
+                    <span className="text-[0.65rem] text-slate-600">({suggestions.length})</span>
+                  </div>
+                )}
                 
                 {suggestions.length ? (
                   <div className="space-y-3">
