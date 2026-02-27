@@ -248,6 +248,67 @@ export default function Interview() {
   // Render count tracking for debugging
   const renderCountRef = useRef(0);
   const lastRenderTimeRef = useRef(Date.now());
+  const sessionStartTimeRef = useRef(null);
+  const diagnosticsRef = useRef({
+    wsConnects: 0,
+    wsDisconnects: 0,
+    wsErrors: 0,
+    transcriptsReceived: 0,
+    suggestionsReceived: 0,
+    errorsLogged: [],
+    memoryWarnings: 0
+  });
+  
+  // Enhanced diagnostics - detect page reload cause
+  useEffect(() => {
+    // Log session start
+    const sessionStart = new Date().toISOString();
+    sessionStartTimeRef.current = sessionStart;
+    console.log(`[DIAG] Session started at ${sessionStart}`);
+    
+    // Monitor for unhandled errors that could cause reload
+    const handleError = (event) => {
+      console.error('[DIAG] Unhandled error:', event.error || event.message);
+      diagnosticsRef.current.errorsLogged.push({
+        time: Date.now(),
+        error: (event.error?.message || event.message || 'Unknown error').slice(0, 200)
+      });
+      // Keep only last 10 errors
+      if (diagnosticsRef.current.errorsLogged.length > 10) {
+        diagnosticsRef.current.errorsLogged.shift();
+      }
+    };
+    
+    const handleUnhandledRejection = (event) => {
+      console.error('[DIAG] Unhandled promise rejection:', event.reason);
+      diagnosticsRef.current.errorsLogged.push({
+        time: Date.now(),
+        error: ('Promise: ' + (event.reason?.message || String(event.reason) || 'Unknown')).slice(0, 200)
+      });
+    };
+    
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    
+    // Memory monitoring
+    const memoryInterval = setInterval(() => {
+      if (window.performance?.memory) {
+        const usedMB = Math.round(window.performance.memory.usedJSHeapSize / 1024 / 1024);
+        const limitMB = Math.round(window.performance.memory.jsHeapSizeLimit / 1024 / 1024);
+        if (usedMB > limitMB * 0.8) {
+          console.warn(`[DIAG] High memory usage: ${usedMB}MB / ${limitMB}MB`);
+          diagnosticsRef.current.memoryWarnings++;
+        }
+      }
+    }, 10000);
+    
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+      clearInterval(memoryInterval);
+      console.log('[DIAG] Session ended. Stats:', JSON.stringify(diagnosticsRef.current));
+    };
+  }, []);
   
   // Detect excessive re-renders (potential infinite loop)
   useEffect(() => {
@@ -259,6 +320,8 @@ export default function Interview() {
     // Warning: More than 100 renders in 1 second = potential infinite loop
     if (timeSinceLastRender < 10 && renderCountRef.current > 100) {
       console.error('[RENDER] Potential infinite loop detected! Renders:', renderCountRef.current);
+      // Log diagnostic info
+      console.error('[RENDER] Diagnostics:', JSON.stringify(diagnosticsRef.current));
     }
     
     // Reset counter every 5 seconds
