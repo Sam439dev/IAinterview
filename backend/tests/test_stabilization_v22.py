@@ -197,9 +197,9 @@ class TestWebSocketPrerequisites:
     """Test prerequisites for WebSocket streaming"""
     
     def test_process_audio_endpoint_exists(self):
-        """Test /api/audio/process endpoint exists (non-streaming fallback)"""
+        """Test /api/interview/process-audio endpoint exists (non-streaming fallback)"""
         response = requests.post(
-            f"{BASE_URL}/api/audio/process",
+            f"{BASE_URL}/api/interview/process-audio",
             json={"session_id": "test", "audio_data": "", "mime_type": "audio/webm"},
             headers={
                 "X-LLM-Provider": "openai",
@@ -207,7 +207,7 @@ class TestWebSocketPrerequisites:
                 "X-LLM-Api-Key": "test"
             }
         )
-        # Should fail validation, not 404
+        # Should fail validation or auth, not 404
         assert response.status_code != 404, "Audio process endpoint not found"
         print(f"✓ Audio process endpoint exists (status: {response.status_code})")
     
