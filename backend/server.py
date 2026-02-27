@@ -871,6 +871,19 @@ async def stream_llm_suggestions(
         })
         print(f"[LLM] Suggestion complete in {total_time:.2f}s")
         
+        # Update session stats - CRITICAL for dashboard counters
+        try:
+            await sessions_col.update_one(
+                {"_id": session.session_id},
+                {
+                    "$inc": {"total_questions": 1, "total_responses": 1},
+                    "$push": {"latency_samples": {"$each": [int(total_time * 1000)], "$slice": -20}},
+                    "$set": {"updated_at": now_utc()}
+                }
+            )
+        except Exception as stats_err:
+            print(f"[STATS] Failed to update session stats: {stats_err}")
+        
     except Exception as e:
         print(f"[LLM] Error: {e}")
         await websocket.send_json({
