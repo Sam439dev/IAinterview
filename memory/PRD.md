@@ -129,6 +129,37 @@ Production-ready replica of LockedIn AI's Interview Copilot with real-time strea
 
 ## Changelog (Dec 2025)
 
+### 2025-02-27: Stabilisation Critique & Amélioration CV ✅ COMPLETE
+**Objective:** Corriger les bugs critiques de stabilité et améliorer la pertinence des suggestions
+
+**Corrections Appliquées:**
+
+1. **Bug compteurs Dashboard (P0):**
+   - **Cause:** En mode WebSocket streaming, les stats de session (total_questions, total_responses) n'étaient JAMAIS mises à jour
+   - **Fix:** Ajout de `$inc` dans `stream_llm_suggestions()` pour mettre à jour les compteurs après chaque suggestion générée
+   - **Fichier:** `/app/backend/server.py` lignes 886-898
+
+2. **Système de diagnostics rechargement (P0):**
+   - Ajout d'un système de traçage complet dans `Interview.jsx`:
+     - Compteurs: wsConnects, wsDisconnects, wsErrors, transcriptsReceived, suggestionsReceived
+     - Monitoring mémoire (alerte si >80% heap)
+     - Capture erreurs non gérées (window.onerror, unhandledrejection)
+   - **Fichier:** `/app/frontend/src/pages/Interview.jsx` lignes 248-330
+
+3. **Amélioration prompts CV chronologique (P2):**
+   - Structure chronologique obligatoire pour montrer la progression de carrière
+   - Format: "Appris chez A → Développé chez B → Expert chez C"
+   - Ancrage CV systématique (expérience la PLUS PERTINENTE, pas forcément la plus récente)
+   - **Fichier:** `/app/backend/server.py` lignes 803-825 et 1322-1395
+
+4. **Questions techniques - Structure PAIR:**
+   - Contexte → Principe → Application concrète → Trade-offs → Résultat
+   - Domaines couverts: Dev/IT, Gestion de projet, Management
+
+**Verification:** 15/15 backend tests passed (iteration_22.json)
+
+---
+
 ### 2025-02-24: JWT Authentication System ✅ COMPLETE
 **Objective:** Implement 100% autonomous authentication without third-party providers
 
