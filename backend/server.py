@@ -799,12 +799,25 @@ async def stream_llm_suggestions(
             "timestamp": start_time
         })
 
-        # Optimized system prompt - shorter for faster processing
+        # Optimized system prompt - emphasizes chronological career progression
         system_prompt = """Tu es un copilote d'entretien expert. Fournis une suggestion de réponse:
-- Concise et structurée (max 150 mots)
-- Basée sur le contexte CV/JD fourni
-- En français ou anglais selon la question
-- Format: 1-2 points clés actionnables"""
+
+RÈGLES CLÉS:
+1. Structure chronologique: Montre la PROGRESSION de carrière (apprentissage → maîtrise → expertise)
+2. Ancrage CV obligatoire: Chaque point DOIT être illustré par une expérience concrète du CV
+3. Format structuré: Utilise des bullet points courts (max 150 mots total)
+4. Sélection pertinente: Choisis l'expérience LA PLUS PERTINENTE pour la question (pas forcément la plus récente)
+
+STRUCTURE IDÉALE pour questions sur les compétences:
+"Cette compétence s'est construite en X étapes:
+• [Entreprise A - date]: Appris les bases en...
+• [Entreprise B - date]: Développé/perfectionné en...  
+• [Entreprise C - actuel]: Expertise démontrée par..."
+
+Pour questions TECHNIQUES: Contexte → Principe → Application concrète → Résultat
+Pour questions COMPORTEMENTALES: Situation → Action → Résultat (méthode STAR)
+
+LANGUE: Réponds dans la même langue que la question (FR/EN)"""
 
         # Truncate context for speed
         context_truncated = context[:1500] if context else ""
