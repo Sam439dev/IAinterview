@@ -688,6 +688,7 @@ export default function Interview() {
 
     ws.onopen = () => {
       console.log('[WS] Connected');
+      diagnosticsRef.current.wsConnects++;
       setWsStatus('connected');
       ws.send(JSON.stringify({
         type: 'start',
@@ -709,6 +710,7 @@ export default function Interview() {
         
         // Handle transcript
         if (msg.type === 'transcript') {
+          diagnosticsRef.current.transcriptsReceived++;
           const deltaText = msg.delta || msg.text || '';
           const speaker = msg.speaker || 'interviewer';
           
@@ -741,6 +743,7 @@ export default function Interview() {
         
         // Handle suggestion start
         if (msg.type === 'suggestion_start') {
+          diagnosticsRef.current.suggestionsReceived++;
           console.log('[SUGGESTION] Start:', msg.request?.slice(0, 50));
           addSuggestionStart(msg.id, msg.request || '');
         }
@@ -766,17 +769,23 @@ export default function Interview() {
         
       } catch (e) {
         console.warn('[WS] Message parse error', e);
+        diagnosticsRef.current.errorsLogged.push({
+          time: Date.now(),
+          error: `WS parse: ${e.message}`
+        });
       }
     };
 
     ws.onerror = (err) => {
       console.error('[WS] Error:', err);
+      diagnosticsRef.current.wsErrors++;
       setStreamError('Connexion WebSocket échouée.');
       setWsStatus('error');
     };
 
     ws.onclose = (event) => {
       console.log('[WS] Closed:', event.code, event.reason);
+      diagnosticsRef.current.wsDisconnects++;
       setWsStatus('disconnected');
       // Only reset status if we're still meant to be recording
       // This prevents unexpected state changes
