@@ -1,14 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mic, FileText, BarChart3, Settings, Clock, MessageSquare, Zap, TrendingUp, Calendar, Plus, Trash2, Play, AlertCircle, Loader2 } from 'lucide-react';
-import { getSessions, getStats, deleteSession, getActiveCV } from '../services/api';
+import { Mic, FileText, BarChart3, Settings, Calendar, Plus, Trash2, Play, AlertCircle, Loader2 } from 'lucide-react';
+import { getSessions, deleteSession, getActiveCV } from '../services/api';
 import { hasActiveKey } from '../services/llmSettings';
 import Navbar from '../components/Navbar';
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
-  const [stats, setStats] = useState({ total_questions: 0, avg_latency: 0, total_duration: 0, total_sessions: 0 });
   const [hasKey, setHasKey] = useState(false);
   const [cv, setCv] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -16,9 +15,8 @@ export default function Dashboard() {
 
   const load = async () => {
     try {
-      const [se, st, cvd] = await Promise.all([getSessions(), getStats(), getActiveCV()]);
+      const [se, cvd] = await Promise.all([getSessions(), getActiveCV()]);
       setSessions(se || []);
-      setStats(st);
       setCv(cvd);
       setHasKey(hasActiveKey());
     } catch (e) { console.error(e); }
@@ -49,7 +47,7 @@ export default function Dashboard() {
             <h1 className="font-display font-bold text-2xl mb-1" data-testid="dashboard-title">
               Tableau de bord
             </h1>
-            <p className="text-sm text-slate-500">Gérez vos sessions et suivez votre progression</p>
+            <p className="text-sm text-slate-500">Gérez vos sessions d'entraînement</p>
           </div>
           {canCreate && hasKey && (
             <Link to="/interview"><button className="btn btn-primary text-xs" data-testid="new-session-btn"><Plus className="w-4 h-4" /> Nouvelle session</button></Link>
@@ -69,24 +67,6 @@ export default function Dashboard() {
             <Link to="/settings"><button className="btn btn-outline text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10" data-testid="configure-btn">Configurer</button></Link>
           </div>
         )}
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-          {[
-            { icon: MessageSquare, label: 'Sessions', val: `${sessions.length}/10`, color: 'text-accent' },
-            { icon: Zap, label: 'Questions', val: stats.total_questions, color: 'text-accent2' },
-            { icon: Clock, label: 'Latence moy.', val: `${stats.avg_latency}ms`, color: 'text-emerald-400' },
-            { icon: TrendingUp, label: 'Temps total', val: `${Math.round(stats.total_duration / 60)}min`, color: 'text-amber-400' },
-          ].map((s, i) => (
-            <div key={i} className="card p-4" data-testid={`stat-${i}`}>
-              <div className="flex items-center justify-between mb-3">
-                <s.icon className={`w-4 h-4 ${s.color}`} />
-                <span className="text-[0.65rem] text-slate-500 font-mono uppercase tracking-wider">{s.label}</span>
-              </div>
-              <p className={`text-xl font-display font-bold ${s.color}`}>{s.val}</p>
-            </div>
-          ))}
-        </div>
 
         <div className="grid lg:grid-cols-3 gap-5">
           {/* Sessions list */}
