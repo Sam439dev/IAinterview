@@ -81,20 +81,34 @@ function ApiKeySection() {
 
   const modelOptions = {
     openai: [
-      { id: 'gpt-4o', label: 'GPT-4o (équilibré)' },
-      { id: 'o3-mini', label: 'o3-mini (raisonnement léger)' }
+      { id: 'gpt-4o', label: 'GPT-4o (recommandé)' },
+      { id: 'gpt-4o-mini', label: 'GPT-4o Mini (rapide/économique)' },
+      { id: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+      { id: 'gpt-4', label: 'GPT-4' },
+      { id: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (économique)' },
+      { id: 'o3-mini', label: 'o3-mini (raisonnement)' },
+      { id: 'o1', label: 'o1 (raisonnement avancé)' },
+      { id: 'o1-mini', label: 'o1-mini (raisonnement léger)' }
     ],
     anthropic: [
-      { id: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5' },
+      { id: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5 (recommandé)' },
+      { id: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' },
+      { id: 'claude-3-opus-20240229', label: 'Claude 3 Opus (premium)' },
+      { id: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet' },
+      { id: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku (rapide)' },
       { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' }
     ],
     gemini: [
-      { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' }
+      { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro (recommandé)' },
+      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash (rapide)' },
+      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
+      { id: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+      { id: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' }
     ],
     deepseek: [
-      { id: 'deepseek-chat', label: 'DeepSeek V3 (chat)' },
-      { id: 'deepseek-reasoner', label: 'DeepSeek R1 (reasoner)' }
+      { id: 'deepseek-chat', label: 'DeepSeek V3 Chat (recommandé)' },
+      { id: 'deepseek-reasoner', label: 'DeepSeek R1 Reasoner' },
+      { id: 'deepseek-coder', label: 'DeepSeek Coder' }
     ]
   };
 
